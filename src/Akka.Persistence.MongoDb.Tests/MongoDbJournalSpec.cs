@@ -1,41 +1,46 @@
-﻿using Akka.Configuration;
-using Akka.Persistence.TestKit.Journal;
-using MongoDB.Bson;
-using MongoDB.Driver;
+﻿using Akka.Persistence.TestKit.Journal;
+using Mongo2Go;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     public class MongoDbJournalSpec : JournalSpec
     {
-        private static readonly Config SpecConfig = ConfigurationFactory.ParseString(@"
+        private static readonly string SpecConfig = @"
         akka.persistence {
             publish-plugin-commands = on
             journal {
                 plugin = ""akka.persistence.journal.mongodb""
                 mongodb {
                     class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                    connection-string = ""mongodb://localhost/akkanet""
+                    connection-string = ""<ConnectionString>""
                     collection = ""EventJournal""
                 }
             }
-        }");
+        }";
 
-        public MongoDbJournalSpec() : base(SpecConfig, "MongoDbJournalSpec")
+        private static MongoDbRunner _runner;
+
+        public MongoDbJournalSpec() : base(CreateSpecConfig(), "MongoDbJournalSpec")
         {
-            ClearDb();
             Initialize();
+        }
+
+        private static string CreateSpecConfig()
+        {
+            _runner = MongoDbRunner.Start();
+            return SpecConfig.Replace("<ConnectionString>", _runner.ConnectionString + "akkanet");
         }
 
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            ClearDb();
-        }
 
-        private void ClearDb()
-        {
-            var db = new MongoClient("mongodb://localhost").GetDatabase("akkanet");
-            db.GetCollection<BsonDocument>("EventJournal").DeleteManyAsync(x => true).Wait();
+            try
+            {
+                _runner.Dispose();
+            }
+            catch { }
+            _runner = null;
         }
     }
 }

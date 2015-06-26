@@ -1,41 +1,45 @@
-﻿using Akka.Configuration;
-using Akka.Persistence.TestKit.Snapshot;
-using MongoDB.Bson;
-using MongoDB.Driver;
+﻿using Akka.Persistence.TestKit.Snapshot;
+using Mongo2Go;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec
     {
-        private static readonly Config SpecConfig = ConfigurationFactory.ParseString(@"
+        private static readonly string SpecConfig = @"
         akka.persistence {
             publish-plugin-commands = on
             snapshot-store {
                 plugin = ""akka.persistence.snapshot-store.mongodb""
                 mongodb {
                     class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                    connection-string = ""mongodb://localhost/akkanet""
+                    connection-string = ""<ConnectionString>""
                     collection = ""SnapshotStore""
                 }
             }
-        }");
+        }";
+        private static MongoDbRunner _runner;
 
-        public MongoDbSnapshotStoreSpec() : base(SpecConfig, "MongoDbSnapshotStoreSpec")
+        public MongoDbSnapshotStoreSpec() : base(CreateSpecConfig(), "MongoDbSnapshotStoreSpec")
         {
-            ClearDb();
             Initialize();
+        }
+
+        private static string CreateSpecConfig()
+        {
+            _runner = MongoDbRunner.Start();
+            return SpecConfig.Replace("<ConnectionString>", _runner.ConnectionString + "akkanet");
         }
 
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            ClearDb();
-        }
 
-        private void ClearDb()
-        {
-            var db = new MongoClient("mongodb://localhost").GetDatabase("akkanet");
-            db.GetCollection<BsonDocument>("SnapshotStore").DeleteManyAsync(x => true).Wait();
+            try
+            {
+                _runner.Dispose();
+            }
+            catch { }
+            _runner = null;
         }
     }
 }
