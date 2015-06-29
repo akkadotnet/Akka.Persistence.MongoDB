@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.MongoDb.Journal;
 using Akka.Persistence.MongoDb.Snapshot;
@@ -53,6 +54,9 @@ namespace Akka.Persistence.MongoDb
             var journalDatabase = client.GetDatabase(connectionString.DatabaseName);
 
             JournalCollection = journalDatabase.GetCollection<JournalEntry>(JournalSettings.Collection);
+            JournalCollection.Indexes.CreateOneAsync(
+                Builders<JournalEntry>.IndexKeys.Ascending(entry => entry.PersistenceId)
+                    .Descending(entry => entry.SequenceNr)).Wait();
 
             var snapshotDatabase = journalDatabase;
             // We only need another client if the connection strings aren't equal, 
@@ -65,6 +69,9 @@ namespace Akka.Persistence.MongoDb
             }
 
             SnapshotCollection = snapshotDatabase.GetCollection<SnapshotEntry>(SnapshotStoreSettings.Collection);
+            SnapshotCollection.Indexes.CreateOneAsync(
+                Builders<SnapshotEntry>.IndexKeys.Ascending(entry => entry.PersistenceId)
+                    .Descending(entry => entry.SequenceNr)).Wait();
         }
     }
 }
