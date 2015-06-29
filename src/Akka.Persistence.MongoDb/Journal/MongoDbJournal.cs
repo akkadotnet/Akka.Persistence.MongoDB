@@ -58,12 +58,10 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-            var sort = Builders<JournalEntry>.Sort.Descending(x => x.SequenceNr);
 
             return
                 _collection
                     .Find(filter)
-                    .Sort(sort)
                     .Limit(1)
                     .Project(x => x.SequenceNr)
                     .FirstOrDefaultAsync();
