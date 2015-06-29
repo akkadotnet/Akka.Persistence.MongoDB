@@ -38,6 +38,7 @@ namespace Akka.Persistence.MongoDb.Journal
             var sender = Context.Sender;
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
 
             if (fromSequenceNr > 0)
                 filter &= builder.Gte(x => x.SequenceNr, fromSequenceNr);
@@ -48,6 +49,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return
                 _collection
                     .Find(filter)
+                    .Sort(sort)
                     .Limit(maxValue)
                     .ForEachAsync(doc => replayCallback(ToPersistanceRepresentation(doc, sender)));
         }
