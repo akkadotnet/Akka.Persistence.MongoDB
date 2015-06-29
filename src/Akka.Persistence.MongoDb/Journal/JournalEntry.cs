@@ -21,6 +21,6 @@ namespace Akka.Persistence.MongoDb.Journal
         public bool IsDeleted { get; set; }
 
         [BsonElement("Payload")]
-        public byte[] Payload { get; set; }
+        public object Payload { get; set; }
     }
 }

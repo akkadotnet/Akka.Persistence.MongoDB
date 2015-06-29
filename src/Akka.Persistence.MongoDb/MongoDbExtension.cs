@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.MongoDb.Journal;
 using Akka.Persistence.MongoDb.Snapshot;

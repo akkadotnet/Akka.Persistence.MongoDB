@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
-using Akka.Serialization;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Journal
@@ -14,17 +13,11 @@ namespace Akka.Persistence.MongoDb.Journal
     /// </summary>
     public class MongoDbJournal : AsyncWriteJournal
     {
-        private static readonly Type PersistentRepresentationType = typeof(IPersistentRepresentation);
-        private readonly Serializer _serializer;
-
         private readonly IMongoCollection<JournalEntry> _collection;
 
         public MongoDbJournal()
         {
-            var mongoDbExtension = MongoDbPersistence.Instance.Apply(Context.System);
-
-            _collection = mongoDbExtension.JournalCollection;
-            _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
+            _collection = MongoDbPersistence.Instance.Apply(Context.System).JournalCollection;
         }
 
         public override Task ReplayMessagesAsync(string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> replayCallback)
@@ -94,7 +87,7 @@ namespace Akka.Persistence.MongoDb.Journal
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 IsDeleted = message.IsDeleted,
-                Payload = _serializer.ToBinary(message),
+                Payload = message.Payload,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr
             };
@@ -102,10 +95,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private Persistent ToPersistanceRepresentation(JournalEntry entry, IActorRef sender)
         {
-            var payload =
-                (IPersistentRepresentation)_serializer.FromBinary(entry.Payload, typeof(IPersistentRepresentation));
-
-            return new Persistent(payload.Payload, entry.SequenceNr, entry.PersistenceId, entry.IsDeleted, sender);
+            return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.IsDeleted, sender);
         }
     }
 }

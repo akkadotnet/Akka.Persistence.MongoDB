@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
-using Akka.Serialization;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Snapshot
@@ -11,16 +10,11 @@ namespace Akka.Persistence.MongoDb.Snapshot
     /// </summary>
     public class MongoDbSnapshotStore : SnapshotStore
     {
-        private static readonly Type SnapshotType = typeof (Serialization.Snapshot);
-        private readonly Serializer _serializer;
         private readonly IMongoCollection<SnapshotEntry> _collection;
 
         public MongoDbSnapshotStore()
         {
-            var mongoDbExtension = MongoDbPersistence.Instance.Apply(Context.System);
-
-            _collection = mongoDbExtension.SnapshotCollection;
-            _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
+            _collection = MongoDbPersistence.Instance.Apply(Context.System).SnapshotCollection;
         }
 
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
@@ -41,7 +35,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
                 PersistenceId = metadata.PersistenceId,
                 SequenceNr = metadata.SequenceNr,
-                Snapshot = Serialize(snapshot),
+                Snapshot = snapshot,
                 Timestamp = metadata.Timestamp.Ticks
             };
 
@@ -90,19 +84,10 @@ namespace Akka.Persistence.MongoDb.Snapshot
         
         private SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
         {
-            return new SelectedSnapshot(
-                new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)),
-                Deserialize(entry.Snapshot));
-        }
-
-        private object Deserialize(byte[] bytes)
-        {
-            return ((Serialization.Snapshot)_serializer.FromBinary(bytes, SnapshotType)).Data;
-        }
-
-        private byte[] Serialize(object snapshotData)
-        {
-            return _serializer.ToBinary(new Serialization.Snapshot(snapshotData));
+            return
+                new SelectedSnapshot(
+                    new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)),
+                    entry.Snapshot);
         }
     }
 }
