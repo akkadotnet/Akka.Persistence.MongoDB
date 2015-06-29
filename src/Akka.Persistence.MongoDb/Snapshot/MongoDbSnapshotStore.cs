@@ -26,12 +26,10 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
-            var sort = Builders<SnapshotEntry>.Sort.Descending(x => x.SequenceNr);
 
             return
                 _collection
                     .Find(filter)
-                    .Sort(sort)
                     .Project(x => ToSelectedSnapshot(x))
                     .FirstOrDefaultAsync();
         }
