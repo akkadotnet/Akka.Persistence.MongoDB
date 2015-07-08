@@ -1,4 +1,5 @@
-﻿using Akka.Persistence.TestKit.Journal;
+﻿using System.Configuration;
+using Akka.Persistence.TestKit.Journal;
 using Mongo2Go;
 
 namespace Akka.Persistence.MongoDb.Tests
@@ -27,7 +28,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static string CreateSpecConfig()
         {
-            _runner = MongoDbRunner.Start();
+            _runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
             return SpecConfig.Replace("<ConnectionString>", _runner.ConnectionString + "akkanet");
         }
 
