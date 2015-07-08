@@ -33,6 +33,11 @@ Both journal and snapshot store share the same configuration keys (however they 
 - `collection` - collection used to store the events or snapshots. Default:
 *EventJournal* (for journal) and *SnapshotStore* (for snapshot store).
 
+### Serialization
+The events and snapshots are stored as BsonDocument, so you need to register you types with the BsonClassMap before you can use your persistence actor.  
+Otherwise the recovery will fail and you receive a RecoveryFailure with the message:  
+>An error occurred while deserializing the Payload property of class \<Journal or Snapshot class>: Unknown discriminator value '\<your type>'
+
 ### Notice
 - The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher then Int32.MaxValue, Int32.MaxValue is used. So if you have stored more then 2,147,483,647 events for a singel PersistenceId, you may have a problem :wink:
 - If you call SaveSnapshot in your PersistanceActor twice, without persisting any events to the journal between the first and second call, the second call will not override the exising snapshot but rather send a SaveSnapshotFailure message back. Even if storing snapshots without persisting events in the meantime make no sense at all.
