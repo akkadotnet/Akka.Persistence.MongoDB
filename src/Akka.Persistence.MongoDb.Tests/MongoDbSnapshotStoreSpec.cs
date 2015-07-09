@@ -26,7 +26,15 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public MongoDbSnapshotStoreSpec() : base(CreateSpecConfig(), "MongoDbSnapshotStoreSpec")
         {
-            AppDomain.CurrentDomain.DomainUnload += (_, __) => Runner.Dispose();
+            AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+            {
+                try
+                {
+                    Runner.Dispose();
+                }
+                catch { }
+            };
+
 
             Initialize();
         }

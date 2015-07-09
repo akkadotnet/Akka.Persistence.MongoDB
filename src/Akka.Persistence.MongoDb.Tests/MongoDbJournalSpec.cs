@@ -25,7 +25,14 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public MongoDbJournalSpec() : base(CreateSpecConfig(), "MongoDbJournalSpec")
         {
-            AppDomain.CurrentDomain.DomainUnload += (_, __) => Runner.Dispose();
+            AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+            {
+                try
+                {
+                    Runner.Dispose();
+                }
+                catch { }
+            };
 
             Initialize();
         }
