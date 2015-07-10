@@ -21,6 +21,14 @@ namespace Akka.Persistence.MongoDb.Tests
                     collection = ""EventJournal""
                 }
             }
+            snapshot-store {
+                plugin = ""akka.persistence.snapshot-store.mongodb""
+                mongodb {
+                    class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
+                    connection-string = ""<ConnectionString>""
+                    collection = ""SnapshotStore""
+                }
+            }
         }";
 
         public MongoDbJournalSpec() : base(CreateSpecConfig(), "MongoDbJournalSpec")

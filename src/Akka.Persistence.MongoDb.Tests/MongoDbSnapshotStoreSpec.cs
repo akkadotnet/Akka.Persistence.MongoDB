@@ -21,6 +21,14 @@ namespace Akka.Persistence.MongoDb.Tests
                     collection = ""SnapshotStore""
                 }
             }
+            journal {
+                plugin = ""akka.persistence.journal.mongodb""
+                mongodb {
+                    class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
+                    connection-string = ""<ConnectionString>""
+                    collection = ""EventJournal""
+                }
+            }
         }";
 
 
