@@ -1,11 +1,15 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Configuration;
 using Akka.Persistence.TestKit.Snapshot;
 using Mongo2Go;
+using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec
     {
+        private static readonly MongoDbRunner Runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
+
         private static readonly string SpecConfig = @"
         akka.persistence {
             publish-plugin-commands = on
@@ -17,30 +21,44 @@ namespace Akka.Persistence.MongoDb.Tests
                     collection = ""SnapshotStore""
                 }
             }
+            journal {
+                plugin = ""akka.persistence.journal.mongodb""
+                mongodb {
+                    class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
+                    connection-string = ""<ConnectionString>""
+                    collection = ""EventJournal""
+                }
+            }
         }";
-        private static MongoDbRunner _runner;
+
 
         public MongoDbSnapshotStoreSpec() : base(CreateSpecConfig(), "MongoDbSnapshotStoreSpec")
         {
+            AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+            {
+                try
+                {
+                    Runner.Dispose();
+                }
+                catch { }
+            };
+
+
             Initialize();
         }
 
         private static string CreateSpecConfig()
         {
-            _runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
-            return SpecConfig.Replace("<ConnectionString>", _runner.ConnectionString + "akkanet");
+            return SpecConfig.Replace("<ConnectionString>", Runner.ConnectionString + "akkanet");
         }
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
+            new MongoClient(Runner.ConnectionString)
+                .GetDatabase("akkanet")
+                .DropCollectionAsync("SnapshotStore").Wait();
 
-            try
-            {
-                _runner.Dispose();
-            }
-            catch { }
-            _runner = null;
+            base.Dispose(disposing);
         }
     }
 }
