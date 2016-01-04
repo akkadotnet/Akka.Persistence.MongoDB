@@ -89,13 +89,14 @@ namespace Akka.Persistence.MongoDb.Journal
                 IsDeleted = message.IsDeleted,
                 Payload = message.Payload,
                 PersistenceId = message.PersistenceId,
-                SequenceNr = message.SequenceNr
+                SequenceNr = message.SequenceNr,
+                Manifest = message.Manifest
             };
         }
 
         private Persistent ToPersistanceRepresentation(JournalEntry entry, IActorRef sender)
         {
-            return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.IsDeleted, sender);
+            return new Persistent(entry.Payload, entry.SequenceNr, entry.Manifest, entry.PersistenceId, entry.IsDeleted, sender);
         }
     }
 }

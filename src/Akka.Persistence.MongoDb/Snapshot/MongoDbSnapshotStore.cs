@@ -47,25 +47,25 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         protected override void Saved(SnapshotMetadata metadata) { }
 
-        protected override void Delete(SnapshotMetadata metadata)
+        protected override Task DeleteAsync(SnapshotMetadata metadata)
         {
             var builder = Builders<SnapshotEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
-            
+
             if (metadata.SequenceNr > 0 && metadata.SequenceNr < long.MaxValue)
                 filter &= builder.Eq(x => x.SequenceNr, metadata.SequenceNr);
 
             if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
                 filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
 
-            _collection.FindOneAndDeleteAsync(filter).Wait();
+            return _collection.FindOneAndDeleteAsync(filter);
         }
 
-        protected override void Delete(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            _collection.DeleteManyAsync(filter).Wait();
+            return _collection.DeleteManyAsync(filter);
         }
 
         private static FilterDefinition<SnapshotEntry> CreateRangeFilter(string persistenceId, SnapshotSelectionCriteria criteria)
