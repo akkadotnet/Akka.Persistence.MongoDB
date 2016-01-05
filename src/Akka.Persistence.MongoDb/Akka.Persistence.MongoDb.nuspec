@@ -13,7 +13,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <releaseNotes>@releaseNotes@</releaseNotes>
     <copyright>@copyright@</copyright>
-    <tags>@tags@ persistence eventsource sqlserver</tags>
+    <tags>@tags@ persistence eventsource mongodb</tags>
     @dependencies@
     @references@
   </metadata>

@@ -22,5 +22,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         [BsonElement("Payload")]
         public object Payload { get; set; }
+
+        [BsonElement("Manifest")]
+        public string Manifest { get; set; }
     }
 }
