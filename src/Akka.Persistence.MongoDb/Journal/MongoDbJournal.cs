@@ -55,6 +55,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return
                 _collection
                     .Find(filter)
+                    .SortByDescending(x=>x.SequenceNr)
                     .Limit(1)
                     .Project(x => x.SequenceNr)
                     .FirstOrDefaultAsync();

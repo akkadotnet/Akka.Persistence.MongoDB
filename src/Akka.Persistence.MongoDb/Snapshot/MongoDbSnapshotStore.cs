@@ -24,6 +24,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
             return
                 _collection
                     .Find(filter)
+                    .SortByDescending(x=>x.SequenceNr)
+                    .Limit(1)
                     .Project(x => ToSelectedSnapshot(x))
                     .FirstOrDefaultAsync();
         }
