@@ -123,7 +123,11 @@ namespace Akka.Persistence.MongoDb.Journal
                 var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
-                await _journalCollection.Value.InsertManyAsync(journalEntries);
+
+                await _journalCollection.Value.InsertManyAsync(journalEntries, new InsertManyOptions()
+                {
+                    IsOrdered = true
+                });
             });
 
             await SetHighSequenceId(messageList);
