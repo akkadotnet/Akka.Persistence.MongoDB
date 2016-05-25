@@ -169,6 +169,7 @@
     <Compile Include="MongoDbSettingsSpec.cs" />
     <Compile Include="MongoDbSnapshotStoreSpec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Serializers\AtLeastOnceDeliverySnapshotSerializerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Akka.Persistence.MongoDb\Akka.Persistence.MongoDb.csproj">
