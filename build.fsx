@@ -19,7 +19,7 @@ cd __SOURCE_DIRECTORY__
 
 let product = "Akka.NET"
 let authors = [ "Akka.NET Team" ]
-let copyright = "Copyright © 2013-2015 Akka.NET Team"
+let copyright = "Copyright © 2013-2016 Akka.NET Team"
 let company = "Akka.NET Team"
 let description = "Akka.NET is a port of the popular Java/Scala framework Akka to .NET"
 let tags = ["akka";"actors";"actor";"model";"Akka";"concurrency"]
@@ -52,7 +52,7 @@ let nugetDir = binDir @@ "nuget"
 let workingDir = binDir @@ "build"
 let libDir = workingDir @@ @"lib\net45\"
 let nugetExe = FullName @"src\.nuget\NuGet.exe"
-let slnFile = "./src/Akka.Persistence.MongoDb.sln"
+let slnFile = "./src/Akka.Persistence.MongoDB.sln"
 
 open Fake.RestorePackageHelper
 Target "RestorePackages" (fun _ -> 
@@ -103,7 +103,7 @@ Target "CopyOutput" <| fun _ ->
         let src = "src" @@ project @@ @"bin/Release/"
         let dst = binDir @@ project
         CopyDir dst src allFiles
-    [ "Akka.Persistence.MongoDb"
+    [ "Akka.Persistence.MongoDB"
       ]
     |> List.iter copyOutput
 
@@ -123,17 +123,22 @@ Target "CleanTests" <| fun _ ->
 //--------------------------------------------------------------------------------
 // Run tests
 
-open XUnit2Helper
+open Fake.Testing
 Target "RunTests" <| fun _ ->  
     let xunitTestAssemblies = !! "src/**/bin/Release/*.Tests.dll" 
 
     mkdir testOutput
 
-    let xunitToolPath = findToolInSubPath "xunit.console.exe" "src/packages/xunit.runner.console*/tools"
+    let xunitToolPath = findToolInSubPath "xunit.console.exe" "src/packages/FAKE/xunit.runner.console*/tools"
+
     printfn "Using XUnit runner: %s" xunitToolPath
-    xUnit2
-        (fun p -> { p with OutputDir = testOutput; ToolPath = xunitToolPath })
-        xunitTestAssemblies
+    let runSingleAssembly assembly =
+        let assemblyName = Path.GetFileNameWithoutExtension(assembly)
+        xUnit2
+            (fun p -> { p with XmlOutputPath = Some (testOutput + @"\" + assemblyName + "_xunit.xml"); HtmlOutputPath = Some (testOutput + @"\" + assemblyName + "_xunit.HTML"); ToolPath = xunitToolPath; TimeOut = System.TimeSpan.FromMinutes 30.0; Parallel = ParallelMode.NoParallelization }) 
+            (Seq.singleton assembly)
+
+    xunitTestAssemblies |> Seq.iter (runSingleAssembly)
 
 //--------------------------------------------------------------------------------
 // Nuget targets 
@@ -153,45 +158,7 @@ module Nuget =
       | _ -> release.NugetVersion
 
 open Nuget
-
 open NuGet.Update
-
-//--------------------------------------------------------------------------------
-// Upgrade nuget package versions for dev and production
-
-let updateNugetPackages _ =
-  printfn "Updating NuGet dependencies"
-
-  let getConfigFile preRelease =
-    match preRelease with
-    | true -> "src/.nuget/NuGet.Dev.Config" 
-    | false -> "src/.nuget/NuGet.Config" 
-
-  let getPackages project =
-    match project with
-    | "Akka.Persistence.MongoDb" -> ["Akka.Persistence";]
-    | "Akka.Persistence.MongoDb.Tests" -> ["Akka.Persistence.TestKit";]
-    | _ -> []
-
-  for projectFile in !! "src/**/*.csproj" do
-    printfn "Updating packages for %s" projectFile
-    let project = Path.GetFileNameWithoutExtension projectFile
-    let projectDir = Path.GetDirectoryName projectFile
-    let config = projectDir @@ "packages.config"
-
-    NugetUpdate
-        (fun p ->
-                { p with
-                    ConfigFile = Some (getConfigFile isPreRelease)
-                    Prerelease = true
-                    ToolPath = nugetExe
-                    RepositoryPath = "src/Packages"
-                    Ids = getPackages project
-                    }) config
-
-Target "UpdateDependencies" <| fun _ ->
-    printfn "Invoking updateNugetPackages"
-    updateNugetPackages()
 
 //--------------------------------------------------------------------------------
 // Clean nuget directory
@@ -422,7 +389,7 @@ Target "HelpDocs" <| fun _ ->
 //--------------------------------------------------------------------------------
 
 // build dependencies
-"Clean" ==> "AssemblyInfo" ==> "RestorePackages" ==> "UpdateDependencies" ==> "Build" ==> "CopyOutput" ==> "BuildRelease"
+"Clean" ==> "AssemblyInfo" ==> "RestorePackages" ==> "Build" ==> "CopyOutput" ==> "BuildRelease"
 
 // tests dependencies
 "CleanTests" ==> "RunTests"
