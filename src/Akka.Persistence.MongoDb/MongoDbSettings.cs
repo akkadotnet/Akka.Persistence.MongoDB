@@ -1,4 +1,11 @@
-﻿using System;
+﻿//-----------------------------------------------------------------------
+// <copyright file="MongoDbSettings.cs" company="Akka.NET Project">
+//     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
+//     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
+// </copyright>
+//-----------------------------------------------------------------------
+
+using System;
 using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb
@@ -9,9 +16,14 @@ namespace Akka.Persistence.MongoDb
     public abstract class MongoDbSettings
     {
         /// <summary>
-        /// Connection string used to access the MongoDB, also specifies the database.
+        /// Connection string used to access the MongoDb, also specifies the database.
         /// </summary>
         public string ConnectionString { get; private set; }
+
+        /// <summary>
+        /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
+        /// </summary>
+        public bool AutoInitialize { get; private set; }
 
         /// <summary>
         /// Name of the collection for the event journal or snapshots
@@ -22,6 +34,7 @@ namespace Akka.Persistence.MongoDb
         {
             ConnectionString = config.GetString("connection-string");
             Collection = config.GetString("collection");
+            AutoInitialize = config.GetBoolean("auto-initialize");
         }
     }
 
@@ -31,11 +44,15 @@ namespace Akka.Persistence.MongoDb
     /// </summary>
     public class MongoDbJournalSettings : MongoDbSettings
     {
+        public string MetadataCollection { get; private set; }
+
         public MongoDbJournalSettings(Config config) : base(config)
         {
             if (config == null)
-                throw new ArgumentNullException("config",
-                    "MongoDB journal settings cannot be initialized, because required HOCON section couldn't been found");
+                throw new ArgumentNullException(nameof(config),
+                    "MongoDb journal settings cannot be initialized, because required HOCON section couldn't been found");
+
+            MetadataCollection = config.GetString("metadata-collection");
         }
     }
 
@@ -48,8 +65,8 @@ namespace Akka.Persistence.MongoDb
         public MongoDbSnapshotSettings(Config config) : base(config)
         {
             if (config == null)
-                throw new ArgumentNullException("config",
-                    "MongoDB snapshot settings cannot be initialized, because required HOCON section couldn't been found");
+                throw new ArgumentNullException(nameof(config),
+                    "MongoDb snapshot settings cannot be initialized, because required HOCON section couldn't been found");
         }
     }
 }

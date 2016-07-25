@@ -1,4 +1,11 @@
-﻿using System;
+﻿//-----------------------------------------------------------------------
+// <copyright file="MongoDbSnapshotStore.cs" company="Akka.NET Project">
+//     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
+//     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
+// </copyright>
+//-----------------------------------------------------------------------
+
+using System;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
 using MongoDB.Driver;
@@ -10,11 +17,37 @@ namespace Akka.Persistence.MongoDb.Snapshot
     /// </summary>
     public class MongoDbSnapshotStore : SnapshotStore
     {
-        private readonly IMongoCollection<SnapshotEntry> _collection;
+        private readonly MongoDbSnapshotSettings _settings;
+        private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
 
         public MongoDbSnapshotStore()
         {
-            _collection = MongoDbPersistence.Instance.Apply(Context.System).SnapshotCollection;
+            _settings = MongoDbPersistence.Get(Context.System).SnapshotStoreSettings;
+        }
+
+        protected override void PreStart()
+        {
+            base.PreStart();
+
+            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
+            {
+                var connectionString = new MongoUrl(_settings.ConnectionString);
+                var client = new MongoClient(connectionString);
+
+                var snapshot = client.GetDatabase(connectionString.DatabaseName);
+
+                var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
+                if (_settings.AutoInitialize)
+                {
+                    collection.Indexes.CreateOneAsync(
+                        Builders<SnapshotEntry>.IndexKeys
+                        .Ascending(entry => entry.PersistenceId)
+                        .Descending(entry => entry.SequenceNr))
+                        .Wait();
+                }
+
+                return collection;
+            });
         }
 
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
@@ -22,30 +55,23 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var filter = CreateRangeFilter(persistenceId, criteria);
 
             return
-                _collection
+                _snapshotCollection.Value
                     .Find(filter)
+                    .SortByDescending(x => x.SequenceNr)
+                    .Limit(1)
                     .Project(x => ToSelectedSnapshot(x))
                     .FirstOrDefaultAsync();
         }
 
-        protected override Task SaveAsync(SnapshotMetadata metadata, object snapshot)
+        protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            var snapshotEntry = new SnapshotEntry
-            {
-                Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
-                PersistenceId = metadata.PersistenceId,
-                SequenceNr = metadata.SequenceNr,
-                Snapshot = snapshot,
-                Timestamp = metadata.Timestamp.Ticks
-            };
+            var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
 
-            // throws a MongoWriteException if s snapshot with the same PersistenceId and SequenceNr 
-            // is inserted the second time. As @Horusiath pointed out, that's fine, because a second snapshot
-            // without any events in the meantime doesn't make any sense.
-            return _collection.InsertOneAsync(snapshotEntry);
+            await _snapshotCollection.Value.ReplaceOneAsync(
+                CreateSnapshotIdFilter(snapshotEntry.Id),
+                snapshotEntry,
+                new UpdateOptions { IsUpsert = true });
         }
-
-        protected override void Saved(SnapshotMetadata metadata) { }
 
         protected override Task DeleteAsync(SnapshotMetadata metadata)
         {
@@ -58,14 +84,23 @@ namespace Akka.Persistence.MongoDb.Snapshot
             if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
                 filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
 
-            return _collection.FindOneAndDeleteAsync(filter);
+            return _snapshotCollection.Value.FindOneAndDeleteAsync(filter);
         }
 
         protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            return _collection.DeleteManyAsync(filter);
+            return _snapshotCollection.Value.DeleteManyAsync(filter);
+        }
+
+        private static FilterDefinition<SnapshotEntry> CreateSnapshotIdFilter(string snapshotId)
+        {
+            var builder = Builders<SnapshotEntry>.Filter;
+
+            var filter = builder.Eq(x => x.Id, snapshotId);
+
+            return filter;
         }
 
         private static FilterDefinition<SnapshotEntry> CreateRangeFilter(string persistenceId, SnapshotSelectionCriteria criteria)
@@ -81,13 +116,22 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
             return filter;
         }
-        
-        private SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
+
+        private static SnapshotEntry ToSnapshotEntry(SnapshotMetadata metadata, object snapshot)
         {
-            return
-                new SelectedSnapshot(
-                    new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)),
-                    entry.Snapshot);
+            return new SnapshotEntry
+            {
+                Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
+                PersistenceId = metadata.PersistenceId,
+                SequenceNr = metadata.SequenceNr,
+                Snapshot = snapshot,
+                Timestamp = metadata.Timestamp.Ticks
+            };
+        }
+
+        private static SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
+        {
+            return new SelectedSnapshot(new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), entry.Snapshot);
         }
     }
 }
