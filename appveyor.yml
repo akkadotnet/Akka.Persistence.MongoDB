@@ -1,0 +1,8 @@
+version: '1.0.{build}'
+skip_tags: true
+image: Visual Studio 2015
+configuration: Release
+build_script:
+- cmd: build.cmd Build
+test_script:
+- cmd: build.cmd RunTests
