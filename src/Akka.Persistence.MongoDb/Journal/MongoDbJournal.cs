@@ -1,5 +1,13 @@
-﻿using System;
+﻿//-----------------------------------------------------------------------
+// <copyright file="MongoDbJournal.cs" company="Akka.NET Project">
+//     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
+//     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
+// </copyright>
+//-----------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -13,72 +21,128 @@ namespace Akka.Persistence.MongoDb.Journal
     /// </summary>
     public class MongoDbJournal : AsyncWriteJournal
     {
-        private readonly IMongoCollection<JournalEntry> _collection;
+        private readonly MongoDbJournalSettings _settings;
+        private Lazy<IMongoDatabase> _mongoDatabase;
+        private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
+        private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
 
         public MongoDbJournal()
         {
-            _collection = MongoDbPersistence.Instance.Apply(Context.System).JournalCollection;
+            _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
         }
 
-        public override Task ReplayMessagesAsync(string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> replayCallback)
+        protected override void PreStart()
         {
-            // Limit(0) doesn't work...
-            if (max == 0)
-                return Task.Run(() => {});
+            base.PreStart();
 
+            _mongoDatabase = new Lazy<IMongoDatabase>(() =>
+            {
+                var connectionString = new MongoUrl(_settings.ConnectionString);
+                var client = new MongoClient(connectionString);
+
+                return client.GetDatabase(connectionString.DatabaseName);
+            });
+
+            _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
+            {
+                var collection = _mongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
+
+                if (_settings.AutoInitialize)
+                {
+                    collection.Indexes.CreateOneAsync(
+                        Builders<JournalEntry>.IndexKeys
+                            .Ascending(entry => entry.PersistenceId)
+                            .Descending(entry => entry.SequenceNr))
+                            .Wait();
+                }
+
+                return collection;
+            });
+
+            _metadataCollection = new Lazy<IMongoCollection<MetadataEntry>>(() =>
+            {
+                var collection = _mongoDatabase.Value.GetCollection<MetadataEntry>(_settings.MetadataCollection);
+
+                if (_settings.AutoInitialize)
+                {
+                    collection.Indexes.CreateOneAsync(
+                        Builders<MetadataEntry>.IndexKeys
+                            .Ascending(entry => entry.PersistenceId))
+                            .Wait();
+                }
+
+                return collection;
+            });
+        }
+
+        public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
+        {
             // Limit allows only integer
-            var maxValue = max >= int.MaxValue ? int.MaxValue : (int)max;
-            var sender = Context.Sender;
+            var limitValue = max >= int.MaxValue ? int.MaxValue : (int)max;
+
+            // Do not replay messages if limit equal zero
+            if (limitValue == 0)
+                return;
+
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
-
             if (fromSequenceNr > 0)
                 filter &= builder.Gte(x => x.SequenceNr, fromSequenceNr);
-
             if (toSequenceNr != long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
 
-            return
-                _collection
-                    .Find(filter)
-                    .Sort(sort)
-                    .Limit(maxValue)
-                    .ForEachAsync(doc => replayCallback(ToPersistanceRepresentation(doc, sender)));
+            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
+
+            var collections = await _journalCollection.Value
+                .Find(filter)
+                .Sort(sort)
+                .Limit(limitValue)
+                .ToListAsync();
+
+            collections.ForEach(doc =>
+            {
+                recoveryCallback(ToPersistenceRepresentation(doc, context.Sender));
+            });
         }
 
-        public override Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
+        public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
+        {
+            var builder = Builders<MetadataEntry>.Filter;
+            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+
+            var highestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+
+            return highestSequenceNr;
+        }
+
+        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        {
+            var messageList = messages.ToList();
+            var writeTasks = messageList.Select(async message =>
+            {
+                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
+
+                var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
+                await _journalCollection.Value.InsertManyAsync(journalEntries);
+            });
+
+            await SetHighSequenceId(messageList);
+
+            return await Task<IImmutableList<Exception>>
+                .Factory
+                .ContinueWhenAll(writeTasks.ToArray(),
+                    tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
+        }
+
+        protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            return
-                _collection
-                    .Find(filter)
-                    .Limit(1)
-                    .Project(x => x.SequenceNr)
-                    .FirstOrDefaultAsync();
-        }
-
-        protected override Task WriteMessagesAsync(IEnumerable<IPersistentRepresentation> messages)
-        {
-            var entries = messages.Select(ToJournalEntry).ToList();
-            return _collection.InsertManyAsync(entries);
-        }
-
-        protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr, bool isPermanent)
-        {
-            var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-            var update = Builders<JournalEntry>.Update.Set(x => x.IsDeleted, true);
-
             if (toSequenceNr != long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
 
-            if (isPermanent)
-                return _collection.DeleteManyAsync(filter);
-
-            return _collection.UpdateManyAsync(filter, update);
+            return _journalCollection.Value.DeleteManyAsync(filter);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -94,9 +158,26 @@ namespace Akka.Persistence.MongoDb.Journal
             };
         }
 
-        private Persistent ToPersistanceRepresentation(JournalEntry entry, IActorRef sender)
+        private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
         {
-            return new Persistent(entry.Payload, entry.SequenceNr, entry.Manifest, entry.PersistenceId, entry.IsDeleted, sender);
+            return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+        }
+
+        private async Task SetHighSequenceId(IList<AtomicWrite> messages)
+        {
+            var persistenceId = messages.Select(c => c.PersistenceId).First();
+            var highSequenceId = messages.Max(c => c.HighestSequenceNr);
+            var builder = Builders<MetadataEntry>.Filter;
+            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+
+            var metadataEntry = new MetadataEntry
+            {
+                Id = persistenceId,
+                PersistenceId = persistenceId,
+                SequenceNr = highSequenceId
+            };
+
+            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
         }
     }
 }
