@@ -8,6 +8,7 @@
 using System;
 using Akka.Actor;
 using Akka.Configuration;
+using Akka.Persistence.MongoDb.Snapshot.Serializers;
 
 namespace Akka.Persistence.MongoDb
 {
@@ -47,6 +48,10 @@ namespace Akka.Persistence.MongoDb
 
             // Initialize fallback configuration defaults
             system.Settings.InjectTopLevelFallback(DefaultConfiguration());
+
+            // Add Serializer
+            MongoDB.Bson.Serialization.BsonSerializer.RegisterSerializer<Akka.Persistence.AtLeastOnceDeliverySnapshot>(new AtLeastOnceDeliverySnapshotSerializer());
+            MongoDB.Bson.Serialization.BsonSerializer.RegisterSerializer<UnconfirmedDelivery>(new UnconfirmedDeliverySerializer());
 
             // Read config
             var journalConfig = system.Settings.Config.GetConfig("akka.persistence.journal.mongodb");
