@@ -20,8 +20,6 @@ namespace Akka.Persistence.MongoDb.Tests
         private static readonly MongoDbRunner Runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
         protected override bool SupportsRejectingNonSerializableObjects { get { return false; } }
 
-        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
-
         private static readonly string SpecConfig = @"
             akka.test.single-expect-default = 3s
             akka.persistence {
