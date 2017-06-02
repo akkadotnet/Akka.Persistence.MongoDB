@@ -81,6 +81,8 @@
     <Compile Include="..\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="FullTypeNameObjectSerializer.cs" />
+    <Compile Include="FullTypeNameDiscriminatorConvention.cs" />
     <Compile Include="Journal\MetadataEntry.cs" />
     <Compile Include="Journal\MongoDbJournal.cs" />
     <Compile Include="Journal\JournalEntry.cs" />
