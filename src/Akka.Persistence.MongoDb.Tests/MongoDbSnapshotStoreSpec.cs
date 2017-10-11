@@ -5,62 +5,38 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-using System;
-using System.Configuration;
-using Akka.Persistence.TestKit.Snapshot;
-using Mongo2Go;
-using MongoDB.Driver;
 using Xunit;
+using Akka.Persistence.TCK.Snapshot;
+using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec
+    public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
     {
-        private static readonly MongoDbRunner Runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
-
-        private static readonly string SpecConfig = @"
-            akka.test.single-expect-default = 3s
-            akka.persistence {
-                publish-plugin-commands = on
-                snapshot-store {
-                    plugin = ""akka.persistence.snapshot-store.mongodb""
-                    mongodb {
-                        class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                        connection-string = ""<ConnectionString>""
-                        auto-initialize = on
-                        collection = ""SnapshotStore""
-                    }
-                }
-            }";
-
-        public MongoDbSnapshotStoreSpec() : base(CreateSpecConfig(), "MongoDbSnapshotStoreSpec")
+        public MongoDbSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbSnapshotStoreSpec")
         {
-            AppDomain.CurrentDomain.DomainUnload += (_, __) =>
-            {
-                try
-                {
-                    Runner.Dispose();
-                }
-                catch { }
-            };
-
-
             Initialize();
         }
 
-        private static string CreateSpecConfig()
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
-            return SpecConfig.Replace("<ConnectionString>", Runner.ConnectionString + "akkanet");
-        }
+            var specString = @"
+                akka.test.single-expect-default = 3s
+                akka.persistence {
+                    publish-plugin-commands = on
+                    snapshot-store {
+                        plugin = ""akka.persistence.snapshot-store.mongodb""
+                        mongodb {
+                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
+                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            auto-initialize = on
+                            collection = ""SnapshotStore""
+                        }
+                    }
+                }";
 
-        protected override void Dispose(bool disposing)
-        {
-            new MongoClient(Runner.ConnectionString)
-                .GetDatabase("akkanet")
-                .DropCollectionAsync("SnapshotStore").Wait();
-
-            base.Dispose(disposing);
+            return ConfigurationFactory.ParseString(specString);
         }
     }
 }
