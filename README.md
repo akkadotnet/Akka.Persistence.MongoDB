@@ -78,5 +78,42 @@ The events and snapshots are stored as BsonDocument, so you need to register you
 Otherwise the recovery will fail and you receive a RecoveryFailure with the message:  
 >An error occurred while deserializing the Payload property of class \<Journal or Snapshot class>: Unknown discriminator value '\<your type>'
 
+### Migration
+#### From 1.05 to 1.1.0
+As of 1.1.0 the highest SequenceNr for each PersistenceId in the EventJournal collection is kept in a separate collection, Metadata.
+This script creates the Metadata collection, then finds the highest SequenceNr for each persistence id from the EventJournal and adds it to the Metadata collection.
+
+To run, save this to a JavaScript file, update {your_database_address} e.g. 127.0.0.1:27017/events. Run: mongo {file_name}.js
+```javascript
+try {
+	var db = connect('{your_database_address}');
+
+	var persistenceIds = db.EventJournal.distinct('PersistenceId');
+	
+	persistenceIds.forEach(persistenceId => {
+		print('Finding highest SequenceNr for PersistenceId: ' + persistenceId);
+		var highestSequenceNr = db.EventJournal
+			.find({ PersistenceId: persistenceId }, { SequenceNr: true })
+			.sort({ SequenceNr: -1 })
+			.limit(1)
+			.next()
+			.SequenceNr;
+		
+		print('Highest SequenceNr found ' + highestSequenceNr + ', inserting into Metadata table...');
+		db.Metadata.insertOne(
+			{
+				_id: persistenceId,
+				PersistenceId: persistenceId,
+				SequenceNr: highestSequenceNr
+			}
+		);
+		
+		print('Inserted successfully');
+	});
+} catch(e) {
+	print(e);
+}
+```
+
 ### Notice
 - The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher then Int32.MaxValue, Int32.MaxValue is used. So if you have stored more then 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
