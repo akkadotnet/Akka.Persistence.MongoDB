@@ -1,28 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\common.props" />
+
+
   <PropertyGroup>
-    <AssemblyTitle>Akka.Persistence.MongoDB</AssemblyTitle>
-    <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
     <TargetFrameworks>net45;netstandard1.6</TargetFrameworks>
-    <PackageTags>akka;actors;actor model;Akka;concurrency;MongoDB</PackageTags>
-    <Copyright>Copyright © 2013-2017</Copyright>
-    <Authors>Akka.NET Contrib</Authors>
-    <VersionPrefix>1.3.1</VersionPrefix>
-    <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
-    <PackageProjectUrl>https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
-    <PackageReleaseNotes>Support for Akka.NET 1.3, .NET Standard 1.6, and the first stable RTM release of Akka.Persistence.</PackageReleaseNotes>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
-  <ItemGroup>
-    <None Remove="reference.conf" />
-  </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="reference.conf" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Akka" Version="1.3.4" />
     <PackageReference Include="Akka.Persistence" Version="1.3.4" />
     <PackageReference Include="MongoDB.Driver" Version="2.4.4" />
   </ItemGroup>
