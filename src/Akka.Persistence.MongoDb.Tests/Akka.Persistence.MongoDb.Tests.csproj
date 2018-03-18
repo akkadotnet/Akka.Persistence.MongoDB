@@ -1,38 +1,28 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-      <AssemblyTitle>Akka.Persistence.MongoDB.Tests</AssemblyTitle>
-      <TargetFrameworks>net461;netcoreapp1.1</TargetFrameworks>
-      <PackageTags>akka;actors;actor model;Akka;concurrency;MongoDB</PackageTags>
-      <Copyright>Copyright © 2013-2017</Copyright>
-      <Authors>Akka.NET Contrib</Authors>
-      <VersionPrefix>1.3.1</VersionPrefix>
-      <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
-      <PackageProjectUrl>https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB</PackageProjectUrl>
-      <PackageLicenseUrl>https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
-      <GenerateDocumentationFile>true</GenerateDocumentationFile>
-      <NoWarn>$(NoWarn);CS1591</NoWarn>
-    </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\common.props" />
 
-    <ItemGroup>
-      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0" />
-      <PackageReference Include="Akka" Version="1.3.2" />
-      <PackageReference Include="Akka.Persistence" Version="1.3.2" />
-      <PackageReference Include="Akka.Persistence.TCK" Version="1.3.1-beta" />
-      <PackageReference Include="Akka.TestKit" Version="1.3.2" />
-      <PackageReference Include="FluentAssertions" Version="4.19.4" />
-      <PackageReference Include="Mongo2Go" Version="2.2.0" />
-      <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
-      <PackageReference Include="xunit" Version="2.3.1" />
-      <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
-      <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.0" />
-    </ItemGroup>
+  <PropertyGroup>    
+    <TargetFrameworks>netcoreapp2.0</TargetFrameworks>
+    <!-- <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks> --> <!-- Mongo2Go fails on .NET 4.6.1 - can't find its own binaries. -->
+  </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(TestSdkVersion)" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitVersion)" />
+    <PackageReference Include="xunit" Version="$(XunitVersion)" />
+    <DotNetCliToolReference Include="dotnet-xunit" Version="$(XunitVersion)" />
+    <PackageReference Include="Akka.Persistence.TCK" Version="1.3.4-beta" />
+    <PackageReference Include="FluentAssertions" Version="4.19.4" />
+    <PackageReference Include="Mongo2Go" Version="2.2.1" />
+    <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Akka.Persistence.MongoDb\Akka.Persistence.MongoDb.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <DefineConstants>$(DefineConstants);RELEASE</DefineConstants>
-    </PropertyGroup>
+  </PropertyGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Akka.Persistence.MongoDb\Akka.Persistence.MongoDb.csproj" />
-    </ItemGroup>
 </Project>
