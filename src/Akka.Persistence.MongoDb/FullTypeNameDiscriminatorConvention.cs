@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 using System;
+using System.Reflection;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Conventions;
 
@@ -29,7 +30,7 @@ namespace Akka.Persistence.MongoDb
         /// <returns>full type name with the simple assembly name</returns>
         public override BsonValue GetDiscriminator(Type nominalType, Type actualType)
         {
-            var assemblyName = actualType.Assembly.FullName.Split(',')[0];
+            var assemblyName = actualType.GetTypeInfo().Assembly.FullName.Split(',')[0];
             return $"{actualType.FullName}, {assemblyName}";
         }
     }
