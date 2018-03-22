@@ -8,6 +8,7 @@
 using System;
 using Akka.Actor;
 using Akka.Configuration;
+using MongoDB.Bson.Serialization;
 
 namespace Akka.Persistence.MongoDb
 {
@@ -16,6 +17,13 @@ namespace Akka.Persistence.MongoDb
     /// </summary>
     public class MongoDbPersistence : IExtension
     {
+        static MongoDbPersistence()
+        {
+            // Some MongoDB things are statically configured.
+
+            // Register our own serializer for objects that uses the type's FullName + Assembly for the discriminator
+            BsonSerializer.RegisterSerializer(typeof(object), new FullTypeNameObjectSerializer());
+        }
         /// <summary>
         /// Returns a default configuration for akka persistence MongoDb journal and snapshot store.
         /// </summary>
