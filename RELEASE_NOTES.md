@@ -1,5 +1,8 @@
-#### 1.3.5 March 16 2018 ####
-Support for Akka.NET 1.3.5 and upgraded MongoDb drivers et al.
+
+#### 1.3.5 March 23 2018 ####
+Support for Akka.Persistence 1.3.5.
+Supports latest version of .NET MongoDB Driver.
+You don't neeed to register/map your classes for serialization anymore!
 
 #### 1.3.1 October 11 2017 ####
 Support for Akka.NET 1.3, .NET Standard 1.6, and the first stable RTM release of Akka.Persistence.
