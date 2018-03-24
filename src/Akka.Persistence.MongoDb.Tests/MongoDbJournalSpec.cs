@@ -5,63 +5,40 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-using System;
-using System.Configuration;
-using Akka.Persistence.TestKit.Journal;
-using Mongo2Go;
-using MongoDB.Driver;
+using Akka.Persistence.TCK.Journal;
 using Xunit;
+using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalSpec : JournalSpec
+    public class MongoDbJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
     {
-        private static readonly MongoDbRunner Runner = MongoDbRunner.Start(ConfigurationManager.AppSettings[0]);
+        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;        
 
-        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
-
-        private static readonly string SpecConfig = @"
-            akka.test.single-expect-default = 3s
-            akka.persistence {
-                publish-plugin-commands = on
-                journal {
-                    plugin = ""akka.persistence.journal.mongodb""
-                    mongodb {
-                        class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                        connection-string = ""<ConnectionString>""
-                        auto-initialize = on
-                        collection = ""EventJournal""
-                    }
-                }
-            }";
-
-        public MongoDbJournalSpec() : base(CreateSpecConfig(), "MongoDbJournalSpec")
+        public MongoDbJournalSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbJournalSpec")
         {
-            AppDomain.CurrentDomain.DomainUnload += (_, __) =>
-            {
-                try
-                {
-                    Runner.Dispose();
-                }
-                catch { }
-            };
-
             Initialize();
         }
 
-        private static string CreateSpecConfig()
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
-            return SpecConfig.Replace("<ConnectionString>", Runner.ConnectionString + "akkanet");
-        }
+            var specString = @"
+                akka.test.single-expect-default = 3s
+                akka.persistence {
+                    publish-plugin-commands = on
+                    journal {
+                        plugin = ""akka.persistence.journal.mongodb""
+                        mongodb {
+                            class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
+                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            auto-initialize = on
+                            collection = ""EventJournal""
+                        }
+                    }
+                }";
 
-        protected override void Dispose(bool disposing)
-        {
-            new MongoClient(Runner.ConnectionString)
-                .GetDatabase("akkanet")
-                .DropCollectionAsync("EventJournal").Wait();
-            
-            base.Dispose(disposing);
+            return ConfigurationFactory.ParseString(specString);
         }
     }
 }
