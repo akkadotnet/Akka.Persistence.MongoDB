@@ -6,12 +6,14 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
+using Akka.Persistence.MongoDb.Query;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Journal
@@ -25,6 +27,11 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
+
+        private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
+        private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
+        private readonly ConcurrentDictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
+            = new ConcurrentDictionary<string, ISet<IActorRef>>();
 
         public MongoDbJournal()
         {
@@ -77,6 +84,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
         {
+            NotifyNewPersistenceIdAdded(persistenceId);
+
             // Limit allows only integer
             var limitValue = max >= int.MaxValue ? int.MaxValue : (int)max;
 
@@ -99,14 +108,15 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Limit(limitValue)
                 .ToListAsync();
 
-            collections.ForEach(doc =>
-            {
+            collections.ForEach(doc => {
                 recoveryCallback(ToPersistenceRepresentation(doc, context.Sender));
             });
         }
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
+            NotifyNewPersistenceIdAdded(persistenceId);
+
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
@@ -117,6 +127,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
+            var persistenceIds = new HashSet<string>();
             var messageList = messages.ToList();
             var writeTasks = messageList.Select(async message =>
             {
@@ -124,18 +135,30 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
                 await _journalCollection.Value.InsertManyAsync(journalEntries);
+
+                persistenceIds.Add(message.PersistenceId);
+                NotifyNewPersistenceIdAdded(message.PersistenceId);
             });
 
             await SetHighSequenceId(messageList);
 
-            return await Task<IImmutableList<Exception>>
+            var result = await Task<IImmutableList<Exception>>
                 .Factory
                 .ContinueWhenAll(writeTasks.ToArray(),
                     tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
+
+            // Notify subscribers
+            foreach (var persistenceId in persistenceIds) {
+                NotifyPersistenceIdChange(persistenceId);
+            }
+
+            return result;
         }
 
         protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
+            NotifyNewPersistenceIdAdded(persistenceId);
+
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
@@ -179,5 +202,102 @@ namespace Akka.Persistence.MongoDb.Journal
 
             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
         }
+
+
+
+
+
+        protected override bool ReceivePluginInternal(object message)
+        {
+            return message.Match()
+                //.With<ReplayTaggedMessages>(replay => {
+                //    ReplayTaggedMessagesAsync(replay)
+                //    .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
+                //})
+                .With<SubscribePersistenceId>(subscribe => {
+                    AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
+                    Context.Watch(Sender);
+                })
+                .With<SubscribeAllPersistenceIds>(subscribe => {
+                    AddAllPersistenceIdSubscriber(Sender);
+                    Context.Watch(Sender);
+                })
+                //.With<SubscribeTag>(subscribe => {
+                //    AddTagSubscriber(Sender, subscribe.Tag);
+                //    Context.Watch(Sender);
+                //})
+                .With<Terminated>(terminated => RemoveSubscriber(terminated.ActorRef))
+                .WasHandled;
+        }
+
+        private void AddAllPersistenceIdSubscriber(IActorRef subscriber)
+        {
+            lock (_allPersistenceIdSubscribers) {
+                _allPersistenceIdSubscribers.Add(subscriber);
+            }
+            subscriber.Tell(new CurrentPersistenceIds(GetAllPersistenceIds()));
+        }
+
+        private IEnumerable<string> GetAllPersistenceIds()
+        {
+            return _journalCollection.Value.AsQueryable()
+                .Select(je => je.PersistenceId)
+                .Distinct()
+                .ToList();
+        }
+
+        private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
+        {
+            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions)) {
+                subscriptions = new HashSet<IActorRef>();
+                _persistenceIdSubscribers.TryAdd(persistenceId, subscriptions);
+            }
+
+            subscriptions.Add(subscriber);
+        }
+
+        private void RemoveSubscriber(IActorRef subscriber)
+        {
+            var pidSubscriptions = _persistenceIdSubscribers.Values.Where(x => x.Contains(subscriber));
+            foreach (var subscription in pidSubscriptions)
+                subscription.Remove(subscriber);
+
+            //var tagSubscriptions = _tagSubscribers.Values.Where(x => x.Contains(subscriber));
+            //foreach (var subscription in tagSubscriptions)
+            //    subscription.Remove(subscriber);
+
+            _allPersistenceIdSubscribers.Remove(subscriber);
+        }
+
+        protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
+
+        private void NotifyNewPersistenceIdAdded(string persistenceId)
+        {
+            var isNew = TryAddPersistenceId(persistenceId);
+            if (isNew && HasAllPersistenceIdSubscribers) {
+                var added = new PersistenceIdAdded(persistenceId);
+                foreach (var subscriber in _allPersistenceIdSubscribers)
+                    subscriber.Tell(added);
+            }
+        }
+
+        private bool TryAddPersistenceId(string persistenceId)
+        {
+            lock (_allPersistenceIds) {
+                return _allPersistenceIds.Add(persistenceId);
+            }
+        }
+
+        private void NotifyPersistenceIdChange(string persistenceId)
+        {
+            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers)) {
+                var changed = new EventAppended(persistenceId);
+                foreach (var subscriber in subscribers)
+                    subscriber.Tell(changed);
+            }
+        }
+
     }
+
+
 }
