@@ -338,9 +338,9 @@ namespace Akka.Persistence.MongoDb.Journal
             foreach (var subscription in pidSubscriptions)
                 subscription.Remove(subscriber);
 
-            //var tagSubscriptions = _tagSubscribers.Values.Where(x => x.Contains(subscriber));
-            //foreach (var subscription in tagSubscriptions)
-            //    subscription.Remove(subscriber);
+            var tagSubscriptions = _tagSubscribers.Values.Where(x => x.Contains(subscriber));
+            foreach (var subscription in tagSubscriptions)
+                subscription.Remove(subscriber);
 
             _allPersistenceIdSubscribers.Remove(subscriber);
         }
