@@ -21,6 +21,12 @@ namespace Akka.Persistence.MongoDb
         public string ConnectionString { get; private set; }
 
         /// <summary>
+        /// Connection string builder that returns a connection string given a persistence id.
+        /// Must implement IMongoDbConnectionStringBuilder, and must be thread-safe.
+        /// </summary>
+        public string ConnectionStringBuilder { get; private set; }
+
+        /// <summary>
         /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
         /// </summary>
         public bool AutoInitialize { get; private set; }
@@ -35,6 +41,7 @@ namespace Akka.Persistence.MongoDb
             ConnectionString = config.GetString("connection-string");
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
+            ConnectionStringBuilder = config.GetString("connection-string-builder");
         }
     }
 

@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -22,9 +23,17 @@ namespace Akka.Persistence.MongoDb.Journal
     public class MongoDbJournal : AsyncWriteJournal
     {
         private readonly MongoDbJournalSettings _settings;
-        private Lazy<IMongoDatabase> _mongoDatabase;
-        private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
-        private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
+
+        private ConcurrentDictionary<string, DbConfig> _dbConfigCache;
+        private IMongoDbJournalConnectionStringBuilder _connStringBuilder;
+        private DbConfig _defaultDbConfig;
+
+        private class DbConfig
+        {
+            public Lazy<IMongoDatabase> MongoDatabase;
+            public Lazy<IMongoCollection<JournalEntry>> JournalCollection;
+            public Lazy<IMongoCollection<MetadataEntry>> MetadataCollection;
+        }
 
         public MongoDbJournal()
         {
@@ -35,20 +44,44 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             base.PreStart();
 
-            _mongoDatabase = new Lazy<IMongoDatabase>(() =>
-            {
-                var connectionString = new MongoUrl(_settings.ConnectionString);
-                var client = new MongoClient(connectionString);
+            if (String.IsNullOrWhiteSpace(_settings.ConnectionStringBuilder)) {
+                _defaultDbConfig = MakeDbConfig(_settings.ConnectionString); 
+            }
+            else {
+                _dbConfigCache = new ConcurrentDictionary<string, DbConfig>();
+                _connStringBuilder = (IMongoDbJournalConnectionStringBuilder)Activator.CreateInstance(Type.GetType(_settings.ConnectionStringBuilder));
+                _connStringBuilder.Init(_settings);
+            }
+        }
 
-                return client.GetDatabase(connectionString.DatabaseName);
-            });
+        private DbConfig GetDbConfig(string persistenceId)
+        {
+            DbConfig dbConfig;
+            if (_connStringBuilder != null) {
+                var connectionString = _connStringBuilder.GetConnectionString(persistenceId);
+                dbConfig = _dbConfigCache.GetOrAdd(connectionString, cs => MakeDbConfig(cs));
+            }
+            else {
+                dbConfig = _defaultDbConfig;
+            }
+            return dbConfig;
+        }
 
-            _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
-            {
-                var collection = _mongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
+        private DbConfig MakeDbConfig(string connection)
+        {
+            var config = new DbConfig {
+                MongoDatabase = new Lazy<IMongoDatabase>(() => {
+                    var connectionString = new MongoUrl(connection);
+                    var client = new MongoClient(connectionString);
 
-                if (_settings.AutoInitialize)
-                {
+                    return client.GetDatabase(connectionString.DatabaseName);
+                })
+            };
+
+            config.JournalCollection = new Lazy<IMongoCollection<JournalEntry>>(() => {
+                var collection = config.MongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
+
+                if (_settings.AutoInitialize) {
                     collection.Indexes.CreateOneAsync(
                         Builders<JournalEntry>.IndexKeys
                             .Ascending(entry => entry.PersistenceId)
@@ -59,12 +92,10 @@ namespace Akka.Persistence.MongoDb.Journal
                 return collection;
             });
 
-            _metadataCollection = new Lazy<IMongoCollection<MetadataEntry>>(() =>
-            {
-                var collection = _mongoDatabase.Value.GetCollection<MetadataEntry>(_settings.MetadataCollection);
+            config.MetadataCollection = new Lazy<IMongoCollection<MetadataEntry>>(() => {
+                var collection = config.MongoDatabase.Value.GetCollection<MetadataEntry>(_settings.MetadataCollection);
 
-                if (_settings.AutoInitialize)
-                {
+                if (_settings.AutoInitialize) {
                     collection.Indexes.CreateOneAsync(
                         Builders<MetadataEntry>.IndexKeys
                             .Ascending(entry => entry.PersistenceId))
@@ -73,10 +104,13 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 return collection;
             });
+            return config;
         }
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
         {
+            DbConfig dbConfig = GetDbConfig(persistenceId);
+
             // Limit allows only integer
             var limitValue = max >= int.MaxValue ? int.MaxValue : (int)max;
 
@@ -93,24 +127,25 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
 
-            var collections = await _journalCollection.Value
+            var collections = await dbConfig.JournalCollection.Value
                 .Find(filter)
                 .Sort(sort)
                 .Limit(limitValue)
                 .ToListAsync();
 
-            collections.ForEach(doc =>
-            {
+            collections.ForEach(doc => {
                 recoveryCallback(ToPersistenceRepresentation(doc, context.Sender));
             });
         }
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
+            DbConfig dbConfig = GetDbConfig(persistenceId);
+
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            var highestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+            var highestSequenceNr = await dbConfig.MetadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
             return highestSequenceNr;
         }
@@ -120,10 +155,12 @@ namespace Akka.Persistence.MongoDb.Journal
             var messageList = messages.ToList();
             var writeTasks = messageList.Select(async message =>
             {
+                DbConfig dbConfig = GetDbConfig(message.PersistenceId);
+
                 var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
-                await _journalCollection.Value.InsertManyAsync(journalEntries);
+                await dbConfig.JournalCollection.Value.InsertManyAsync(journalEntries);
             });
 
             await SetHighSequenceId(messageList);
@@ -136,13 +173,15 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
+            DbConfig dbConfig = GetDbConfig(persistenceId);
+
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
             if (toSequenceNr != long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
 
-            return _journalCollection.Value.DeleteManyAsync(filter);
+            return dbConfig.JournalCollection.Value.DeleteManyAsync(filter);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -165,19 +204,26 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private async Task SetHighSequenceId(IList<AtomicWrite> messages)
         {
-            var persistenceId = messages.Select(c => c.PersistenceId).First();
-            var highSequenceId = messages.Max(c => c.HighestSequenceNr);
-            var builder = Builders<MetadataEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+            var messageGroups = messages
+                .GroupBy(m => GetDbConfig(m.PersistenceId))
+                .ToList();
 
-            var metadataEntry = new MetadataEntry
-            {
-                Id = persistenceId,
-                PersistenceId = persistenceId,
-                SequenceNr = highSequenceId
+            foreach (var group in messageGroups) {
+                var dbConfig = group.Key;
+
+                var persistenceId = messages.Select(c => c.PersistenceId).First();
+                var highSequenceId = messages.Max(c => c.HighestSequenceNr);
+                var builder = Builders<MetadataEntry>.Filter;
+                var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+
+                var metadataEntry = new MetadataEntry {
+                    Id = persistenceId,
+                    PersistenceId = persistenceId,
+                    SequenceNr = highSequenceId
+                };
+
+                await dbConfig.MetadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
             };
-
-            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
         }
     }
 }

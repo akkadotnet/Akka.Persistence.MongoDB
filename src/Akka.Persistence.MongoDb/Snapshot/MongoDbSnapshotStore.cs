@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
 using MongoDB.Driver;
@@ -18,6 +19,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
     public class MongoDbSnapshotStore : SnapshotStore
     {
         private readonly MongoDbSnapshotSettings _settings;
+        private ConcurrentDictionary<string, Lazy<IMongoCollection<SnapshotEntry>>> _snapshotCollectionCache;
+        private IMongoDbSnapshotConnectionStringBuilder _connStringBuilder;
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
 
         public MongoDbSnapshotStore()
@@ -29,16 +32,39 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             base.PreStart();
 
-            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
-            {
-                var connectionString = new MongoUrl(_settings.ConnectionString);
+            if (String.IsNullOrWhiteSpace(_settings.ConnectionStringBuilder)) {
+                _snapshotCollection = MakeSnapshotCollection(_settings.ConnectionString);
+            }
+            else {
+                _snapshotCollectionCache = new ConcurrentDictionary<string, Lazy<IMongoCollection<SnapshotEntry>>>();
+                _connStringBuilder = (IMongoDbSnapshotConnectionStringBuilder)Activator.CreateInstance(Type.GetType(_settings.ConnectionStringBuilder));
+                _connStringBuilder.Init(_settings);
+            }
+        }
+
+        private Lazy<IMongoCollection<SnapshotEntry>> GetSnapshotCollection(string persistenceId)
+        {
+            Lazy<IMongoCollection<SnapshotEntry>> dbConfig;
+            if (_connStringBuilder != null) {
+                var connectionString = _connStringBuilder.GetConnectionString(persistenceId);
+                dbConfig = _snapshotCollectionCache.GetOrAdd(connectionString, cs => MakeSnapshotCollection(cs));
+            }
+            else {
+                dbConfig = _snapshotCollection;
+            }
+            return dbConfig;
+        }
+
+        private Lazy<IMongoCollection<SnapshotEntry>> MakeSnapshotCollection(string connection)
+        {
+            return new Lazy<IMongoCollection<SnapshotEntry>>(() => {
+                var connectionString = new MongoUrl(connection);
                 var client = new MongoClient(connectionString);
 
                 var snapshot = client.GetDatabase(connectionString.DatabaseName);
 
                 var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
-                if (_settings.AutoInitialize)
-                {
+                if (_settings.AutoInitialize) {
                     collection.Indexes.CreateOneAsync(
                         Builders<SnapshotEntry>.IndexKeys
                         .Ascending(entry => entry.PersistenceId)
@@ -55,7 +81,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var filter = CreateRangeFilter(persistenceId, criteria);
 
             return
-                _snapshotCollection.Value
+                GetSnapshotCollection(persistenceId).Value
                     .Find(filter)
                     .SortByDescending(x => x.SequenceNr)
                     .Limit(1)
@@ -66,8 +92,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
-
-            await _snapshotCollection.Value.ReplaceOneAsync(
+            
+            await GetSnapshotCollection(metadata.PersistenceId).Value.ReplaceOneAsync(
                 CreateSnapshotIdFilter(snapshotEntry.Id),
                 snapshotEntry,
                 new UpdateOptions { IsUpsert = true });
@@ -84,14 +110,14 @@ namespace Akka.Persistence.MongoDb.Snapshot
             if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
                 filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
 
-            return _snapshotCollection.Value.FindOneAndDeleteAsync(filter);
+            return GetSnapshotCollection(metadata.PersistenceId).Value.FindOneAndDeleteAsync(filter);
         }
 
         protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            return _snapshotCollection.Value.DeleteManyAsync(filter);
+            return GetSnapshotCollection(persistenceId).Value.DeleteManyAsync(filter);
         }
 
         private static FilterDefinition<SnapshotEntry> CreateSnapshotIdFilter(string snapshotId)
