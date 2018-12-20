@@ -21,17 +21,21 @@ using System.Diagnostics;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbPersistenceIdsSpec : Akka.Persistence.TCK.Query.PersistenceIdsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbEventsByTagSpec : Akka.Persistence.TCK.Query.EventsByTagSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
-        public MongoDbPersistenceIdsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) 
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbPersistenceIdsSpec", output)
+        public MongoDbEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
             _output = output;
             output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
+
+            var x = Sys.ActorOf(TestActor.Props("x"));
+            x.Tell("warm-up");
+            ExpectMsg("warm-up-done", TimeSpan.FromSeconds(10));
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
@@ -47,6 +51,12 @@ namespace Akka.Persistence.MongoDb.Tests
                             connection-string = """ + databaseFixture.ConnectionString + id + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
+                            event-adapters {
+                                color-tagger  = ""Akka.Persistence.TCK.Query.ColorFruitTagger, Akka.Persistence.TCK""
+                            }
+                            event-adapter-bindings = {
+                                ""System.String"" = color-tagger
+                            }
                         }
                     }
                     query {
@@ -59,28 +69,48 @@ namespace Akka.Persistence.MongoDb.Tests
             return ConfigurationFactory.ParseString(specString);
         }
 
-        [Fact]
-        public void ReadJournal_ConcurrentMessaging_should_work()
-        {
-            Enumerable.Range(1, 100).AsParallel().ForEach(_ => {
-                Setup(Guid.NewGuid().ToString(), 1);
-                Setup(Guid.NewGuid().ToString(), 1);
-            });
-        }
 
-        private IActorRef Setup(string persistenceId, int n)
+
+        internal class TestActor : UntypedPersistentActor
         {
-            var sw = Stopwatch.StartNew();
-            var pref = Sys.ActorOf(JournalTestActor.Props(persistenceId));
-            for (int i = 1; i <= n; i++) {
-                pref.Tell($"{persistenceId}-{i}");
-                ExpectMsg($"{persistenceId}-{i}-done", TimeSpan.FromSeconds(10), $"{persistenceId}-{i}-done");
+            public static Props Props(string persistenceId) => Actor.Props.Create(() => new TestActor(persistenceId));
+
+            public sealed class DeleteCommand
+            {
+                public DeleteCommand(long toSequenceNr)
+                {
+                    ToSequenceNr = toSequenceNr;
+                }
+
+                public long ToSequenceNr { get; }
             }
-            _output.WriteLine(sw.ElapsedMilliseconds.ToString());
-            return pref;
-        }
 
+            public TestActor(string persistenceId)
+            {
+                PersistenceId = persistenceId;
+            }
+
+            public override string PersistenceId { get; }
+
+            protected override void OnRecover(object message)
+            {
+            }
+
+            protected override void OnCommand(object message)
+            {
+                switch (message) {
+                    case DeleteCommand delete:
+                        DeleteMessages(delete.ToSequenceNr);
+                        Sender.Tell($"{delete.ToSequenceNr}-deleted");
+                        break;
+                    case string cmd:
+                        var sender = Sender;
+                        Persist(cmd, e => sender.Tell($"{e}-done"));
+                        break;
+                }
+            }
+        }
     }
 
-    
+
 }

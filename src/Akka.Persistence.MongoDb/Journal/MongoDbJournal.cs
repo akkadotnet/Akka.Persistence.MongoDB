@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
 using Akka.Persistence.MongoDb.Query;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Journal
@@ -30,8 +31,11 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
-        private readonly ConcurrentDictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
-            = new ConcurrentDictionary<string, ISet<IActorRef>>();
+        private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers = 
+            new Dictionary<string, ISet<IActorRef>>();
+        private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
+            = new Dictionary<string, ISet<IActorRef>>();
+        private long _lastOrderingId;
 
         public MongoDbJournal()
         {
@@ -61,7 +65,15 @@ namespace Akka.Persistence.MongoDb.Journal
                             .Ascending(entry => entry.PersistenceId)
                             .Descending(entry => entry.SequenceNr))
                             .Wait();
+
+                    collection.Indexes.CreateOne(
+                        Builders<JournalEntry>.IndexKeys
+                        .Ascending(entry => entry.Ordering));
                 }
+
+                long lastId = collection.AsQueryable().OrderByDescending(je => je.Ordering)
+                    .Select(je => je.Ordering)
+                    .FirstOrDefault();
 
                 return collection;
             });
@@ -113,6 +125,46 @@ namespace Akka.Persistence.MongoDb.Journal
             });
         }
 
+        /// <summary>
+        /// Replays all events with given tag withing provided boundaries from current database.
+        /// </summary>
+        /// <param name="replay">TBD</param>
+        /// <returns>TBD</returns>
+        private async Task<long> ReplayTaggedMessagesAsync(ReplayTaggedMessages replay)
+        {
+            // Limit allows only integer
+            var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
+            var fromSequenceNr = replay.FromOffset;
+            var toSequenceNr = replay.ToOffset;
+            var tag = replay.Tag;
+
+            // Do not replay messages if limit equal zero
+            if (limitValue == 0) return 0;
+
+            var builder = Builders<JournalEntry>.Filter;
+            var filter = builder.AnyEq(x => x.Tags, tag);
+            if (fromSequenceNr > 0)
+                filter &= builder.Gt(x => x.Ordering, fromSequenceNr);
+            if (toSequenceNr != long.MaxValue)
+                filter &= builder.Lte(x => x.Ordering, toSequenceNr);
+
+            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
+
+            long maxOrderingId = 0;
+            await _journalCollection.Value
+                .Find(filter)
+                .Sort(sort)
+                .Limit(limitValue)
+                .ForEachAsync(entry => {
+                    var persistent = new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, ActorRefs.NoSender, null);
+                    foreach (var adapted in AdaptFromJournal(persistent))
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering), ActorRefs.NoSender);
+                    maxOrderingId = Math.Max(entry.Ordering, maxOrderingId);
+                });
+
+            return maxOrderingId;
+        }
+
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
             NotifyNewPersistenceIdAdded(persistenceId);
@@ -128,9 +180,10 @@ namespace Akka.Persistence.MongoDb.Journal
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
             var persistenceIds = new HashSet<string>();
+            var allTags = new HashSet<string>();
             var messageList = messages.ToList();
-            var writeTasks = messageList.Select(async message =>
-            {
+
+            var writeTasks = messageList.Select(async message => {
                 var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
@@ -148,8 +201,16 @@ namespace Akka.Persistence.MongoDb.Journal
                     tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
 
             // Notify subscribers
-            foreach (var persistenceId in persistenceIds) {
-                NotifyPersistenceIdChange(persistenceId);
+            if (HasPersistenceIdSubscribers) {
+                foreach (var persistenceId in persistenceIds) {
+                    NotifyPersistenceIdChange(persistenceId);
+                }
+            }
+
+            if (HasTagSubscribers && allTags.Count != 0) {
+                foreach (var tag in allTags) {
+                    NotifyTagChange(tag);
+                }
             }
 
             return result;
@@ -170,14 +231,19 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
-            return new JournalEntry
-            {
+            object payload = message.Payload;
+            if (message.Payload is Tagged tagged)
+                payload = tagged.Payload;
+
+            return new JournalEntry {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
+                Ordering = ++_lastOrderingId,
                 IsDeleted = message.IsDeleted,
-                Payload = message.Payload,
+                Payload = payload,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
-                Manifest = message.Manifest
+                Manifest = message.Manifest,
+                Tags = tagged.Tags?.ToList()
             };
         }
 
@@ -210,10 +276,10 @@ namespace Akka.Persistence.MongoDb.Journal
         protected override bool ReceivePluginInternal(object message)
         {
             return message.Match()
-                //.With<ReplayTaggedMessages>(replay => {
-                //    ReplayTaggedMessagesAsync(replay)
-                //    .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
-                //})
+                .With<ReplayTaggedMessages>(replay => {
+                    ReplayTaggedMessagesAsync(replay)
+                    .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
+                })
                 .With<SubscribePersistenceId>(subscribe => {
                     AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
                     Context.Watch(Sender);
@@ -222,10 +288,10 @@ namespace Akka.Persistence.MongoDb.Journal
                     AddAllPersistenceIdSubscriber(Sender);
                     Context.Watch(Sender);
                 })
-                //.With<SubscribeTag>(subscribe => {
-                //    AddTagSubscriber(Sender, subscribe.Tag);
-                //    Context.Watch(Sender);
-                //})
+                .With<SubscribeTag>(subscribe => {
+                    AddTagSubscriber(Sender, subscribe.Tag);
+                    Context.Watch(Sender);
+                })
                 .With<Terminated>(terminated => RemoveSubscriber(terminated.ActorRef))
                 .WasHandled;
         }
@@ -236,6 +302,16 @@ namespace Akka.Persistence.MongoDb.Journal
                 _allPersistenceIdSubscribers.Add(subscriber);
             }
             subscriber.Tell(new CurrentPersistenceIds(GetAllPersistenceIds()));
+        }
+
+        private void AddTagSubscriber(IActorRef subscriber, string tag)
+        {
+            if (!_tagSubscribers.TryGetValue(tag, out var subscriptions)) {
+                subscriptions = new HashSet<IActorRef>();
+                _tagSubscribers.Add(tag, subscriptions);
+            }
+
+            subscriptions.Add(subscriber);
         }
 
         private IEnumerable<string> GetAllPersistenceIds()
@@ -250,7 +326,7 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions)) {
                 subscriptions = new HashSet<IActorRef>();
-                _persistenceIdSubscribers.TryAdd(persistenceId, subscriptions);
+                _persistenceIdSubscribers.Add(persistenceId, subscriptions);
             }
 
             subscriptions.Add(subscriber);
@@ -270,6 +346,8 @@ namespace Akka.Persistence.MongoDb.Journal
         }
 
         protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
+        protected bool HasTagSubscribers => _tagSubscribers.Count != 0;
+        protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
 
         private void NotifyNewPersistenceIdAdded(string persistenceId)
         {
@@ -292,6 +370,15 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers)) {
                 var changed = new EventAppended(persistenceId);
+                foreach (var subscriber in subscribers)
+                    subscriber.Tell(changed);
+            }
+        }
+
+        private void NotifyTagChange(string tag)
+        {
+            if (_tagSubscribers.TryGetValue(tag, out var subscribers)) {
+                var changed = new TaggedEventAppended(tag);
                 foreach (var subscriber in subscribers)
                     subscriber.Tell(changed);
             }
