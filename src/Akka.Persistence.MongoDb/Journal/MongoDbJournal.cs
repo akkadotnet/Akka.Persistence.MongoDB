@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
 using Akka.Persistence.MongoDb.Query;
+using Akka.Streams;
+using Akka.Streams.Dsl;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -35,7 +37,6 @@ namespace Akka.Persistence.MongoDb.Journal
             new Dictionary<string, ISet<IActorRef>>();
         private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
             = new Dictionary<string, ISet<IActorRef>>();
-        private long _lastOrderingId;
 
         public MongoDbJournal()
         {
@@ -70,10 +71,6 @@ namespace Akka.Persistence.MongoDb.Journal
                         Builders<JournalEntry>.IndexKeys
                         .Ascending(entry => entry.Ordering));
                 }
-
-                long lastId = collection.AsQueryable().OrderByDescending(je => je.Ordering)
-                    .Select(je => je.Ordering)
-                    .FirstOrDefault();
 
                 return collection;
             });
@@ -144,9 +141,9 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                filter &= builder.Gt(x => x.Ordering, fromSequenceNr);
+                filter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                filter &= builder.Lte(x => x.Ordering, toSequenceNr);
+                filter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
 
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
@@ -158,8 +155,8 @@ namespace Akka.Persistence.MongoDb.Journal
                 .ForEachAsync(entry => {
                     var persistent = new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, ActorRefs.NoSender, null);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering), ActorRefs.NoSender);
-                    maxOrderingId = Math.Max(entry.Ordering, maxOrderingId);
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), ActorRefs.NoSender);
+                    maxOrderingId = entry.Ordering.Value;
                 });
 
             return maxOrderingId;
@@ -179,7 +176,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
-            var persistenceIds = new HashSet<string>();
             var allTags = new HashSet<string>();
             var messageList = messages.ToList();
 
@@ -189,7 +185,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
                 await _journalCollection.Value.InsertManyAsync(journalEntries);
 
-                persistenceIds.Add(message.PersistenceId);
                 NotifyNewPersistenceIdAdded(message.PersistenceId);
             });
 
@@ -199,13 +194,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Factory
                 .ContinueWhenAll(writeTasks.ToArray(),
                     tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
-
-            // Notify subscribers
-            if (HasPersistenceIdSubscribers) {
-                foreach (var persistenceId in persistenceIds) {
-                    NotifyPersistenceIdChange(persistenceId);
-                }
-            }
 
             if (HasTagSubscribers && allTags.Count != 0) {
                 foreach (var tag in allTags) {
@@ -237,7 +225,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             return new JournalEntry {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
-                Ordering = ++_lastOrderingId,
+                Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = payload,
                 PersistenceId = message.PersistenceId,

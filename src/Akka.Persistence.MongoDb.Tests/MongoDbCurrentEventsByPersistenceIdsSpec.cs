@@ -53,6 +53,7 @@ namespace Akka.Persistence.MongoDb.Tests
                     query {
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Query.MongoDbReadJournalProvider, Akka.Persistence.MongoDb""
+                            refresh-interval = 1s
                         }
                     }
                 }";
