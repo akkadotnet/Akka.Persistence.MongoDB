@@ -8,6 +8,8 @@
 using System;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
+using Akka.Serialization;
+using Akka.Util;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Snapshot
@@ -18,11 +20,38 @@ namespace Akka.Persistence.MongoDb.Snapshot
     public class MongoDbSnapshotStore : SnapshotStore
     {
         private readonly MongoDbSnapshotSettings _settings;
+
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
+
+        private readonly Func<object, SerializationResult> _serialize;
+        private readonly Func<Type, object, string, int?, object> _deserialize;
 
         public MongoDbSnapshotStore()
         {
             _settings = MongoDbPersistence.Get(Context.System).SnapshotStoreSettings;
+
+            var serialization = Context.System.Serialization;
+            switch (_settings.StoredAs)
+            {
+                case StoredAsType.Binary:
+                    _serialize = o =>
+                    {
+                        var serializer = serialization.FindSerializerFor(o);
+                        return new SerializationResult(serializer.ToBinary(o), serializer);
+                    };
+                    _deserialize = (type, serialized, manifest, serializerId) =>
+                    {
+                        if (serializerId.HasValue)
+                            return serialization.Deserialize((byte[]) serialized, serializerId.Value, manifest);
+                        var deserializer = serialization.FindSerializerForType(type);
+                        return deserializer.FromBinary((byte[]) serialized, type);
+                    };
+                    break;
+                default:
+                    _serialize = o => new SerializationResult(o, null);
+                    _deserialize = (type, serialized, manifest, serializerId) => serialized;
+                    break;
+            }
         }
 
         protected override void PreStart()
@@ -117,21 +146,43 @@ namespace Akka.Persistence.MongoDb.Snapshot
             return filter;
         }
 
-        private static SnapshotEntry ToSnapshotEntry(SnapshotMetadata metadata, object snapshot)
+        private SnapshotEntry ToSnapshotEntry(SnapshotMetadata metadata, object snapshot)
         {
+            var serializationResult = _serialize(snapshot);
+            var serializer = serializationResult.Serializer;
+            var hasSerializer = serializer != null;
+
+            var manifest = "";
+            if (hasSerializer && serializer is SerializerWithStringManifest)
+                manifest = ((SerializerWithStringManifest)serializer).Manifest(snapshot);
+            else if (hasSerializer && serializer.IncludeManifest)
+                manifest = snapshot.GetType().TypeQualifiedName();
+            else
+                manifest = snapshot.GetType().TypeQualifiedName();
+
             return new SnapshotEntry
             {
                 Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
                 PersistenceId = metadata.PersistenceId,
                 SequenceNr = metadata.SequenceNr,
-                Snapshot = snapshot,
-                Timestamp = metadata.Timestamp.Ticks
+                Snapshot = serializationResult.Payload,
+                Timestamp = metadata.Timestamp.Ticks,
+                Manifest = manifest,
+                SerializerId = serializer?.Identifier
             };
         }
 
-        private static SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
+        private SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
         {
-            return new SelectedSnapshot(new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), entry.Snapshot);
+            Type type = null;
+
+            if (!string.IsNullOrEmpty(entry.Manifest))
+                type = Type.GetType(entry.Manifest, throwOnError: true);
+
+            var snapshot = _deserialize(type, entry.Snapshot, entry.Manifest, entry.SerializerId);
+
+            return new SelectedSnapshot(
+                new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), snapshot);
         }
     }
 }

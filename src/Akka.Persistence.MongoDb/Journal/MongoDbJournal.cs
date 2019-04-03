@@ -12,6 +12,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
+using Akka.Serialization;
+using Akka.Util;
 using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Journal
@@ -22,13 +24,43 @@ namespace Akka.Persistence.MongoDb.Journal
     public class MongoDbJournal : AsyncWriteJournal
     {
         private readonly MongoDbJournalSettings _settings;
+
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
 
+        private readonly Func<IPersistentRepresentation, SerializationResult> _serialize;
+        private readonly Func<Type, object, string, int?, object> _deserialize;
+
         public MongoDbJournal()
         {
             _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
+
+            var serialization = Context.System.Serialization;
+            switch (_settings.StoredAs)
+            {
+                case StoredAsType.Binary:
+                    _serialize = representation =>
+                    {
+                        var serializer = serialization.FindSerializerFor(representation.Payload);
+                        return new SerializationResult(serializer.ToBinary(representation.Payload), serializer);
+                    };
+                    _deserialize = (type, serialized, manifest, serializerId) =>
+                    {
+                        if (serializerId.HasValue)
+                        {
+                            return serialization.Deserialize((byte[]) serialized, serializerId.Value, manifest);
+                        }
+
+                        var deserializer = serialization.FindSerializerForType(type);
+                        return deserializer.FromBinary((byte[])serialized, type);
+                    };
+                    break;
+                default:
+                    _serialize = representation => new SerializationResult(representation.Payload, null);
+                    _deserialize = (type, serialized, manifest, serializerId) => serialized;
+                    break;
+            }
         }
 
         protected override void PreStart()
@@ -147,20 +179,44 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
+            var serializationResult = _serialize(message);
+            var serializer = serializationResult.Serializer;
+            var hasSerializer = serializer != null;
+
+            var manifest = "";
+            if (hasSerializer && serializer is SerializerWithStringManifest)
+                manifest = ((SerializerWithStringManifest)serializer).Manifest(message.Payload);
+            else if (hasSerializer && serializer.IncludeManifest)
+                manifest = message.GetType().TypeQualifiedName();
+            else
+                manifest = string.IsNullOrEmpty(message.Manifest)
+                    ? message.GetType().TypeQualifiedName()
+                    : message.Manifest;
+
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 IsDeleted = message.IsDeleted,
-                Payload = message.Payload,
+                Payload = serializationResult.Payload,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
-                Manifest = message.Manifest
+                Manifest = manifest,
+                SerializerId = serializer?.Identifier
             };
         }
 
         private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
         {
-            return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+            int? serializerId = null;
+            Type type = null;
+            if (!entry.SerializerId.HasValue)
+                type = Type.GetType(entry.Manifest, true);
+            else
+                serializerId = entry.SerializerId;
+
+            var deserialized = _deserialize(type, entry.Payload, entry.Manifest, serializerId);
+
+            return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
         }
 
         private async Task SetHighSequenceId(IList<AtomicWrite> messages)

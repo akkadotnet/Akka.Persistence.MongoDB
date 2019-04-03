@@ -13,7 +13,7 @@ namespace Akka.Persistence.MongoDb.Journal
     /// Class used for storing intermediate result of the <see cref="IPersistentRepresentation"/>
     /// as BsonDocument into the MongoDB-Collection
     /// </summary>
-    public class JournalEntry 
+    public class JournalEntry
     {
         [BsonId]
         public string Id { get; set; }
@@ -32,5 +32,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         [BsonElement("Manifest")]
         public string Manifest { get; set; }
+
+        [BsonElement("SerializerId")]
+        public int? SerializerId { get; set; }
     }
 }

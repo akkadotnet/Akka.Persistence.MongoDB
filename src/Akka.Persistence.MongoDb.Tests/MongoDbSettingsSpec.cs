@@ -22,6 +22,7 @@ namespace Akka.Persistence.MongoDb.Tests
             mongoPersistence.JournalSettings.AutoInitialize.Should().BeFalse();
             mongoPersistence.JournalSettings.Collection.Should().Be("EventJournal");
             mongoPersistence.JournalSettings.MetadataCollection.Should().Be("Metadata");
+            mongoPersistence.JournalSettings.StoredAs.Should().BeOfType<StoredAsType>();
         }
 
         [Fact]
@@ -32,6 +33,7 @@ namespace Akka.Persistence.MongoDb.Tests
             mongoPersistence.SnapshotStoreSettings.ConnectionString.Should().Be(string.Empty);
             mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeFalse();
             mongoPersistence.SnapshotStoreSettings.Collection.Should().Be("SnapshotStore");
+            mongoPersistence.SnapshotStoreSettings.StoredAs.Should().BeOfType<StoredAsType>();
         }
     }
 }
