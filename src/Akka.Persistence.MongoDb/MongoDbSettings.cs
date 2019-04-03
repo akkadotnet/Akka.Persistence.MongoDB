@@ -10,6 +10,12 @@ using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb
 {
+    public enum StoredAsType
+    {
+        Object,
+        Binary
+    }
+
     /// <summary>
     /// Settings for the MongoDB persistence implementation, parsed from HOCON configuration.
     /// </summary>
@@ -30,14 +36,23 @@ namespace Akka.Persistence.MongoDb
         /// </summary>
         public string Collection { get; private set; }
 
+        /// <summary>
+        /// Specifies data type for payload column.
+        /// </summary>
+        public StoredAsType StoredAs { get; private set; }
+
         protected MongoDbSettings(Config config)
         {
             ConnectionString = config.GetString("connection-string");
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
+
+            StoredAs = StoredAsType.Object;
+
+            if (Enum.TryParse(config.GetString("stored-as"), true, out StoredAsType storedAs))
+                StoredAs = storedAs;
         }
     }
-
 
     /// <summary>
     /// Settings for the MongoDB journal implementation, parsed from HOCON configuration.
@@ -55,7 +70,6 @@ namespace Akka.Persistence.MongoDb
             MetadataCollection = config.GetString("metadata-collection");
         }
     }
-
 
     /// <summary>
     /// Settings for the MongoDB snapshot implementation, parsed from HOCON configuration.

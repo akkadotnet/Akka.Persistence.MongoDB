@@ -28,5 +28,11 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         [BsonElement("Snapshot")]
         public object Snapshot { get; set; }
+
+        [BsonElement("Manifest")]
+        public string Manifest { get; set; }
+
+        [BsonElement("SerializerId")]
+        public int? SerializerId { get; set; }
     }
 }
