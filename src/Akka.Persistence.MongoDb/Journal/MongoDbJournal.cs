@@ -279,7 +279,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
                 Manifest = message.Manifest,
-                Tags = tagged.Tags?.ToList()
+                Tags = tagged.Tags?.ToList(),
                 SerializerId = serializer?.Identifier
             };
         }
