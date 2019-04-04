@@ -261,8 +261,8 @@ namespace Akka.Persistence.MongoDb.Journal
             var hasSerializer = serializer != null;
 
             var manifest = "";
-            if (hasSerializer && serializer is SerializerWithStringManifest)
-                manifest = ((SerializerWithStringManifest)serializer).Manifest(message.Payload);
+            if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
+                manifest = stringManifest.Manifest(message.Payload);
             else if (hasSerializer && serializer.IncludeManifest)
                 manifest = message.GetType().TypeQualifiedName();
             else
@@ -275,7 +275,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
-                Payload = payload,
+                Payload = serializationResult,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
                 Manifest = message.Manifest,
