@@ -41,7 +41,7 @@ namespace Akka.Persistence.MongoDb.Journal
         private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
             = new Dictionary<string, ISet<IActorRef>>();
 
-        private readonly Func<IPersistentRepresentation, SerializationResult> _serialize;
+        private readonly Func<object, SerializationResult> _serialize;
         private readonly Func<Type, object, string, int?, object> _deserialize;
 
 
@@ -55,8 +55,8 @@ namespace Akka.Persistence.MongoDb.Journal
                 case StoredAsType.Binary:
                     _serialize = representation =>
                     {
-                        var serializer = serialization.FindSerializerFor(representation.Payload);
-                        return new SerializationResult(serializer.ToBinary(representation.Payload), serializer);
+                        var serializer = serialization.FindSerializerFor(representation);
+                        return new SerializationResult(serializer.ToBinary(representation), serializer);
                     };
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
@@ -70,7 +70,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     };
                     break;
                 default:
-                    _serialize = representation => new SerializationResult(representation.Payload, null);
+                    _serialize = representation => new SerializationResult(representation, null);
                     _deserialize = (type, serialized, manifest, serializerId) => serialized;
                     break;
             }
@@ -256,7 +256,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (message.Payload is Tagged tagged)
                 payload = tagged.Payload;
 
-            var serializationResult = _serialize(message);
+            var serializationResult = _serialize(payload);
             var serializer = serializationResult.Serializer;
             var hasSerializer = serializer != null;
 
