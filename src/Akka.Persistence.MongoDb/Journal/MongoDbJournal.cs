@@ -275,10 +275,10 @@ namespace Akka.Persistence.MongoDb.Journal
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
-                Payload = serializationResult,
+                Payload = serializationResult.Payload,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
-                Manifest = message.Manifest,
+                Manifest = manifest,
                 Tags = tagged.Tags?.ToList(),
                 SerializerId = serializer?.Identifier
             };
@@ -314,10 +314,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
         }
-
-
-
-
 
         protected override bool ReceivePluginInternal(object message)
         {
