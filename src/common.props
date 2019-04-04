@@ -14,5 +14,6 @@
   <PropertyGroup>
     <XunitVersion>2.3.1</XunitVersion>
     <TestSdkVersion>15.3.0</TestSdkVersion>
+    <AkkaVersion>1.3.12</AkkaVersion>
   </PropertyGroup>
 </Project>
