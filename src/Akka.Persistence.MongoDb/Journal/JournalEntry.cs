@@ -5,7 +5,9 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -13,7 +15,7 @@ namespace Akka.Persistence.MongoDb.Journal
     /// Class used for storing intermediate result of the <see cref="IPersistentRepresentation"/>
     /// as BsonDocument into the MongoDB-Collection
     /// </summary>
-    public class JournalEntry 
+    public class JournalEntry
     {
         [BsonId]
         public string Id { get; set; }
@@ -32,5 +34,14 @@ namespace Akka.Persistence.MongoDb.Journal
 
         [BsonElement("Manifest")]
         public string Manifest { get; set; }
+
+        [BsonElement("Ordering")]
+        public BsonTimestamp Ordering { get; set; }
+
+        [BsonElement("Tags")]
+        public ICollection<string> Tags { get; set; } = new HashSet<string>();
+      
+        [BsonElement("SerializerId")]
+        public int? SerializerId { get; set; }
     }
 }
