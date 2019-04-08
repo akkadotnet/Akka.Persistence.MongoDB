@@ -42,7 +42,17 @@ namespace Akka.Persistence.MongoDb.Snapshot
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
                         if (serializerId.HasValue)
-                            return serialization.Deserialize((byte[]) serialized, serializerId.Value, manifest);
+                        {
+                            /*
+                             * Backwards compat: check to see if manifest is populated before using it.
+                             * Otherwise, fall back to using the stored type data instead.
+                             * Per: https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/issues/57
+                             */
+                            if (string.IsNullOrEmpty(manifest))
+                                return serialization.Deserialize((byte[])serialized, serializerId.Value, type);
+                            return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
+                        }
+
                         var deserializer = serialization.FindSerializerForType(type);
                         return deserializer.FromBinary((byte[]) serialized, type);
                     };
