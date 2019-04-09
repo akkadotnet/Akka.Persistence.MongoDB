@@ -295,7 +295,7 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             int? serializerId = null;
             Type type = null;
-            if (!entry.SerializerId.HasValue)
+            if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
                 type = Type.GetType(entry.Manifest, true);
             else
                 serializerId = entry.SerializerId;
