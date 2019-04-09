@@ -62,7 +62,14 @@ namespace Akka.Persistence.MongoDb.Journal
                     {
                         if (serializerId.HasValue)
                         {
-                            return serialization.Deserialize((byte[]) serialized, serializerId.Value, manifest);
+                            /*
+                             * Backwards compat: check to see if manifest is populated before using it.
+                             * Otherwise, fall back to using the stored type data instead.
+                             * Per: https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/issues/57
+                             */
+                            if (string.IsNullOrEmpty(manifest)) 
+                                return serialization.Deserialize((byte[]) serialized, serializerId.Value, type);
+                            return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
                         }
 
                         var deserializer = serialization.FindSerializerForType(type);
@@ -288,7 +295,7 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             int? serializerId = null;
             Type type = null;
-            if (!entry.SerializerId.HasValue)
+            if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
                 type = Type.GetType(entry.Manifest, true);
             else
                 serializerId = entry.SerializerId;
