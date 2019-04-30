@@ -1,3 +1,9 @@
+#### 1.3.12 April 05 2019 ####
+Support for Akka.Persistence 1.3.12.
+Added support for Akka.Persistence.Query.
+Upgraded to MongoDb v2.7.0 driver (2.8.0 doesn't support .NET 4.5)
+Added support for configurable, binary serialization via Akka.NET.
+
 
 #### 1.3.5 March 23 2018 ####
 Support for Akka.Persistence 1.3.5.
