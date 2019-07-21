@@ -1,3 +1,7 @@
+#### 1.4.0-beta1 July 07 2019 ####
+
+Update Akka.Persistence version to 1.4.0-beta1. Akka.Cluster.Sharding's default "persistent" mode has been stabilized and errors that users have ran into during `ShardCoordinator` recovery, such as [Exception in PersistentShardCoordinator ReceiveRecover](https://github.com/akkadotnet/akka.net/issues/3414) 
+
 #### 1.3.12 April 05 2019 ####
 Support for Akka.Persistence 1.3.12.
 Added support for Akka.Persistence.Query.

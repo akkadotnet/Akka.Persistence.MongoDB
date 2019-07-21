@@ -79,7 +79,7 @@ namespace Akka.Persistence.MongoDb.Tests
         //}
 
 
-        internal class TestActor : UntypedPersistentActor
+        internal new class TestActor : UntypedPersistentActor
         {
             public static Props Props(string persistenceId) => Actor.Props.Create(() => new TestActor(persistenceId));
 
