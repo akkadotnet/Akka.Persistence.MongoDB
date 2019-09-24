@@ -50,19 +50,13 @@ namespace Akka.Persistence.MongoDb.Journal
             _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
 
             var serialization = Context.System.Serialization;
-            // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
-            // Everything will be stored in binary as protobuf envelopes, end of story.
             switch (_settings.StoredAs)
             {
                 case StoredAsType.Binary:
                     _serialize = representation =>
                     {
                         var serializer = serialization.FindSerializerFor(representation);
-                        var binary = Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
-                        {
-                            return serializer.ToBinary(representation);
-                        });
-                        return new SerializationResult(binary, serializer);
+                        return new SerializationResult(serializer.ToBinary(representation), serializer);
                     };
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
@@ -73,18 +67,13 @@ namespace Akka.Persistence.MongoDb.Journal
                              * Otherwise, fall back to using the stored type data instead.
                              * Per: https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/issues/57
                              */
-                            // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
                             if (string.IsNullOrEmpty(manifest)) 
                                 return serialization.Deserialize((byte[]) serialized, serializerId.Value, type);
                             return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
                         }
 
-                        // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
                         var deserializer = serialization.FindSerializerForType(type);
-                        return Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
-                        {
-                            return deserializer.FromBinary((byte[])serialized, type);
-                        });
+                        return deserializer.FromBinary((byte[])serialized, type);
                     };
                     break;
                 default:
