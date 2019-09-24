@@ -2,8 +2,6 @@
 
 Akka Persistence journal and snapshot store backed by MongoDB database.
 
-**WARNING: Akka.Persistence.MongoDB plugin is still in beta and it's mechanics described bellow may be still subject to change**.
-
 ### Setup
 
 To activate the journal plugin, add the following lines to actor system configuration file:
