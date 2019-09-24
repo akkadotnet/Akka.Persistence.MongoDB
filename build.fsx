@@ -10,14 +10,19 @@ open Fake.DotNetCli
 open Fake.DocFxHelper
 
 // Information about the project for Nuget and Assembly info files
-let product = "Akka.Persistence.MongoDb"
+let product = "Akka.Persistence.MongoDB"
 let configuration = "Release"
+
+// Metadata used when signing packages and DLLs
+let signingName = "Akka.Persistence.MongoDB"
+let signingDescription = "Akka.Persistence support for SQL Server"
+let signingUrl = "https://github.com/akkadotnet/Akka.Persistence.MongoDB"
 
 // Read release notes and version
 let solutionFile = FindFirstMatchingFile "*.sln" __SOURCE_DIRECTORY__  // dynamically look up the solution
 let buildNumber = environVarOrDefault "BUILD_NUMBER" "0"
 let hasTeamCity = (not (buildNumber = "0")) // check if we have the TeamCity environment variable for build # set
-let preReleaseVersionSuffix = (if (not (buildNumber = "0")) then (buildNumber) else "") + "-beta"
+let preReleaseVersionSuffix = "beta" + (if (not (buildNumber = "0")) then (buildNumber) else DateTime.UtcNow.Ticks.ToString())
 let versionSuffix = 
     match (getBuildParam "nugetprerelease") with
     | "dev" -> preReleaseVersionSuffix
@@ -49,27 +54,14 @@ Target "AssemblyInfo" (fun _ ->
     XmlPokeInnerText "./src/common.props" "//Project/PropertyGroup/PackageReleaseNotes" (releaseNotes.Notes |> String.concat "\n")
 )
 
-Target "RestorePackages" (fun _ ->
-    DotNetCli.Restore
+Target "Build" (fun _ ->          
+    DotNetCli.Build
         (fun p -> 
             { p with
                 Project = solutionFile
-                NoCache = false })
+                Configuration = configuration }) // "Rebuild"  
 )
 
-Target "Build" (fun _ ->          
-    let runSingleProject project =
-        DotNetCli.Build
-            (fun p -> 
-                { p with
-                    Project = project
-                    Configuration = configuration 
-                    AdditionalArgs = ["--no-incremental"]}) // "Rebuild"  
-
-    let assemblies = !! "./src/**/*.csproj" 
-     
-    assemblies |> Seq.iter (runSingleProject)
-)
 
 //--------------------------------------------------------------------------------
 // Tests targets 
@@ -137,6 +129,7 @@ Target "NBench" <| fun _ ->
     
     projects |> Seq.iter runSingleProject
 
+
 //--------------------------------------------------------------------------------
 // Code signing targets
 //--------------------------------------------------------------------------------
@@ -203,7 +196,7 @@ Target "CreateNuget" (fun _ ->
                 { p with
                     Project = project
                     Configuration = configuration
-                    AdditionalArgs = ["--include-symbols"]
+                    AdditionalArgs = ["--include-symbols --no-build"]
                     VersionSuffix = overrideVersionSuffix project
                     OutputPath = outputNuGet })
 
@@ -254,6 +247,19 @@ Target "DocFx" (fun _ ->
 )
 
 //--------------------------------------------------------------------------------
+// Cleanup
+//--------------------------------------------------------------------------------
+
+FinalTarget "KillCreatedProcesses" (fun _ ->
+    log "Shutting down dotnet build-server"
+    let result = ExecProcess(fun info -> 
+            info.FileName <- "dotnet"
+            info.WorkingDirectory <- __SOURCE_DIRECTORY__
+            info.Arguments <- "build-server shutdown") (System.TimeSpan.FromMinutes 2.0)
+    if result <> 0 then failwithf "dotnet build-server shutdown failed"
+)
+
+//--------------------------------------------------------------------------------
 // Help 
 //--------------------------------------------------------------------------------
 
@@ -263,11 +269,12 @@ Target "Help" <| fun _ ->
       "./build.ps1 [target]"
       ""
       " Targets for building:"
-      " * Build      Builds"
-      " * Nuget      Create and optionally publish nugets packages"
-      " * RunTests   Runs tests"
-      " * All        Builds, run tests, creates and optionally publish nuget packages"
-      " * DocFx      Creates a DocFx-based website for this solution"
+      " * Build         Builds"
+      " * Nuget         Create and optionally publish nugets packages"
+      " * SignPackages  Signs all NuGet packages, provided that the following arguments are passed into the script: SignClientSecret={secret} and SignClientUser={username}"
+      " * RunTests      Runs tests"
+      " * All           Builds, run tests, creates and optionally publish nuget packages"
+      " * DocFx         Creates a DocFx-based website for this solution"
       ""
       " Other Targets"
       " * Help       Display this help" 
@@ -282,21 +289,22 @@ Target "All" DoNothing
 Target "Nuget" DoNothing
 
 // build dependencies
-"Clean" ==> "RestorePackages" ==> "AssemblyInfo" ==> "Build" ==> "BuildRelease"
+"Clean" ==> "AssemblyInfo" ==> "Build" ==> "BuildRelease"
 
 // tests dependencies
+"Build" ==> "RunTests"
 
 // nuget dependencies
-"Clean" ==> "RestorePackages" ==> "Build" ==> "CreateNuget"
-"CreateNuget" ==> "PublishNuget" ==> "Nuget"
+"Clean" ==> "Build" ==> "CreateNuget"
+"CreateNuget" ==> "SignPackages" ==> "PublishNuget" ==> "Nuget"
 
 // docs
-"BuildRelease" ==> "Docfx"
+"Clean" ==> "BuildRelease" ==> "Docfx"
 
 // all
 "BuildRelease" ==> "All"
 "RunTests" ==> "All"
-//"NBench" ==> "All"
+"NBench" ==> "All"
 "Nuget" ==> "All"
 
 RunTargetOrDefault "Help"
