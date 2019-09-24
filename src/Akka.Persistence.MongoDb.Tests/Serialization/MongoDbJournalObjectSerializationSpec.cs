@@ -7,13 +7,13 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests.Serialization
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalBinarySerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbJournalObjectSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
-        public MongoDbJournalBinarySerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalBinarySerializationSpec), output)
+        public MongoDbJournalObjectSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalObjectSerializationSpec), output)
         {
             _output = output;
             output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
@@ -32,7 +32,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                             connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
-                            stored-as = binary
+                            stored-as = object
                         }
                     }
                 }";
