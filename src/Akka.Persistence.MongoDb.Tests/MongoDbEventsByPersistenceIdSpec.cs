@@ -109,61 +109,6 @@ namespace Akka.Persistence.MongoDb.Tests
                 ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
             }
 
-            private async Task<IReadOnlyList<(string persistentId, IActorRef actor)>> BigSetup(int numberOfPersistentActors, int numberOfEvents)
-            {
-                return await Source.From(Enumerable.Range(0, numberOfPersistentActors))
-                    .Select(x => (x.ToString(), Sys.ActorOf(QueryTestActor.Props(x.ToString()))))
-                    .SelectAsync(10, async x =>
-                    {
-                        var id = x.Item1;
-                        var actor = x.Item2;
-                        var tasks = new List<Task<string>>();
-                        var expectedResponses = new HashSet<string>();
-                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-                        foreach (var i in Enumerable.Range(0, numberOfEvents))
-                        {
-                            tasks.Add(actor.Ask<string>(id + $"-{i}", cts.Token));
-                            expectedResponses.Add(id + $"-{i}-done");
-                        }
-
-                        var results = await Task.WhenAll(tasks);
-                        Assert.True(expectedResponses.SetEquals(results));
-                        return (id, actor);
-                    })
-                    .RunWith(Sink.Seq<(string persistentId, IActorRef actor)>(), Materializer);
-            }
-
-            [Theory]
-            [InlineData(10, 50)]
-            public async Task Bugfix76_EventsByPersistenceIdPublisher_stuck_during_replay(int persistentActors, int eventsPerActor)
-            {
-                var queries = ReadJournal.AsInstanceOf<ICurrentEventsByPersistenceIdQuery>();
-                var pref = await BigSetup(persistentActors, eventsPerActor); // 50 actors, 50 events each
-
-                Within(TimeSpan.FromSeconds(persistentActors / 2), () =>
-                {
-                    // launch all queries simultaneously
-                    EventFilter.Debug(contains: "replay failed for persistenceId").Expect(0, async () =>
-                    {
-                        // start all queries at the same time
-                        var qs = pref.Select(x =>
-                        {
-                            var q = queries.CurrentEventsByPersistenceId(x.persistentId, 0L, long.MaxValue)
-                                .RunWith(Sink.Seq<EventEnvelope>(), Materializer);
-
-                            return (x.persistentId, q);
-                        });
-
-                        var results = await Task.WhenAll(qs.Select(x => x.q));
-
-                        foreach(var r in results)
-                        {
-                            var id = r.First().PersistenceId;
-                            r.Count.Should().Be(eventsPerActor, $"Expected persistent entity [{id}] to recover [{eventsPerActor}] events");
-                        }
-                    });
-                });
-            }
 
             private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
             {
