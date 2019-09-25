@@ -22,11 +22,12 @@ namespace Akka.Persistence.MongoDb.Tests
         public IReadJournal ReadJournal { get; }
         public ActorMaterializer Materializer => Sys.Materializer();
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
-
+        private readonly ITestOutputHelper _helper;
         public BugFix76Spec(ITestOutputHelper helper, DatabaseFixture fixture)
             : base(CreateSpecConfig(fixture, Counter.Current), output: helper)
         {
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
+            _helper = helper;
         }
 
         private async Task<IReadOnlyList<(string persistentId, IActorRef actor)>> BigSetup(int numberOfPersistentActors, int numberOfEvents)
@@ -53,11 +54,10 @@ namespace Akka.Persistence.MongoDb.Tests
                 .RunWith(Sink.Seq<(string persistentId, IActorRef actor)>(), Materializer);
         }
 
-        [Fact]
-        public async Task Bugfix76_EventsByPersistenceIdPublisher_stuck_during_replay()
+        [Theory]
+        [InlineData(500,50)]
+        public async Task Bugfix76_EventsByPersistenceIdPublisher_stuck_during_replay(int persistentActors, int eventsPerActor)
         {
-            int persistentActors = 50;
-            int eventsPerActor = 50;
             var queries = ReadJournal.AsInstanceOf<ICurrentEventsByPersistenceIdQuery>();
             var pref = await BigSetup(persistentActors, eventsPerActor); // 50 actors, 50 events each
 
@@ -82,8 +82,12 @@ namespace Akka.Persistence.MongoDb.Tests
                         var id = r.First().PersistenceId;
                         r.Count.Should().Be(eventsPerActor, $"Expected persistent entity [{id}] to recover [{eventsPerActor}] events");
                     }
+
+                    Sys.Log.Info("Processed {0} events across {1} entities", results.Sum(x => x.Count), results.Length);
                 });
             });
+
+            
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
