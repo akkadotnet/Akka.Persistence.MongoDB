@@ -17,6 +17,7 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
+    [Collection("MongoDbSpec")]
     public class BugFix76Spec : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
     {
         public IReadJournal ReadJournal { get; }
