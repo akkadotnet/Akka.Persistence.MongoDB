@@ -193,9 +193,10 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Sort(sort)
                 .Limit(limitValue)
                 .ForEachAsync(entry => {
-                    var persistent = new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, ActorRefs.NoSender, null);
+                    var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), ActorRefs.NoSender);
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), 
+                            ActorRefs.NoSender);
                     maxOrderingId = entry.Ordering.Value;
                 });
 
