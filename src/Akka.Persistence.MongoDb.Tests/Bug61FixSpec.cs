@@ -53,15 +53,23 @@ namespace Akka.Persistence.MongoDb.Tests
         [Fact]
         public async Task Bug61_Events_Recovered_By_Id_Should_Match_Tag()
         {
-            var x = Sys.ActorOf(TagActor.Props("x"));
+            var actor = Sys.ActorOf(TagActor.Props("x"));
 
-            x.Tell(MessageCount);
+            actor.Tell(MessageCount);
             ExpectMsg($"{MessageCount}-done", TimeSpan.FromSeconds(20));
 
             var eventsById = await ReadJournal.CurrentEventsByPersistenceId("x", 0L, long.MaxValue)
                 .RunAggregate(ImmutableHashSet<EventEnvelope>.Empty, (agg, e) => agg.Add(e), Materializer);
 
-            eventsById.Count.Should().Be(20);
+            eventsById.Count.Should().Be(MessageCount);
+
+            var eventsByTag = await ReadJournal.CurrentEventsByTag(typeof(RealMsg).Name)
+                .RunAggregate(ImmutableHashSet<EventEnvelope>.Empty, (agg, e) => agg.Add(e), Materializer);
+
+            eventsByTag.Count.Should().Be(MessageCount);
+
+            eventsById.All(x => x.Event is RealMsg).Should().BeTrue("Expected all events by id to be RealMsg");
+            eventsByTag.All(x => x.Event is RealMsg).Should().BeTrue("Expected all events by tag to be RealMsg");
         }
 
         private class TagActor : ReceivePersistentActor
