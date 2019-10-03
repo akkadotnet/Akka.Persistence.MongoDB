@@ -129,9 +129,13 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<MetadataEntry>.IndexKeys
-                            .Ascending(entry => entry.PersistenceId))
+                    var modelWithAscendingPersistenceId = new CreateIndexModel<MetadataEntry>(
+                        Builders<MetadataEntry>
+                            .IndexKeys
+                            .Ascending(entry => entry.PersistenceId));
+
+                    collection.Indexes
+                        .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken:CancellationToken.None)
                             .Wait();
                 }
 
