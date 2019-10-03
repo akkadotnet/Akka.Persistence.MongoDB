@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
@@ -101,15 +102,22 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<JournalEntry>.IndexKeys
-                            .Ascending(entry => entry.PersistenceId)
-                            .Descending(entry => entry.SequenceNr))
-                            .Wait();
+                    var modelForEntryAndSequenceNr = new CreateIndexModel<JournalEntry>(Builders<JournalEntry>
+                        .IndexKeys
+                        .Ascending(entry => entry.PersistenceId)
+                        .Descending(entry => entry.SequenceNr));
 
-                    collection.Indexes.CreateOne(
-                        Builders<JournalEntry>.IndexKeys
-                        .Ascending(entry => entry.Ordering));
+                    collection.Indexes
+                        .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken:CancellationToken.None)
+                        .Wait();
+
+                    var modelWithOrdering = new CreateIndexModel<JournalEntry>(
+                        Builders<JournalEntry>
+                            .IndexKeys
+                            .Ascending(entry => entry.Ordering));
+
+                    collection.Indexes
+                        .CreateOne(modelWithOrdering);
                 }
 
                 return collection;
@@ -121,9 +129,13 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<MetadataEntry>.IndexKeys
-                            .Ascending(entry => entry.PersistenceId))
+                    var modelWithAscendingPersistenceId = new CreateIndexModel<MetadataEntry>(
+                        Builders<MetadataEntry>
+                            .IndexKeys
+                            .Ascending(entry => entry.PersistenceId));
+
+                    collection.Indexes
+                        .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken:CancellationToken.None)
                             .Wait();
                 }
 
