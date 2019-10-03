@@ -72,6 +72,23 @@ namespace Akka.Persistence.MongoDb.Tests
             eventsByTag.All(x => x.Event is RealMsg).Should().BeTrue("Expected all events by tag to be RealMsg");
         }
 
+        /// <summary>
+        /// Reproduction spec for https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
+        /// </summary>
+        [Fact]
+        public void Bug80_CurrentEventsByTag_should_Recover_until_end()
+        {
+            var actor = Sys.ActorOf(TagActor.Props("y"));
+            var msgCount = 1200;
+            actor.Tell(msgCount);
+            ExpectMsg($"{msgCount}-done", TimeSpan.FromSeconds(20));
+
+            var eventsByTag = ReadJournal.CurrentEventsByTag(typeof(RealMsg).Name)
+                .RunForeach(e => TestActor.Tell(e), Materializer);
+
+            ReceiveN(msgCount);
+        }
+
         private class TagActor : ReceivePersistentActor
         {
             public static Props Props(string id)
