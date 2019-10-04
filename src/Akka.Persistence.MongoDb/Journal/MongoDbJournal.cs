@@ -376,25 +376,32 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override bool ReceivePluginInternal(object message)
         {
-            return message.Match()
-                .With<ReplayTaggedMessages>(replay => {
+            switch (message)
+            {
+                case ReplayTaggedMessages replay:
                     ReplayTaggedMessagesAsync(replay)
-                    .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
-                })
-                .With<SubscribePersistenceId>(subscribe => {
+                        .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
+                    break;
+                case SubscribePersistenceId subscribe:
                     AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
                     Context.Watch(Sender);
-                })
-                .With<SubscribeAllPersistenceIds>(subscribe => {
+                    break;
+                case SubscribeAllPersistenceIds subscribe:
                     AddAllPersistenceIdSubscriber(Sender);
                     Context.Watch(Sender);
-                })
-                .With<SubscribeTag>(subscribe => {
+                    break;
+                case SubscribeTag subscribe:
                     AddTagSubscriber(Sender, subscribe.Tag);
                     Context.Watch(Sender);
-                })
-                .With<Terminated>(terminated => RemoveSubscriber(terminated.ActorRef))
-                .WasHandled;
+                    break;
+                case Terminated terminated:
+                    RemoveSubscriber(terminated.ActorRef);
+                    break;
+                default:
+                    return false;
+            }
+
+            return true;
         }
 
         private void AddAllPersistenceIdSubscriber(IActorRef subscriber)
