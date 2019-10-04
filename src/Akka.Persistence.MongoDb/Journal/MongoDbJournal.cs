@@ -247,16 +247,29 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
-            var allTags = new HashSet<string>();
+            var allTags = ImmutableHashSet<string>.Empty;
+            var persistentIds = new HashSet<string>();
             var messageList = messages.ToList();
 
             var writeTasks = messageList.Select(async message => {
-                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
+                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload);
 
-                var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
+                if (HasTagSubscribers)
+                {
+                    foreach (var p in persistentMessages)
+                    {
+                        if (p.Payload is Tagged t)
+                        {
+                            allTags = allTags.Union(t.Tags);
+                        }
+                    }
+                }
+
+                var journalEntries = persistentMessages.Select(ToJournalEntry);
                 await _journalCollection.Value.InsertManyAsync(journalEntries);
 
-                NotifyNewPersistenceIdAdded(message.PersistenceId);
+                if (HasPersistenceIdSubscribers)
+                    persistentIds.Add(message.PersistenceId);
             });
 
             await SetHighSequenceId(messageList);
@@ -265,6 +278,14 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Factory
                 .ContinueWhenAll(writeTasks.ToArray(),
                     tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
+
+            if (HasPersistenceIdSubscribers)
+            {
+                foreach (var id in persistentIds)
+                {
+                    NotifyPersistenceIdChange(id);
+                }
+            }
 
             if (HasTagSubscribers && allTags.Count != 0) {
                 foreach (var tag in allTags) {
