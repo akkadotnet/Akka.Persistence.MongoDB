@@ -73,25 +73,42 @@ namespace Akka.Persistence.MongoDb.Query
 
         protected bool Init(object message)
         {
-            return message.Match()
-                .With<EventsByPersistenceIdPublisher.Continue>(() => { })
-                .With<Request>(_ => ReceiveInitialRequest())
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
+            switch (message)
+            {
+                case EventsByPersistenceIdPublisher.Continue _:
+                    // do nothing
+                    break;
+                case Request _:
+                    ReceiveInitialRequest();
+                    break;
+                case Cancel _:
+                    Context.Stop(Self);
+                    break;
+                default:
+                    return false;
+            }
+            return true;
         }
 
         protected bool Idle(object message)
         {
-            return message.Match()
-                .With<EventsByPersistenceIdPublisher.Continue>(() => {
+            switch (message)
+            {
+                case EventsByPersistenceIdPublisher.Continue _:
+                case EventAppended _:
                     if (IsTimeForReplay) Replay();
-                })
-                .With<EventAppended>(() => {
-                    if (IsTimeForReplay) Replay();
-                })
-                .With<Request>(_ => ReceiveIdleRequest())
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
+                    break;
+                case Request _:
+                    ReceiveIdleRequest();
+                    break;
+                case Cancel _:
+                    Context.Stop(Self);
+                    break;
+                default:
+                    return false;
+            }
+
+            return true;
         }
 
         protected void Replay()
@@ -104,31 +121,45 @@ namespace Akka.Persistence.MongoDb.Query
 
         protected Receive Replaying(int limit)
         {
-            return message => message.Match()
-                .With<ReplayedMessage>(replayed => {
-                    var seqNr = replayed.Persistent.SequenceNr;
-                    Buffer.Add(new EventEnvelope(
-                        offset: new Sequence(seqNr),
-                        persistenceId: PersistenceId,
-                        sequenceNr: seqNr,
-                        @event: replayed.Persistent.Payload));
-                    CurrentSequenceNr = seqNr + 1;
-                    Buffer.DeliverBuffer(TotalDemand);
-                })
-                .With<RecoverySuccess>(success => {
-                    Log.Debug("replay completed for persistenceId [{0}], currSeqNo [{1}]", PersistenceId, CurrentSequenceNr);
-                    ReceiveRecoverySuccess(success.HighestSequenceNr);
-                })
-                .With<ReplayMessagesFailure>(failure => {
-                    Log.Debug("replay failed for persistenceId [{0}], due to [{1}]", PersistenceId, failure.Cause.Message);
-                    Buffer.DeliverBuffer(TotalDemand);
-                    OnErrorThenStop(failure.Cause);
-                })
-                .With<Request>(_ => Buffer.DeliverBuffer(TotalDemand))
-                .With<EventsByPersistenceIdPublisher.Continue>(() => { }) // skip during replay
-                .With<EventAppended>(() => { }) // skip during replay
-                .With<Cancel>(_ => Context.Stop(Self))
-                .WasHandled;
+            return message =>
+            {
+                switch (message)
+                {
+                    case ReplayedMessage replayed:
+                        var seqNr = replayed.Persistent.SequenceNr;
+                        Buffer.Add(new EventEnvelope(
+                            offset: new Sequence(seqNr),
+                            persistenceId: PersistenceId,
+                            sequenceNr: seqNr,
+                            @event: replayed.Persistent.Payload));
+                        CurrentSequenceNr = seqNr + 1;
+                        Buffer.DeliverBuffer(TotalDemand);
+                        break;
+                    case RecoverySuccess success:
+                        Log.Debug("replay completed for persistenceId [{0}], currSeqNo [{1}]", PersistenceId, CurrentSequenceNr);
+                        ReceiveRecoverySuccess(success.HighestSequenceNr);
+                        break;
+                    case ReplayMessagesFailure failure:
+                        Log.Debug("replay failed for persistenceId [{0}], due to [{1}]", PersistenceId, failure.Cause.Message);
+                        Buffer.DeliverBuffer(TotalDemand);
+                        OnErrorThenStop(failure.Cause);
+                        break;
+                    case Request _:
+                        Buffer.DeliverBuffer(TotalDemand);
+                        break;
+                    case EventsByPersistenceIdPublisher.Continue _:
+                    case EventAppended _:
+                        // Skip during replay
+                        break;
+                    case Cancel _:
+                        Context.Stop(Self);
+                        break;
+                    default:
+                        return false;
+                }
+
+                return true;
+            };
         }
     }
 
