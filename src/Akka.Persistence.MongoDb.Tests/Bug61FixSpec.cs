@@ -89,6 +89,30 @@ namespace Akka.Persistence.MongoDb.Tests
             ReceiveN(msgCount);
         }
 
+        /// <summary>
+        /// Making sure EventsByTag didn't break during implementation of https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
+        /// </summary>
+        [Fact]
+        public void Bug80_AllEventsByTag_should_Recover_all_messages()
+        {
+            var actor = Sys.ActorOf(TagActor.Props("y"));
+            var msgCount = 1200;
+            actor.Tell(msgCount);
+            ExpectMsg($"{msgCount}-done", TimeSpan.FromSeconds(20));
+
+            var eventsByTag = ReadJournal.EventsByTag(typeof(RealMsg).Name)
+                .RunForeach(e => TestActor.Tell(e), Materializer);
+
+            // can't do this because Offset isn't IComparable
+            // ReceiveN(msgCount).Cast<EventEnvelope>().Select(x => x.Offset).Should().BeInAscendingOrder();
+            ReceiveN(msgCount);
+
+            // should receive more messages after the fact
+            actor.Tell(msgCount);
+            ExpectMsg($"{msgCount}-done", TimeSpan.FromSeconds(20));
+            ReceiveN(msgCount);
+        }
+        
         private class TagActor : ReceivePersistentActor
         {
             public static Props Props(string id)
