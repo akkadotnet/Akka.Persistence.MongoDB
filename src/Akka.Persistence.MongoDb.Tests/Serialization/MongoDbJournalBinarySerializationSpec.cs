@@ -33,6 +33,12 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                             auto-initialize = on
                             collection = ""EventJournal""
                             stored-as = binary
+                            event-adapters {
+                                custom-adapter = ""Akka.Persistence.TCK.Serialization.TestJournal+MyWriteAdapter, Akka.Persistence.TCK""
+                            }
+                            event-adapter-bindings = {
+                                ""Akka.Persistence.TCK.Serialization.TestJournal+MyPayload3, Akka.Persistence.TCK"" = custom-adapter
+                            }
                         }
                     }
                 }";
