@@ -42,29 +42,20 @@ namespace Akka.Persistence.MongoDb.Journal
         private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
             = new Dictionary<string, ISet<IActorRef>>();
 
-        private readonly Func<object, SerializationResult> _serialize;
         private readonly Func<Type, object, string, int?, object> _deserialize;
 
+        private Akka.Serialization.Serialization _serialization;
 
         public MongoDbJournal()
         {
             _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
 
-            var serialization = Context.System.Serialization;
+            _serialization = Context.System.Serialization;
             // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
             // Everything will be stored in binary as protobuf envelopes, end of story.
             switch (_settings.StoredAs)
             {
                 case StoredAsType.Binary:
-                    _serialize = representation =>
-                    {
-                        var serializer = serialization.FindSerializerFor(representation);
-                        var binary = Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
-                        {
-                            return serializer.ToBinary(representation);
-                        });
-                        return new SerializationResult(binary, serializer);
-                    };
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
                         if (serializerId.HasValue)
@@ -76,20 +67,19 @@ namespace Akka.Persistence.MongoDb.Journal
                              */
                             // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
                             if (string.IsNullOrEmpty(manifest)) 
-                                return serialization.Deserialize((byte[]) serialized, serializerId.Value, type);
-                            return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
+                                return _serialization.Deserialize((byte[]) serialized, serializerId.Value, type);
+                            return _serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
                         }
 
                         // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
-                        var deserializer = serialization.FindSerializerForType(type);
-                        return Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
+                        var deserializer = _serialization.FindSerializerForType(type);
+                        return Akka.Serialization.Serialization.WithTransport(_serialization.System, () =>
                         {
                             return deserializer.FromBinary((byte[])serialized, type);
                         });
                     };
                     break;
                 default:
-                    _serialize = representation => new SerializationResult(representation, null);
                     _deserialize = (type, serialized, manifest, serializerId) => serialized;
                     break;
             }
@@ -326,15 +316,14 @@ namespace Akka.Persistence.MongoDb.Journal
             if (message.Payload is Tagged tagged)
                 payload = tagged.Payload;
 
-            var serializationResult = _serialize(payload);
-            var serializer = serializationResult.Serializer;
-            var hasSerializer = serializer != null;
+            var serializer = _serialization.FindSerializerFor(message);
+            var binary = serializer.ToBinary(message);
 
             var manifest = "";
-            if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(payload);
-            else if (hasSerializer && serializer.IncludeManifest)
-                manifest = payload.GetType().TypeQualifiedName();
+            if (serializer is SerializerWithStringManifest stringManifest)
+                manifest = stringManifest.Manifest(message);
+            else if (serializer.IncludeManifest)
+                manifest = message.GetType().TypeQualifiedName();
             else
                 manifest = string.IsNullOrEmpty(message.Manifest)
                     ? message.GetType().TypeQualifiedName()
@@ -345,7 +334,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
-                Payload = serializationResult.Payload,
+                Payload = binary,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
                 Manifest = manifest,
@@ -364,6 +353,9 @@ namespace Akka.Persistence.MongoDb.Journal
                 serializerId = entry.SerializerId;
 
             var deserialized = _deserialize(type, entry.Payload, entry.Manifest, serializerId);
+
+            if (deserialized is Persistent p)
+                return p;
 
             return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
         }

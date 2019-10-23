@@ -23,27 +23,18 @@ namespace Akka.Persistence.MongoDb.Snapshot
         private readonly MongoDbSnapshotSettings _settings;
 
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
-
-        private readonly Func<object, SerializationResult> _serialize;
         private readonly Func<Type, object, string, int?, object> _deserialize;
+
+        private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbSnapshotStore()
         {
             _settings = MongoDbPersistence.Get(Context.System).SnapshotStoreSettings;
 
-            var serialization = Context.System.Serialization;
+            _serialization = Context.System.Serialization;
             switch (_settings.StoredAs)
             {
                 case StoredAsType.Binary:
-                    _serialize = o =>
-                    {
-                        var serializer = serialization.FindSerializerFor(o);
-                        var binary = Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
-                        {
-                            return serializer.ToBinary(o);
-                        });
-                        return new SerializationResult(binary, serializer);
-                    };
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
                         if (serializerId.HasValue)
@@ -54,16 +45,15 @@ namespace Akka.Persistence.MongoDb.Snapshot
                              * Per: https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/issues/57
                              */
                             if (string.IsNullOrEmpty(manifest))
-                                return serialization.Deserialize((byte[])serialized, serializerId.Value, type);
-                            return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
+                                return _serialization.Deserialize((byte[])serialized, serializerId.Value, type);
+                            return _serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
                         }
 
-                        var deserializer = serialization.FindSerializerForType(type);
+                        var deserializer = _serialization.FindSerializerForType(type);
                         return deserializer.FromBinary((byte[]) serialized, type);
                     };
                     break;
                 default:
-                    _serialize = o => new SerializationResult(o, null);
                     _deserialize = (type, serialized, manifest, serializerId) => serialized;
                     break;
             }
@@ -165,24 +155,22 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private SnapshotEntry ToSnapshotEntry(SnapshotMetadata metadata, object snapshot)
         {
-            var serializationResult = _serialize(snapshot);
-            var serializer = serializationResult.Serializer;
-            var hasSerializer = serializer != null;
+            var snapshotRep = new Akka.Persistence.Serialization.Snapshot(snapshot);
+            var serializer = _serialization.FindSerializerFor(snapshotRep);
+            var binary = serializer.ToBinary(snapshotRep);
 
             var manifest = "";
-            if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(snapshot);
-            else if (hasSerializer && serializer.IncludeManifest)
-                manifest = snapshot.GetType().TypeQualifiedName();
+            if (serializer is SerializerWithStringManifest stringManifest)
+                manifest = stringManifest.Manifest(snapshotRep);
             else
-                manifest = snapshot.GetType().TypeQualifiedName();
+                manifest = snapshotRep.GetType().TypeQualifiedName();
 
             return new SnapshotEntry
             {
                 Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
                 PersistenceId = metadata.PersistenceId,
                 SequenceNr = metadata.SequenceNr,
-                Snapshot = serializationResult.Payload,
+                Snapshot = binary,
                 Timestamp = metadata.Timestamp.Ticks,
                 Manifest = manifest,
                 SerializerId = serializer?.Identifier
@@ -197,6 +185,10 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 type = Type.GetType(entry.Manifest, throwOnError: true);
 
             var snapshot = _deserialize(type, entry.Snapshot, entry.Manifest, entry.SerializerId);
+            
+            if(snapshot is Serialization.Snapshot snap)
+                return new SelectedSnapshot(
+                    new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), snap.Data);
 
             return new SelectedSnapshot(
                 new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), snapshot);
