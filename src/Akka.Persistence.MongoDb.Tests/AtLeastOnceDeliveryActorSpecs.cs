@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
-
+    [Collection("MongoDbSpec")]
     public class AtLeastOnceDeliveryActorSpecs : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
