@@ -1,22 +1,19 @@
 ﻿using Akka.Configuration;
 using Akka.Persistence.TCK.Serialization;
 using Akka.Util.Internal;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests.Serialization
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbSnapshotStoreBinarySerializationSpec : SnapshotStoreSerializationSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbJournalSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
-        public MongoDbSnapshotStoreBinarySerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbSnapshotStoreBinarySerializationSpec), output)
+        public MongoDbJournalSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalSerializationSpec), output)
         {
             _output = output;
             output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
@@ -25,16 +22,17 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var specString = @"
+                akka.test.single-expect-default = 3s
                 akka.persistence {
                     publish-plugin-commands = on
-                    snapshot-store {
-                        plugin = ""akka.persistence.snapshot-store.mongodb""
+                    journal {
+                        plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
-                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
+                            connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
-                            collection = ""SnapshotStore""
-                            stored-as = binary
+                            collection = ""EventJournal""
+                            stored-as = object
                         }
                     }
                 }";

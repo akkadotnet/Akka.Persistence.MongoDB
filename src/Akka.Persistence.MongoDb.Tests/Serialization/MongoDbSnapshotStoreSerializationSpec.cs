@@ -7,13 +7,13 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests.Serialization
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalObjectSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbSnapshotStoreSerializationSpec : SnapshotStoreSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
-        public MongoDbJournalObjectSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalObjectSerializationSpec), output)
+        public MongoDbSnapshotStoreSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbSnapshotStoreSerializationSpec), output)
         {
             _output = output;
             output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
@@ -25,14 +25,13 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                 akka.test.single-expect-default = 3s
                 akka.persistence {
                     publish-plugin-commands = on
-                    journal {
-                        plugin = ""akka.persistence.journal.mongodb""
+                    snapshot-store {
+                        plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
-                            class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
+                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
                             auto-initialize = on
-                            collection = ""EventJournal""
-                            stored-as = object
+                            collection = ""SnapshotStore""
                         }
                     }
                 }";
