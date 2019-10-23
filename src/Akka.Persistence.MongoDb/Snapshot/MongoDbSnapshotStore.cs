@@ -37,7 +37,11 @@ namespace Akka.Persistence.MongoDb.Snapshot
                     _serialize = o =>
                     {
                         var serializer = serialization.FindSerializerFor(o);
-                        return new SerializationResult(serializer.ToBinary(o), serializer);
+                        var binary = Akka.Serialization.Serialization.WithTransport(serialization.System, () =>
+                        {
+                            return serializer.ToBinary(o);
+                        });
+                        return new SerializationResult(binary, serializer);
                     };
                     _deserialize = (type, serialized, manifest, serializerId) =>
                     {
@@ -163,8 +167,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var hasSerializer = serializer != null;
 
             var manifest = "";
-            if (hasSerializer && serializer is SerializerWithStringManifest)
-                manifest = ((SerializerWithStringManifest)serializer).Manifest(snapshot);
+            if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
+                manifest = stringManifest.Manifest(snapshot);
             else if (hasSerializer && serializer.IncludeManifest)
                 manifest = snapshot.GetType().TypeQualifiedName();
             else
@@ -186,7 +190,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             Type type = null;
 
-            if (!string.IsNullOrEmpty(entry.Manifest))
+            if (string.IsNullOrEmpty(entry.Manifest))
                 type = Type.GetType(entry.Manifest, throwOnError: true);
 
             var snapshot = _deserialize(type, entry.Snapshot, entry.Manifest, entry.SerializerId);
