@@ -333,7 +333,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
                 else
                 {
-                    // TODO: hack. Replace when https://github.com/akkadotnet/akka.net/issues/3811
                     var deserializer = _serialization.FindSerializerForType(type);
                     deserialized = deserializer.FromBinary(bytes, type);
                 }
@@ -345,9 +344,9 @@ namespace Akka.Persistence.MongoDb.Journal
             }
             else // backwards compat for object serialization - Payload was already deserialized by BSON
             {
-                return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+                return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
+                    entry.IsDeleted, sender);
             }
-
         }
 
         private async Task SetHighSequenceId(IList<AtomicWrite> messages)
