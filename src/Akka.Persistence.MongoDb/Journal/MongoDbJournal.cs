@@ -332,9 +332,9 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var manifest = "";
             if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(message.Payload);
+                manifest = stringManifest.Manifest(payload);
             else if (hasSerializer && serializer.IncludeManifest)
-                manifest = message.GetType().TypeQualifiedName();
+                manifest = payload.GetType().TypeQualifiedName();
             else
                 manifest = string.IsNullOrEmpty(message.Manifest)
                     ? message.GetType().TypeQualifiedName()
