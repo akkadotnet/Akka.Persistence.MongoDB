@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
 using Akka.Serialization;
@@ -78,10 +79,12 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<SnapshotEntry>.IndexKeys
+                    var modelWithAscendingPersistenceIdAndDescendingSequenceNr = new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
                         .Ascending(entry => entry.PersistenceId)
-                        .Descending(entry => entry.SequenceNr))
+                        .Descending(entry => entry.SequenceNr));
+
+                    collection.Indexes
+                        .CreateOneAsync(modelWithAscendingPersistenceIdAndDescendingSequenceNr, cancellationToken:CancellationToken.None)
                         .Wait();
                 }
 
