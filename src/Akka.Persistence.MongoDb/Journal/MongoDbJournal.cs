@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Persistence.Journal;
@@ -112,15 +113,22 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<JournalEntry>.IndexKeys
-                            .Ascending(entry => entry.PersistenceId)
-                            .Descending(entry => entry.SequenceNr))
-                            .Wait();
+                    var modelForEntryAndSequenceNr = new CreateIndexModel<JournalEntry>(Builders<JournalEntry>
+                        .IndexKeys
+                        .Ascending(entry => entry.PersistenceId)
+                        .Descending(entry => entry.SequenceNr));
 
-                    collection.Indexes.CreateOne(
-                        Builders<JournalEntry>.IndexKeys
-                        .Ascending(entry => entry.Ordering));
+                    collection.Indexes
+                        .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken:CancellationToken.None)
+                        .Wait();
+
+                    var modelWithOrdering = new CreateIndexModel<JournalEntry>(
+                        Builders<JournalEntry>
+                            .IndexKeys
+                            .Ascending(entry => entry.Ordering));
+
+                    collection.Indexes
+                        .CreateOne(modelWithOrdering);
                 }
 
                 return collection;
@@ -132,9 +140,13 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    collection.Indexes.CreateOneAsync(
-                        Builders<MetadataEntry>.IndexKeys
-                            .Ascending(entry => entry.PersistenceId))
+                    var modelWithAscendingPersistenceId = new CreateIndexModel<MetadataEntry>(
+                        Builders<MetadataEntry>
+                            .IndexKeys
+                            .Ascending(entry => entry.PersistenceId));
+
+                    collection.Indexes
+                        .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken:CancellationToken.None)
                             .Wait();
                 }
 
@@ -180,34 +192,53 @@ namespace Akka.Persistence.MongoDb.Journal
         /// <returns>TBD</returns>
         private async Task<long> ReplayTaggedMessagesAsync(ReplayTaggedMessages replay)
         {
+            /*
+             *  NOTE: limit is used like a pagination value, not a cap on the amount
+             * of data returned by a query. This was at the root of https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
+             */
             // Limit allows only integer
             var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
             var fromSequenceNr = replay.FromOffset;
             var toSequenceNr = replay.ToOffset;
             var tag = replay.Tag;
 
-            // Do not replay messages if limit equal zero
-            if (limitValue == 0) return 0;
-
             var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.AnyEq(x => x.Tags, tag);
+            var seqNoFilter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                filter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
+                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                filter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
+                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
 
+            
+            // Need to know what the highest seqNo of this query will be
+            // and return that as part of the RecoverySuccess message
+            var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
+                .SortByDescending(x => x.Ordering)
+                .Limit(1)
+                .SingleOrDefaultAsync();
+
+            if (maxSeqNoEntry == null)
+                return 0L; // recovered nothing
+
+            var maxOrderingId = maxSeqNoEntry.Ordering.Value;
+            var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
+
+            var readFilter = builder.AnyEq(x => x.Tags, tag);
+            if (fromSequenceNr > 0)
+                readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
+            if (toSequenceNr != long.MaxValue)
+                readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
-            long maxOrderingId = 0;
             await _journalCollection.Value
-                .Find(filter)
+                .Find(readFilter)
                 .Sort(sort)
                 .Limit(limitValue)
                 .ForEachAsync(entry => {
-                    var persistent = new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, ActorRefs.NoSender, null);
+                    var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), ActorRefs.NoSender);
-                    maxOrderingId = entry.Ordering.Value;
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), 
+                            ActorRefs.NoSender);
                 });
 
             return maxOrderingId;
@@ -227,16 +258,29 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
-            var allTags = new HashSet<string>();
+            var allTags = ImmutableHashSet<string>.Empty;
+            var persistentIds = new HashSet<string>();
             var messageList = messages.ToList();
 
             var writeTasks = messageList.Select(async message => {
-                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload).ToArray();
+                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload);
 
-                var journalEntries = persistentMessages.Select(ToJournalEntry).ToList();
+                if (HasTagSubscribers)
+                {
+                    foreach (var p in persistentMessages)
+                    {
+                        if (p.Payload is Tagged t)
+                        {
+                            allTags = allTags.Union(t.Tags);
+                        }
+                    }
+                }
+
+                var journalEntries = persistentMessages.Select(ToJournalEntry);
                 await _journalCollection.Value.InsertManyAsync(journalEntries);
 
-                NotifyNewPersistenceIdAdded(message.PersistenceId);
+                if (HasPersistenceIdSubscribers)
+                    persistentIds.Add(message.PersistenceId);
             });
 
             await SetHighSequenceId(messageList);
@@ -245,6 +289,14 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Factory
                 .ContinueWhenAll(writeTasks.ToArray(),
                     tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
+
+            if (HasPersistenceIdSubscribers)
+            {
+                foreach (var id in persistentIds)
+                {
+                    NotifyPersistenceIdChange(id);
+                }
+            }
 
             if (HasTagSubscribers && allTags.Count != 0) {
                 foreach (var tag in allTags) {
@@ -335,25 +387,32 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override bool ReceivePluginInternal(object message)
         {
-            return message.Match()
-                .With<ReplayTaggedMessages>(replay => {
+            switch (message)
+            {
+                case ReplayTaggedMessages replay:
                     ReplayTaggedMessagesAsync(replay)
-                    .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
-                })
-                .With<SubscribePersistenceId>(subscribe => {
+                        .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
+                    break;
+                case SubscribePersistenceId subscribe:
                     AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
                     Context.Watch(Sender);
-                })
-                .With<SubscribeAllPersistenceIds>(subscribe => {
+                    break;
+                case SubscribeAllPersistenceIds subscribe:
                     AddAllPersistenceIdSubscriber(Sender);
                     Context.Watch(Sender);
-                })
-                .With<SubscribeTag>(subscribe => {
+                    break;
+                case SubscribeTag subscribe:
                     AddTagSubscriber(Sender, subscribe.Tag);
                     Context.Watch(Sender);
-                })
-                .With<Terminated>(terminated => RemoveSubscriber(terminated.ActorRef))
-                .WasHandled;
+                    break;
+                case Terminated terminated:
+                    RemoveSubscriber(terminated.ActorRef);
+                    break;
+                default:
+                    return false;
+            }
+
+            return true;
         }
 
         private void AddAllPersistenceIdSubscriber(IActorRef subscriber)
