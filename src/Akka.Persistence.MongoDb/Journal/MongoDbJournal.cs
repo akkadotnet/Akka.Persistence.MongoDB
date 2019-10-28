@@ -286,7 +286,11 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             object payload = message.Payload;
             if (message.Payload is Tagged tagged)
+            {
                 payload = tagged.Payload;
+                message = message.WithPayload(payload); // need to update the internal payload when working with tags
+            }
+                
 
             var serializer = _serialization.FindSerializerFor(message);
             var binary = serializer.ToBinary(message);
