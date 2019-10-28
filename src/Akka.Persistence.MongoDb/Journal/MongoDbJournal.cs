@@ -290,20 +290,11 @@ namespace Akka.Persistence.MongoDb.Journal
                 payload = tagged.Payload;
                 message = message.WithPayload(payload); // need to update the internal payload when working with tags
             }
-                
+
 
             var serializer = _serialization.FindSerializerFor(message);
             var binary = serializer.ToBinary(message);
 
-            var manifest = "";
-            if (serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(message);
-            else if (serializer.IncludeManifest)
-                manifest = message.GetType().TypeQualifiedName();
-            else
-                manifest = string.IsNullOrEmpty(message.Manifest)
-                    ? message.GetType().TypeQualifiedName()
-                    : message.Manifest;
 
             return new JournalEntry
             {
@@ -313,9 +304,9 @@ namespace Akka.Persistence.MongoDb.Journal
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
-                Manifest = manifest,
+                Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
                 Tags = tagged.Tags?.ToList(),
-                SerializerId = serializer?.Identifier
+                SerializerId = null // don't need a serializer ID here either; only for backwards-comat
             };
         }
 
@@ -323,6 +314,15 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             int? serializerId = null;
             Type type = null;
+
+            var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
+            if (!legacy)
+            {
+                var ser = _serialization.FindSerializerForType(typeof(Persistent));
+                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+            }
+
+            // legacy serialization
             if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
                 type = Type.GetType(entry.Manifest, true);
             else
@@ -351,6 +351,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
                     entry.IsDeleted, sender);
             }
+
         }
 
         private async Task SetHighSequenceId(IList<AtomicWrite> messages)
