@@ -37,51 +37,19 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
-        private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers = 
+        private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers =
             new Dictionary<string, ISet<IActorRef>>();
-        private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers 
+        private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers
             = new Dictionary<string, ISet<IActorRef>>();
 
-        private readonly Func<object, SerializationResult> _serialize;
-        private readonly Func<Type, object, string, int?, object> _deserialize;
-
+        private Akka.Serialization.Serialization _serialization;
 
         public MongoDbJournal()
         {
             _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
 
-            var serialization = Context.System.Serialization;
-            switch (_settings.StoredAs)
-            {
-                case StoredAsType.Binary:
-                    _serialize = representation =>
-                    {
-                        var serializer = serialization.FindSerializerFor(representation);
-                        return new SerializationResult(serializer.ToBinary(representation), serializer);
-                    };
-                    _deserialize = (type, serialized, manifest, serializerId) =>
-                    {
-                        if (serializerId.HasValue)
-                        {
-                            /*
-                             * Backwards compat: check to see if manifest is populated before using it.
-                             * Otherwise, fall back to using the stored type data instead.
-                             * Per: https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB/issues/57
-                             */
-                            if (string.IsNullOrEmpty(manifest)) 
-                                return serialization.Deserialize((byte[]) serialized, serializerId.Value, type);
-                            return serialization.Deserialize((byte[])serialized, serializerId.Value, manifest);
-                        }
+            _serialization = Context.System.Serialization;
 
-                        var deserializer = serialization.FindSerializerForType(type);
-                        return deserializer.FromBinary((byte[])serialized, type);
-                    };
-                    break;
-                default:
-                    _serialize = representation => new SerializationResult(representation, null);
-                    _deserialize = (type, serialized, manifest, serializerId) => serialized;
-                    break;
-            }
         }
 
         protected override void PreStart()
@@ -108,7 +76,7 @@ namespace Akka.Persistence.MongoDb.Journal
                         .Descending(entry => entry.SequenceNr));
 
                     collection.Indexes
-                        .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken:CancellationToken.None)
+                        .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken: CancellationToken.None)
                         .Wait();
 
                     var modelWithOrdering = new CreateIndexModel<JournalEntry>(
@@ -135,7 +103,7 @@ namespace Akka.Persistence.MongoDb.Journal
                             .Ascending(entry => entry.PersistenceId));
 
                     collection.Indexes
-                        .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken:CancellationToken.None)
+                        .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken: CancellationToken.None)
                             .Wait();
                 }
 
@@ -169,7 +137,8 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Limit(limitValue)
                 .ToListAsync();
 
-            collections.ForEach(doc => {
+            collections.ForEach(doc =>
+            {
                 recoveryCallback(ToPersistenceRepresentation(doc, context.Sender));
             });
         }
@@ -198,7 +167,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (toSequenceNr != long.MaxValue)
                 seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
 
-            
+
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
             var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
@@ -223,10 +192,11 @@ namespace Akka.Persistence.MongoDb.Journal
                 .Find(readFilter)
                 .Sort(sort)
                 .Limit(limitValue)
-                .ForEachAsync(entry => {
+                .ForEachAsync(entry =>
+                {
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value), 
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value),
                             ActorRefs.NoSender);
                 });
 
@@ -251,7 +221,8 @@ namespace Akka.Persistence.MongoDb.Journal
             var persistentIds = new HashSet<string>();
             var messageList = messages.ToList();
 
-            var writeTasks = messageList.Select(async message => {
+            var writeTasks = messageList.Select(async message =>
+            {
                 var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload);
 
                 if (HasTagSubscribers)
@@ -287,8 +258,10 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
             }
 
-            if (HasTagSubscribers && allTags.Count != 0) {
-                foreach (var tag in allTags) {
+            if (HasTagSubscribers && allTags.Count != 0)
+            {
+                foreach (var tag in allTags)
+                {
                     NotifyTagChange(tag);
                 }
             }
@@ -313,33 +286,27 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             object payload = message.Payload;
             if (message.Payload is Tagged tagged)
+            {
                 payload = tagged.Payload;
+                message = message.WithPayload(payload); // need to update the internal payload when working with tags
+            }
 
-            var serializationResult = _serialize(payload);
-            var serializer = serializationResult.Serializer;
-            var hasSerializer = serializer != null;
 
-            var manifest = "";
-            if (hasSerializer && serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(message.Payload);
-            else if (hasSerializer && serializer.IncludeManifest)
-                manifest = message.GetType().TypeQualifiedName();
-            else
-                manifest = string.IsNullOrEmpty(message.Manifest)
-                    ? message.GetType().TypeQualifiedName()
-                    : message.Manifest;
+            var serializer = _serialization.FindSerializerFor(message);
+            var binary = serializer.ToBinary(message);
+
 
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
-                Payload = serializationResult.Payload,
+                Payload = binary,
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
-                Manifest = manifest,
+                Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
                 Tags = tagged.Tags?.ToList(),
-                SerializerId = serializer?.Identifier
+                SerializerId = null // don't need a serializer ID here either; only for backwards-comat
             };
         }
 
@@ -347,14 +314,44 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             int? serializerId = null;
             Type type = null;
+
+            var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
+            if (!legacy)
+            {
+                var ser = _serialization.FindSerializerForType(typeof(Persistent));
+                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+            }
+
+            // legacy serialization
             if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
                 type = Type.GetType(entry.Manifest, true);
             else
                 serializerId = entry.SerializerId;
 
-            var deserialized = _deserialize(type, entry.Payload, entry.Manifest, serializerId);
+            if (entry.Payload is byte[] bytes)
+            {
+                object deserialized = null;
+                if (serializerId.HasValue)
+                {
+                    deserialized = _serialization.Deserialize(bytes, serializerId.Value, entry.Manifest);
+                }
+                else
+                {
+                    var deserializer = _serialization.FindSerializerForType(type);
+                    deserialized = deserializer.FromBinary(bytes, type);
+                }
 
-            return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+                if (deserialized is Persistent p)
+                    return p;
+
+                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+            }
+            else // backwards compat for object serialization - Payload was already deserialized by BSON
+            {
+                return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
+                    entry.IsDeleted, sender);
+            }
+
         }
 
         private async Task SetHighSequenceId(IList<AtomicWrite> messages)
@@ -406,7 +403,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private void AddAllPersistenceIdSubscriber(IActorRef subscriber)
         {
-            lock (_allPersistenceIdSubscribers) {
+            lock (_allPersistenceIdSubscribers)
+            {
                 _allPersistenceIdSubscribers.Add(subscriber);
             }
             subscriber.Tell(new CurrentPersistenceIds(GetAllPersistenceIds()));
@@ -414,7 +412,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private void AddTagSubscriber(IActorRef subscriber, string tag)
         {
-            if (!_tagSubscribers.TryGetValue(tag, out var subscriptions)) {
+            if (!_tagSubscribers.TryGetValue(tag, out var subscriptions))
+            {
                 subscriptions = new HashSet<IActorRef>();
                 _tagSubscribers.Add(tag, subscriptions);
             }
@@ -432,7 +431,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
         {
-            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions)) {
+            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
+            {
                 subscriptions = new HashSet<IActorRef>();
                 _persistenceIdSubscribers.Add(persistenceId, subscriptions);
             }
@@ -460,7 +460,8 @@ namespace Akka.Persistence.MongoDb.Journal
         private void NotifyNewPersistenceIdAdded(string persistenceId)
         {
             var isNew = TryAddPersistenceId(persistenceId);
-            if (isNew && HasAllPersistenceIdSubscribers) {
+            if (isNew && HasAllPersistenceIdSubscribers)
+            {
                 var added = new PersistenceIdAdded(persistenceId);
                 foreach (var subscriber in _allPersistenceIdSubscribers)
                     subscriber.Tell(added);
@@ -469,14 +470,16 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private bool TryAddPersistenceId(string persistenceId)
         {
-            lock (_allPersistenceIds) {
+            lock (_allPersistenceIds)
+            {
                 return _allPersistenceIds.Add(persistenceId);
             }
         }
 
         private void NotifyPersistenceIdChange(string persistenceId)
         {
-            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers)) {
+            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers))
+            {
                 var changed = new EventAppended(persistenceId);
                 foreach (var subscriber in subscribers)
                     subscriber.Tell(changed);
@@ -485,7 +488,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private void NotifyTagChange(string tag)
         {
-            if (_tagSubscribers.TryGetValue(tag, out var subscribers)) {
+            if (_tagSubscribers.TryGetValue(tag, out var subscribers))
+            {
                 var changed = new TaggedEventAppended(tag);
                 foreach (var subscriber in subscribers)
                     subscriber.Tell(changed);

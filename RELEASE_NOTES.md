@@ -1,6 +1,2 @@
-#### 1.3.14 October 04 2019 ####
-You can see [the full set of changes for Akka.Persistence.MongoDb v1.3.14 here](https://github.com/akkadotnet/Akka.Persistence.MongoDB/milestone/2).
-
-This PR fixes a number of problems stemming from implementations of Akka.Persistence.Query implementations that were incorrect.
-
-**Note: we're working on [adding support for future versions of Akka.Persistence.MongoDB and you should read them here if you plan on continuing to use the plugin](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72).**
+#### 1.4.0-beta1 October 30 2019 ####
+Beta release of Akka.Persistence.MongoDB which implements the [new standardized Akka.Persistence serialization paradigm](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72) going forward. Has full backwards compatibility for reading events which were written in 1.3.[0-14] style serialization.
