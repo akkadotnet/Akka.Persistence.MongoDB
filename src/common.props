@@ -2,13 +2,11 @@
   <PropertyGroup>
     <Copyright>Copyright © 2013-2019 Akka.NET Project</Copyright>
     <Authors>Akka.NET Contrib</Authors>
-    <VersionPrefix>1.3.14</VersionPrefix>
+    <VersionPrefix>1.4.0</VersionPrefix>
     <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
     <PackageProjectUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
-    <PackageReleaseNotes>You can see [the full set of changes for Akka.Persistence.MongoDb v1.3.14 here](https://github.com/akkadotnet/Akka.Persistence.MongoDB/milestone/2).
-This PR fixes a number of problems stemming from implementations of Akka.Persistence.Query implementations that were incorrect.
-Note: we're working on [adding support for future versions of Akka.Persistence.MongoDB and you should read them here if you plan on continuing to use the plugin](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72).**</PackageReleaseNotes>
+    <PackageReleaseNotes>Beta release of Akka.Persistence.MongoDB which implements the [new standardized Akka.Persistence serialization paradigm](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72) going forward. Has full backwards compatibility for reading events which were written in 1.3.[0-14] style serialization.</PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -16,6 +14,6 @@ Note: we're working on [adding support for future versions of Akka.Persistence.M
   <PropertyGroup>
     <XunitVersion>2.4.1</XunitVersion>
     <TestSdkVersion>15.3.0</TestSdkVersion>
-    <AkkaVersion>1.3.13</AkkaVersion>
+    <AkkaVersion>1.4.0-beta*</AkkaVersion>
   </PropertyGroup>
 </Project>
