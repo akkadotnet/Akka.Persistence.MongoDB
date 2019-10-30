@@ -26,8 +26,9 @@ let preReleaseVersionSuffix = "beta" + (if (not (buildNumber = "0")) then (build
 let versionSuffix = 
     match (getBuildParam "nugetprerelease") with
     | "dev" -> preReleaseVersionSuffix
-    | _ -> ""
-
+    | "" -> ""
+    | str -> str
+    
 let releaseNotes =
     File.ReadLines "./RELEASE_NOTES.md"
     |> ReleaseNotesHelper.parseReleaseNotes
