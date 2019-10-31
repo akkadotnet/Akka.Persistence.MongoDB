@@ -312,15 +312,15 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
         {
-            int? serializerId = null;
-            Type type = null;
-
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
                 return ser.FromBinary<Persistent>((byte[]) entry.Payload);
             }
+
+            int? serializerId = null;
+            Type type = null;
 
             // legacy serialization
             if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
