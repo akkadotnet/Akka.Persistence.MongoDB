@@ -1,2 +1,2 @@
-#### 1.4.0-beta1 October 30 2019 ####
-Beta release of Akka.Persistence.MongoDB which implements the [new standardized Akka.Persistence serialization paradigm](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72) going forward. Has full backwards compatibility for reading events which were written in 1.3.[0-14] style serialization.
+#### 1.4.0-beta2 October 31 2019 ####
+Fixed [an issue with Snapshot serialization in v1.4.0-beta1](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/98)
