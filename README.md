@@ -72,10 +72,7 @@ akka.persistence {
 ```
 
 ### Serialization
-The events and snapshots are stored as BsonDocument. On the previous version of this driver you needed to register your types with BsonClassMap before you could use your persistence actor, otherwise the recovery would fail and you'd receive a RecoveryFailure with the message:  
->An error occurred while deserializing the Payload property of class \<Journal or Snapshot class>: Unknown discriminator value '\<your type>'
-
-#### **Since now, all types are registered automatically for you so you don't need to use BsonClassMap to serialize/deserialize your types!**
+Going from v1.4.0 onwards, all events and snapshots are saved as byte arrays using the standard Akka.Persistence format.
 
 ### Notice
 - The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher then Int32.MaxValue, Int32.MaxValue is used. So if you have stored more then 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
