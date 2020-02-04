@@ -284,10 +284,9 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
-            object payload = message.Payload;
             if (message.Payload is Tagged tagged)
             {
-                payload = tagged.Payload;
+                var payload = tagged.Payload;
                 message = message.WithPayload(payload); // need to update the internal payload when working with tags
             }
 
@@ -306,7 +305,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 SequenceNr = message.SequenceNr,
                 Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
                 Tags = tagged.Tags?.ToList(),
-                SerializerId = null // don't need a serializer ID here either; only for backwards-comat
+                SerializerId = null // don't need a serializer ID here either; only for backwards-compat
             };
         }
 
