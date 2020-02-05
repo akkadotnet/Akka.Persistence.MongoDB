@@ -14,6 +14,8 @@ namespace Akka.Persistence.MongoDb.Tests
     [Collection("MongoDbSpec")]
     public class MongoDbLegacySerializationSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
     {
+        protected override bool SupportsSerialization => false;
+
         public MongoDbLegacySerializationSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbSnapshotStoreSpec")
         {
             Initialize();
