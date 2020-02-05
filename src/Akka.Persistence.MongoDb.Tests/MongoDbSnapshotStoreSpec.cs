@@ -39,34 +39,4 @@ namespace Akka.Persistence.MongoDb.Tests
             return ConfigurationFactory.ParseString(specString);
         }
     }
-
-    [Collection("MongoDbSpec")]
-    public class MongoDbBinarySnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
-    {
-        public MongoDbBinarySnapshotStoreSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbSnapshotStoreSpec")
-        {
-            Initialize();
-        }
-
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
-        {
-            var specString = @"
-                akka.test.single-expect-default = 3s
-                akka.persistence {
-                    publish-plugin-commands = on
-                    snapshot-store {
-                        plugin = ""akka.persistence.snapshot-store.mongodb""
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
-                            auto-initialize = on
-                            collection = ""SnapshotStore""
-                            stored-as = binary
-                        }
-                    }
-                }";
-
-            return ConfigurationFactory.ParseString(specString);
-        }
-    }
 }

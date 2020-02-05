@@ -1,22 +1,24 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright file="MongoDbJournalSpec.cs" company="Akka.NET Project">
-//     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
-//     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
+//     Copyright (C) 2009-2019 Lightbend Inc. <http://www.lightbend.com>
+//     Copyright (C) 2013-2019 Akka.NET project <https://github.com/akkadotnet/akka.net>
 // </copyright>
 //-----------------------------------------------------------------------
 
+using Akka.Configuration;
 using Akka.Persistence.TCK.Journal;
 using Xunit;
-using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbLegacySerializationJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
     {
-        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;        
+        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
 
-        public MongoDbJournalSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbJournalSpec")
+        protected override bool SupportsSerialization => false;
+
+        public MongoDbLegacySerializationJournalSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbJournalSpec")
         {
             Initialize();
         }
@@ -34,6 +36,7 @@ namespace Akka.Persistence.MongoDb.Tests
                             connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
+                            legacy-serialization = on
                         }
                     }
                 }";
