@@ -42,7 +42,7 @@ namespace Akka.Persistence.MongoDb.Journal
         private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers
             = new Dictionary<string, ISet<IActorRef>>();
 
-        private Akka.Serialization.Serialization _serialization;
+        private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbJournal()
         {
@@ -291,7 +291,26 @@ namespace Akka.Persistence.MongoDb.Journal
                 message = message.WithPayload(payload); // need to update the internal payload when working with tags
             }
 
+            // per https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/107
+            // BSON serialization
+            if (_settings.LegacySerialization)
+            {
+                var manifest = string.IsNullOrEmpty(message.Manifest) ? payload.GetType().TypeQualifiedName() : message.Manifest;
+                return new JournalEntry
+                {
+                    Id = message.PersistenceId + "_" + message.SequenceNr,
+                    Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
+                    IsDeleted = message.IsDeleted,
+                    Payload = payload,
+                    PersistenceId = message.PersistenceId,
+                    SequenceNr = message.SequenceNr,
+                    Manifest = manifest,
+                    Tags = tagged.Tags?.ToList(),
+                    SerializerId = null // don't need a serializer ID here either; only for backwards-compat
+                };
+            }
 
+            // default serialization
             var serializer = _serialization.FindSerializerFor(message);
             var binary = serializer.ToBinary(message);
 
@@ -306,7 +325,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 SequenceNr = message.SequenceNr,
                 Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
                 Tags = tagged.Tags?.ToList(),
-                SerializerId = null // don't need a serializer ID here either; only for backwards-comat
+                SerializerId = null // don't need a serializer ID here either; only for backwards-compat
             };
         }
 

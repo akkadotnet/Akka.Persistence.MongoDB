@@ -33,7 +33,6 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                             connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
-                            stored-as = object
                         }
                     }
                 }";

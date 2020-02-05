@@ -47,6 +47,13 @@ akka.persistence {
 
 			# metadata collection
 			metadata-collection = "Metadata"
+
+			# For users with legacy data, who want to keep writing data to MongoDb using the original BSON format
+			# and not the standard binary format introduced in v1.4.0 (see https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72)
+			# enable this setting via `legacy-serialization = on`.
+			#
+			# NOTE: this will likely break features such as Akka.Cluster.Sharding, IActorRef serialization, AtLeastOnceDelivery, and more.
+			legacy-serialization = off
 		}
 	}
 
@@ -66,16 +73,44 @@ akka.persistence {
 
 			# MongoDb collection corresponding with persistent snapshot store
 			collection = "SnapshotStore"
+
+			# For users with legacy data, who want to keep writing data to MongoDb using the original BSON format
+			# and not the standard binary format introduced in v1.4.0 (see https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72)
+			# enable this setting via `legacy-serialization = on`.
+			#
+			# NOTE: this will likely break features such as Akka.Cluster.Sharding, IActorRef serialization, AtLeastOnceDelivery, and more.
+			legacy-serialization = off
 		}
 	}
 }
 ```
 
 ### Serialization
-The events and snapshots are stored as BsonDocument. On the previous version of this driver you needed to register your types with BsonClassMap before you could use your persistence actor, otherwise the recovery would fail and you'd receive a RecoveryFailure with the message:  
->An error occurred while deserializing the Payload property of class \<Journal or Snapshot class>: Unknown discriminator value '\<your type>'
+[Going from v1.4.0 onwards, all events and snapshots are saved as byte arrays using the standard Akka.Persistence format](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72).
 
-#### **Since now, all types are registered automatically for you so you don't need to use BsonClassMap to serialize/deserialize your types!**
+However, in the event that you have one of the following use cases:
+
+1. Legacy data all stored in the original BSON / "object" format;
+2. A use case where BSON is preferable, i.e. so it can be queried directly via MongoDb queries rather than Akka.Persistence.Query; or
+3. A requirement to keep all data in human-readable form.
+
+Then you can disable binary serialization (enabled by default) via the following HOCON:
+
+```
+akka.persistence.mongodb{
+   journal{
+    legacy-serialization = off
+  }
+
+  snapshot-store{
+   legacy-serialization = off
+ }
+}
+```
+
+Setting `legacy-serialization = on` will allow you to save objects in a BSON format.
+
+**WARNING**: However, `legacy-serialization = on` will break Akka.NET serialization. `IActorRef`s, Akka.Cluster.Sharding, `AtLeastOnceDelivery` actors, and other built-in Akka.NET use cases can't be properly supported using this format. Use it at your own risk.
 
 ### Notice
 - The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher then Int32.MaxValue, Int32.MaxValue is used. So if you have stored more then 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
