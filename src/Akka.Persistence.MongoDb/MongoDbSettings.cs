@@ -30,11 +30,17 @@ namespace Akka.Persistence.MongoDb
         /// </summary>
         public string Collection { get; private set; }
 
+        /// <summary>
+        /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
+        /// </summary>
+        public bool LegacySerialization { get; }
+
         protected MongoDbSettings(Config config)
         {
             ConnectionString = config.GetString("connection-string");
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
+            LegacySerialization = config.GetBoolean("legacy-serialization");
         }
     }
 

@@ -130,15 +130,26 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private SnapshotEntry ToSnapshotEntry(SnapshotMetadata metadata, object snapshot)
         {
+            if (_settings.LegacySerialization)
+            {
+                var manifest = snapshot.GetType().TypeQualifiedName();
+
+                return new SnapshotEntry
+                {
+                    Id = metadata.PersistenceId + "_" + metadata.SequenceNr,
+                    PersistenceId = metadata.PersistenceId,
+                    SequenceNr = metadata.SequenceNr,
+                    Snapshot = snapshot,
+                    Timestamp = metadata.Timestamp.Ticks,
+                    Manifest = manifest,
+                    SerializerId = null
+                };
+            }
+
             var snapshotRep = new Akka.Persistence.Serialization.Snapshot(snapshot);
             var serializer = _serialization.FindSerializerFor(snapshotRep);
             var binary = serializer.ToBinary(snapshotRep);
-
-            var manifest = "";
-            if (serializer is SerializerWithStringManifest stringManifest)
-                manifest = stringManifest.Manifest(snapshotRep);
-            else
-                manifest = snapshotRep.GetType().TypeQualifiedName();
+            var binaryManifest = Akka.Serialization.Serialization.ManifestFor(serializer, snapshotRep);
 
             return new SnapshotEntry
             {
@@ -147,7 +158,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 SequenceNr = metadata.SequenceNr,
                 Snapshot = binary,
                 Timestamp = metadata.Timestamp.Ticks,
-                Manifest = manifest,
+                Manifest = binaryManifest,
                 SerializerId = serializer?.Identifier
             };
         }
