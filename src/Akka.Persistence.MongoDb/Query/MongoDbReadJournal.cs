@@ -5,6 +5,7 @@ using Akka.Persistence.Journal;
 using Akka.Persistence.Query;
 using Akka.Streams.Dsl;
 using MongoDB.Driver;
+using Hocon;
 
 namespace Akka.Persistence.MongoDb.Query
 {
