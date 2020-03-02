@@ -31,7 +31,7 @@ WARNING**: However, `legacy-serialization = on` will break Akka.NET serializatio
   </PropertyGroup>
   <PropertyGroup>
     <XunitVersion>2.4.1</XunitVersion>
-    <TestSdkVersion>16.4.0</TestSdkVersion>
+    <TestSdkVersion>16.5.0</TestSdkVersion>
     <AkkaVersion>1.4.1-rc1</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
