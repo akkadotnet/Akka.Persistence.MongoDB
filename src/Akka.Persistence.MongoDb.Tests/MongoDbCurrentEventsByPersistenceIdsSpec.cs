@@ -18,6 +18,7 @@ using Akka.Streams.TestKit;
 using System.Linq;
 using System.Diagnostics;
 using Akka.Streams.Dsl;
+using Hocon;
 
 namespace Akka.Persistence.MongoDb.Tests
 {

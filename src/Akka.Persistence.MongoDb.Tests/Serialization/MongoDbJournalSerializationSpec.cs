@@ -4,6 +4,7 @@ using Akka.Persistence.TCK.Serialization;
 using Akka.Util.Internal;
 using Xunit;
 using Xunit.Abstractions;
+using Hocon;
 
 namespace Akka.Persistence.MongoDb.Tests.Serialization
 {
