@@ -8,7 +8,6 @@
 using Xunit;
 using Akka.Persistence.TCK.Snapshot;
 using Akka.Configuration;
-using Hocon;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
