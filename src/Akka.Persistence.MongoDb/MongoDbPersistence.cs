@@ -9,7 +9,6 @@ using System;
 using Akka.Actor;
 using Akka.Configuration;
 using MongoDB.Bson.Serialization;
-using Hocon;
 
 namespace Akka.Persistence.MongoDb
 {

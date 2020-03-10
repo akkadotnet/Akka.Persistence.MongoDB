@@ -10,7 +10,6 @@ using Akka.Actor;
 using MongoDB.Driver;
 using Xunit;
 using Xunit.Abstractions;
-using Hocon;
 
 namespace Akka.Persistence.MongoDb.Tests
 {

@@ -14,10 +14,6 @@ using Xunit.Abstractions;
 using Akka.Util.Internal;
 using System;
 using Akka.Actor;
-using Akka.Streams.TestKit;
-using System.Linq;
-using System.Diagnostics;
-using Hocon;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
