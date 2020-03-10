@@ -7,7 +7,6 @@
 
 using System;
 using Akka.Configuration;
-using Hocon;
 
 namespace Akka.Persistence.MongoDb
 {
