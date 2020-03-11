@@ -6,7 +6,7 @@
     <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
     <PackageProjectUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
-    <PackageReleaseNotes>Bump Akka version to 1.4.1-rc3</PackageReleaseNotes>
+    <PackageReleaseNotes>Bump Akka version to 1.4.1</PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -14,7 +14,7 @@
   <PropertyGroup>
     <XunitVersion>2.4.1</XunitVersion>
     <TestSdkVersion>16.5.0</TestSdkVersion>
-    <AkkaVersion>1.4.1-rc3</AkkaVersion>
+    <AkkaVersion>1.4.1</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
