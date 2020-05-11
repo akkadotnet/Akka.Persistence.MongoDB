@@ -331,6 +331,19 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
         {
+            if (_settings.LegacySerialization)
+            {
+                var manifest = string.IsNullOrEmpty(entry.Manifest) ? entry.Payload.GetType().TypeQualifiedName() : entry.Manifest;
+
+                return new Persistent(
+                    entry.Payload,
+                    entry.SequenceNr,
+                    entry.PersistenceId,
+                    manifest,
+                    entry.IsDeleted,
+                    sender);
+            }
+
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
             if (!legacy)
             {

@@ -165,6 +165,16 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
         {
+            if (_settings.LegacySerialization)
+            {
+                return new SelectedSnapshot(
+                    new SnapshotMetadata(
+                        entry.PersistenceId,
+                        entry.SequenceNr,
+                        new DateTime(entry.Timestamp)),
+                        entry.Snapshot);
+            }
+
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
 
             if (!legacy)
