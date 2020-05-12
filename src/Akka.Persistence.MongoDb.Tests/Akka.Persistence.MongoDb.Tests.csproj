@@ -10,7 +10,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitVersion)" />
     <PackageReference Include="xunit" Version="$(XunitVersion)" />
     <PackageReference Include="Akka.Persistence.TCK" Version="$(AkkaVersion)" />
-    <PackageReference Include="FluentAssertions" Version="5.10.2" />
+    <PackageReference Include="FluentAssertions" Version="5.10.3" />
     <PackageReference Include="Mongo2Go" Version="2.2.12" />
     <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
   </ItemGroup>
