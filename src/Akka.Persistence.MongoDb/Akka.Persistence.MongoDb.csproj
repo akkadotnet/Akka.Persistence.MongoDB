@@ -9,7 +9,7 @@
     <EmbeddedResource Include="reference.conf" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
+    <PackageReference Include="Akka.Persistence.Query" Version="1.4.11" />
     <PackageReference Include="MongoDB.Driver" Version="2.11.4" />
   </ItemGroup>
 </Project>
