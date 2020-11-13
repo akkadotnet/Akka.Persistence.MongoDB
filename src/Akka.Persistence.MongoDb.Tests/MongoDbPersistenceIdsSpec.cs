@@ -17,6 +17,9 @@ using Akka.Actor;
 using Akka.Streams.TestKit;
 using System.Linq;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Reflection;
+using Reactive.Streams;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
@@ -59,7 +62,47 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
+        /*public override async Task ReadJournal_should_deallocate_AllPersistenceIds_publisher_when_the_last_subscriber_left()
+        {
+            if (AllocatesAllPersistenceIDsPublisher)
+            {
+                var journal = ReadJournal.AsInstanceOf<IPersistenceIdsQuery>();
 
+                Setup("a", 1);
+                Setup("b", 1);
+
+                var source = journal.PersistenceIds();
+                var probe =
+                    source.RunWith(this.SinkProbe<string>(), Materializer);
+                var probe2 =
+                    source.RunWith(this.SinkProbe<string>(), Materializer);
+
+                var fieldInfo = journal.GetType()
+                    .GetField("_persistenceIdsPublisher",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.True(fieldInfo != null);
+
+                // Assert that publisher is running.
+                probe.Within(TimeSpan.FromSeconds(10), () => probe.Request(10)
+                    .ExpectNextUnordered("a", "b")
+                    .ExpectNoMsg(TimeSpan.FromMilliseconds(200)));
+
+                probe.Cancel();
+
+                // Assert that publisher is still alive when it still have a subscriber
+                Assert.True(fieldInfo.GetValue(journal) is IPublisher<string>);
+
+                probe2.Within(TimeSpan.FromSeconds(10), () => probe2.Request(4)
+                    .ExpectNextUnordered("a", "b")
+                    .ExpectNoMsg(TimeSpan.FromMilliseconds(200)));
+
+                // Assert that publisher is de-allocated when the last subscriber left
+                probe2.Cancel();
+                await Task.Delay(400);
+                Assert.True(fieldInfo.GetValue(journal) is null);
+            }
+        }
+        */
         [Fact]
         public void ReadJournal_ConcurrentMessaging_should_work()
         {

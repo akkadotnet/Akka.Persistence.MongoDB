@@ -1,20 +1,26 @@
 ﻿using System;
+using System.Threading;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Persistence.Journal;
 using Akka.Persistence.Query;
 using Akka.Streams.Dsl;
-using MongoDB.Driver;
+using Akka.Streams;
+using Reactive.Streams;
+using Akka.Streams.Implementation;
+using Akka.Streams.Implementation.Stages;
 
 namespace Akka.Persistence.MongoDb.Query
 {
-    public class MongoDbReadJournal : IReadJournal,
+    public class MongoDbReadJournal :
         IPersistenceIdsQuery,
         ICurrentPersistenceIdsQuery,
         IEventsByPersistenceIdQuery,
         ICurrentEventsByPersistenceIdQuery,
         IEventsByTagQuery,
-        ICurrentEventsByTagQuery
+        ICurrentEventsByTagQuery,
+        IAllEventsQuery,
+        ICurrentAllEventsQuery
     {
         /// <summary>
         /// HOCON identifier
@@ -24,23 +30,21 @@ namespace Akka.Persistence.MongoDb.Query
         private readonly TimeSpan _refreshInterval;
         private readonly string _writeJournalPluginId;
         private readonly int _maxBufferSize;
-        
+        private readonly ExtendedActorSystem _system;
+
+        private readonly object _lock = new object();
+        private IPublisher<string> _persistenceIdsPublisher;
+
         /// <inheritdoc />
         public MongoDbReadJournal(ExtendedActorSystem system, Config config)
         {
             _refreshInterval = config.GetTimeSpan("refresh-interval");
             _writeJournalPluginId = config.GetString("write-plugin");
-            _maxBufferSize = config.GetInt("max-buffer-size");
-        }
+            _maxBufferSize = config.GetInt("max-buffer-size"); 
+            _system = system;
 
-        /// <summary>
-        /// Returns a default query configuration for akka persistence SQLite-based journals and snapshot stores.
-        /// </summary>
-        /// <returns></returns>
-        public static Config DefaultConfiguration()
-        {
-            return ConfigurationFactory.FromResource<MongoDbReadJournal>(
-                "Akka.Persistence.MongoDb.reference.conf");
+            _lock = new ReaderWriterLockSlim();
+            _persistenceIdsPublisher = null;
         }
 
         /// <summary>
@@ -63,20 +67,55 @@ namespace Akka.Persistence.MongoDb.Query
         /// backend journal.
         /// </para>
         /// </summary>
-        public Source<string, NotUsed> PersistenceIds() =>
-            Source.ActorPublisher<string>(AllPersistenceIdsPublisher.Props(true, _writeJournalPluginId))
-            .MapMaterializedValue(_ => NotUsed.Instance)
-            .Named("AllPersistenceIds") as Source<string, NotUsed>;
+        public Source<string, NotUsed> PersistenceIds()
+        {
+            lock (_lock)
+            {
+                if (_persistenceIdsPublisher is null)
+                {
+                    var graph =
+                        Source.ActorPublisher<string>(
+                                LivePersistenceIdsPublisher.Props(
+                                    _refreshInterval,
+                                    _writeJournalPluginId))
+                            .ToMaterialized(Sink.DistinctRetainingFanOutPublisher<string>(PersistenceIdsShutdownCallback), Keep.Right);
+
+                    _persistenceIdsPublisher = graph.Run(_system.Materializer());
+                }
+                return Source.FromPublisher(_persistenceIdsPublisher)
+                    .MapMaterializedValue(_ => NotUsed.Instance)
+                    .Named("AllPersistenceIds");
+            }
+
+        }
+
+        private void PersistenceIdsShutdownCallback()
+        {
+            lock (_lock)
+            {
+                _persistenceIdsPublisher = null;
+            }
+        }
+
+        /// <summary>
+        /// Returns a default query configuration for akka persistence SQLite-based journals and snapshot stores.
+        /// </summary>
+        /// <returns></returns>
+        public static Config DefaultConfiguration()
+        {
+            return ConfigurationFactory.FromResource<MongoDbReadJournal>(
+                "Akka.Persistence.MongoDb.reference.conf");
+        }
 
         /// <summary>
         /// Same type of query as <see cref="PersistenceIds"/> but the stream
         /// is completed immediately when it reaches the end of the "result set". Persistent
         /// actors that are created after the query is completed are not included in the stream.
         /// </summary>
-        public Source<string, NotUsed> CurrentPersistenceIds() =>
-            Source.ActorPublisher<string>(AllPersistenceIdsPublisher.Props(false, _writeJournalPluginId))
-            .MapMaterializedValue(_ => NotUsed.Instance)
-            .Named("CurrentPersistenceIds") as Source<string, NotUsed>;
+        public Source<string, NotUsed> CurrentPersistenceIds()
+            => Source.ActorPublisher<string>(CurrentPersistenceIdsPublisher.Props(_writeJournalPluginId))
+                .MapMaterializedValue(_ => NotUsed.Instance)
+                .Named("CurrentPersistenceIds");
 
         /// <summary>
         /// <see cref="EventsByPersistenceId"/> is used for retrieving events for a specific
@@ -192,5 +231,49 @@ namespace Akka.Persistence.MongoDb.Query
                     throw new ArgumentException($"SqlReadJournal does not support {offset.GetType().Name} offsets");
             }
         }
+
+        public Source<EventEnvelope, NotUsed> AllEvents(Offset offset = null)
+        {
+            Sequence seq;
+            switch (offset)
+            {
+                case null:
+                case NoOffset _:
+                    seq = new Sequence(0L);
+                    break;
+                case Sequence s:
+                    seq = s;
+                    break;
+                default:
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
+            }
+
+            return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(seq.Value, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
+                .MapMaterializedValue(_ => NotUsed.Instance)
+                .Named("AllEvents");
+        }
+
+        public Source<EventEnvelope, NotUsed> CurrentAllEvents(Offset offset)
+        {
+            Sequence seq;
+            switch (offset)
+            {
+                case null:
+                case NoOffset _:
+                    seq = new Sequence(0L);
+                    break;
+                case Sequence s:
+                    seq = s;
+                    break;
+                default:
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
+            }
+
+            return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(seq.Value, null, _maxBufferSize, _writeJournalPluginId))
+                .MapMaterializedValue(_ => NotUsed.Instance)
+                .Named("CurrentAllEvents");
+        }
+       
     }
+
 }

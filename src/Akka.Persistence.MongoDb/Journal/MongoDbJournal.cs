@@ -5,22 +5,19 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using Akka.Actor;
+using Akka.Persistence.Journal;
+using Akka.Persistence.MongoDb.Query;
+using Akka.Streams.Dsl;
+using Akka.Util;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Akka.Actor;
-using Akka.Persistence.Journal;
-using Akka.Persistence.MongoDb.Query;
-using Akka.Streams;
-using Akka.Streams.Dsl;
-using MongoDB.Bson;
-using Akka.Serialization;
-using Akka.Util;
-using MongoDB.Driver;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -37,10 +34,11 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
-        private readonly Dictionary<string, ISet<IActorRef>> _tagSubscribers =
-            new Dictionary<string, ISet<IActorRef>>();
-        private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers
-            = new Dictionary<string, ISet<IActorRef>>();
+         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
+        private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
+        private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
+        private IImmutableDictionary<string, long> _tagSequenceNr = ImmutableDictionary<string, long>.Empty;
+
 
         private readonly Akka.Serialization.Serialization _serialization;
 
@@ -113,8 +111,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
         {
-            NotifyNewPersistenceIdAdded(persistenceId);
-
             // Limit allows only integer
             var limitValue = max >= int.MaxValue ? int.MaxValue : (int)max;
 
@@ -205,7 +201,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
-            NotifyNewPersistenceIdAdded(persistenceId);
 
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
@@ -271,8 +266,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
-            NotifyNewPersistenceIdAdded(persistenceId);
-
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
@@ -400,7 +393,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 SequenceNr = highSequenceId
             };
 
-            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new UpdateOptions() { IsUpsert = true });
+            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
         }
 
         protected override bool ReceivePluginInternal(object message)
@@ -410,47 +403,83 @@ namespace Akka.Persistence.MongoDb.Journal
                 case ReplayTaggedMessages replay:
                     ReplayTaggedMessagesAsync(replay)
                         .PipeTo(replay.ReplyTo, success: h => new RecoverySuccess(h), failure: e => new ReplayMessagesFailure(e));
-                    break;
+                    return true;
+                case ReplayAllEvents replay:
+                    ReplayAllEventsAsync(replay)
+                        .PipeTo(replay.ReplyTo, success: h => new EventReplaySuccess(h),
+                            failure: e => new EventReplayFailure(e));
+                    return true;
                 case SubscribePersistenceId subscribe:
                     AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
                     Context.Watch(Sender);
-                    break;
-                case SubscribeAllPersistenceIds subscribe:
-                    AddAllPersistenceIdSubscriber(Sender);
-                    Context.Watch(Sender);
-                    break;
+                    return true;
+                case SelectCurrentPersistenceIds request:
+                    SelectAllPersistenceIdsAsync(request.Offset)
+                        .PipeTo(request.ReplyTo, success: result => new CurrentPersistenceIds(result.Ids, request.Offset));
+                    return true;
                 case SubscribeTag subscribe:
                     AddTagSubscriber(Sender, subscribe.Tag);
                     Context.Watch(Sender);
-                    break;
+                    return true;
+                case SubscribeNewEvents _:
+                    AddNewEventsSubscriber(Sender);
+                    Context.Watch(Sender);
+                    return true;
                 case Terminated terminated:
                     RemoveSubscriber(terminated.ActorRef);
-                    break;
+                    return true;
                 default:
                     return false;
             }
-
-            return true;
+        }
+        public void AddNewEventsSubscriber(IActorRef subscriber)
+        {
+            _newEventsSubscriber.Add(subscriber);
+        }
+        protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(long offset)
+        {
+            var lastOrdering = await GetHighestPersistenceId();
+            return (GetAllPersistenceIds(), lastOrdering);
         }
 
-        private void AddAllPersistenceIdSubscriber(IActorRef subscriber)
+        protected virtual async Task<long> ReplayAllEventsAsync(ReplayAllEvents replay)
         {
-            lock (_allPersistenceIdSubscribers)
-            {
-                _allPersistenceIdSubscribers.Add(subscriber);
-            }
-            subscriber.Tell(new CurrentPersistenceIds(GetAllPersistenceIds()));
+            // Limit allows only integer
+            var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
+
+            var maxOrdering = 0L;
+            var builder = Builders<JournalEntry>.Filter;
+            var filter = builder.Gte(x => x.SequenceNr, replay.FromOffset);
+            filter &= builder.Lte(x => x.SequenceNr, replay.ToOffset);
+            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
+            await _journalCollection.Value
+                .Find(filter)
+                .Sort(sort)
+                .Limit(limitValue)
+                .ForEachAsync(entry =>
+                {
+                    var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
+                    foreach (var adapted in AdaptFromJournal(persistent))
+                    {
+                        var currentSequence = persistent.SequenceNr;
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, currentSequence), ActorRefs.NoSender);
+                        if(currentSequence > maxOrdering)
+                            maxOrdering = currentSequence;
+                    }
+                });
+            return maxOrdering;
         }
 
         private void AddTagSubscriber(IActorRef subscriber, string tag)
         {
             if (!_tagSubscribers.TryGetValue(tag, out var subscriptions))
             {
-                subscriptions = new HashSet<IActorRef>();
-                _tagSubscribers.Add(tag, subscriptions);
+                _tagSubscribers = _tagSubscribers.Add(tag, ImmutableHashSet.Create(subscriber));
             }
-
-            subscriptions.Add(subscriber);
+            else
+            {
+                _tagSubscribers = _tagSubscribers.SetItem(tag, subscriptions.Add(subscriber));
+            }
         }
 
         private IEnumerable<string> GetAllPersistenceIds()
@@ -461,44 +490,49 @@ namespace Akka.Persistence.MongoDb.Journal
                 .ToList();
         }
 
+        private async Task<long> GetHighestPersistenceId()
+        {
+            return await Task.Run(() =>
+            {
+                return _journalCollection.Value.AsQueryable()
+                    .Select(je => je.SequenceNr)
+                    .Distinct()
+                    .Max();
+            });
+        }
+
         private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
         {
             if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
             {
-                subscriptions = new HashSet<IActorRef>();
-                _persistenceIdSubscribers.Add(persistenceId, subscriptions);
+                _persistenceIdSubscribers = _persistenceIdSubscribers.Add(persistenceId, ImmutableHashSet.Create(subscriber));
             }
-
-            subscriptions.Add(subscriber);
+            else
+            {
+                _persistenceIdSubscribers = _persistenceIdSubscribers.SetItem(persistenceId, subscriptions.Add(subscriber));
+            }
         }
 
-        private void RemoveSubscriber(IActorRef subscriber)
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
+        public void RemoveSubscriber(IActorRef subscriber)
         {
-            var pidSubscriptions = _persistenceIdSubscribers.Values.Where(x => x.Contains(subscriber));
-            foreach (var subscription in pidSubscriptions)
-                subscription.Remove(subscriber);
+            _persistenceIdSubscribers = _persistenceIdSubscribers.SetItems(_persistenceIdSubscribers
+                .Where(kv => kv.Value.Contains(subscriber))
+                .Select(kv => new KeyValuePair<string, IImmutableSet<IActorRef>>(kv.Key, kv.Value.Remove(subscriber))));
 
-            var tagSubscriptions = _tagSubscribers.Values.Where(x => x.Contains(subscriber));
-            foreach (var subscription in tagSubscriptions)
-                subscription.Remove(subscriber);
+            _tagSubscribers = _tagSubscribers.SetItems(_tagSubscribers
+                .Where(kv => kv.Value.Contains(subscriber))
+                .Select(kv => new KeyValuePair<string, IImmutableSet<IActorRef>>(kv.Key, kv.Value.Remove(subscriber))));
 
-            _allPersistenceIdSubscribers.Remove(subscriber);
+            _newEventsSubscriber.Remove(subscriber);
         }
 
         protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
         protected bool HasTagSubscribers => _tagSubscribers.Count != 0;
         protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
-
-        private void NotifyNewPersistenceIdAdded(string persistenceId)
-        {
-            var isNew = TryAddPersistenceId(persistenceId);
-            if (isNew && HasAllPersistenceIdSubscribers)
-            {
-                var added = new PersistenceIdAdded(persistenceId);
-                foreach (var subscriber in _allPersistenceIdSubscribers)
-                    subscriber.Tell(added);
-            }
-        }
 
         private bool TryAddPersistenceId(string persistenceId)
         {

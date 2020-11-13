@@ -81,7 +81,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             await _snapshotCollection.Value.ReplaceOneAsync(
                 CreateSnapshotIdFilter(snapshotEntry.Id),
                 snapshotEntry,
-                new UpdateOptions { IsUpsert = true });
+                new ReplaceOptions { IsUpsert = true });
         }
 
         protected override Task DeleteAsync(SnapshotMetadata metadata)
