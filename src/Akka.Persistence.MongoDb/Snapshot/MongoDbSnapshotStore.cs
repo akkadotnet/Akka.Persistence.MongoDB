@@ -9,7 +9,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Persistence.Snapshot;
-using Akka.Serialization;
 using Akka.Util;
 using MongoDB.Driver;
 
@@ -146,7 +145,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 };
             }
 
-            var snapshotRep = new Akka.Persistence.Serialization.Snapshot(snapshot);
+            var snapshotRep = new Serialization.Snapshot(snapshot);
             var serializer = _serialization.FindSerializerFor(snapshotRep);
             var binary = serializer.ToBinary(snapshotRep);
             var binaryManifest = Akka.Serialization.Serialization.ManifestFor(serializer, snapshotRep);

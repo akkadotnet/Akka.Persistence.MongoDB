@@ -150,8 +150,9 @@ namespace Akka.Persistence.MongoDb.Journal
              *  NOTE: limit is used like a pagination value, not a cap on the amount
              * of data returned by a query. This was at the root of https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
              */
-            // Limit allows only integer
+            // Limit allows only integer;
             var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
+
             var fromSequenceNr = replay.FromOffset;
             var toSequenceNr = replay.ToOffset;
             var tag = replay.Tag;
@@ -199,15 +200,30 @@ namespace Akka.Persistence.MongoDb.Journal
             return maxOrderingId;
         }
 
+        /// <summary>
+        /// Asynchronously reads a highest sequence number of the event stream related with provided <paramref name="persistenceId"/>.
+        /// </summary>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="fromSequenceNr">TBD</param>
+        /// <returns>long</returns>
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
 
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            var highestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+            //Following the SqlJournal implementation
+            //I have tried MongoDb lookup query and that caused some deadlocks in some tests!
+            
+            var metadataHighestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
-            return highestSequenceNr;
+            //var journalHighestSequenceNr = await _journalCollection.Value.Find(Builders<JournalEntry>.Filter.Eq(x => x.PersistenceId, persistenceId)).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+
+            //if (metadataHighestSequenceNr > journalHighestSequenceNr)
+            //return metadataHighestSequenceNr;
+
+            //return journalHighestSequenceNr;
+            return metadataHighestSequenceNr;
         }
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
@@ -260,10 +276,21 @@ namespace Akka.Persistence.MongoDb.Journal
                     NotifyTagChange(tag);
                 }
             }
-
+            if (HasNewEventSubscribers)
+                NotifyNewEventAppended();
             return result;
         }
 
+        private void NotifyNewEventAppended()
+        {
+            if (HasNewEventSubscribers)
+            {
+                foreach (var subscriber in _newEventsSubscriber)
+                {
+                    subscriber.Tell(NewEventAppended.Instance);
+                }
+            }
+        }
         protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             var builder = Builders<JournalEntry>.Filter;
@@ -295,6 +322,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
+                    Timestamp = new BsonTimestamp(DateTime.UtcNow.Ticks),
                     PersistenceId = message.PersistenceId,
                     SequenceNr = message.SequenceNr,
                     Manifest = manifest,
@@ -314,6 +342,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
+                Timestamp = new BsonTimestamp(DateTime.UtcNow.Ticks),
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
                 Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
@@ -438,8 +467,10 @@ namespace Akka.Persistence.MongoDb.Journal
         }
         protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(long offset)
         {
-            var lastOrdering = await GetHighestPersistenceId();
-            return (GetAllPersistenceIds(), lastOrdering);
+            
+            var lastOrdering = await GetHighestOrdering();
+            var ids = GetAllPersistenceIds();
+            return (ids, lastOrdering);
         }
 
         protected virtual async Task<long> ReplayAllEventsAsync(ReplayAllEvents replay)
@@ -485,12 +516,12 @@ namespace Akka.Persistence.MongoDb.Journal
         private IEnumerable<string> GetAllPersistenceIds()
         {
             return _journalCollection.Value.AsQueryable()
-                .Select(je => je.PersistenceId)
-                .Distinct()
-                .ToList();
+                 .Select(je => je.PersistenceId)
+                 .Distinct()
+                 .ToList();
         }
 
-        private async Task<long> GetHighestPersistenceId()
+        private async Task<long> GetHighestOrdering()
         {
             return await Task.Run(() =>
             {
@@ -529,9 +560,22 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _newEventsSubscriber.Remove(subscriber);
         }
-
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasTagSubscribers => _tagSubscribers.Count != 0;
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        protected bool HasNewEventSubscribers => _newEventsSubscriber.Count != 0;
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
 
         private bool TryAddPersistenceId(string persistenceId)

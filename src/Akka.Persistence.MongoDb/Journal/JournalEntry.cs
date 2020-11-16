@@ -38,6 +38,9 @@ namespace Akka.Persistence.MongoDb.Journal
         [BsonElement("Ordering")]
         public BsonTimestamp Ordering { get; set; }
 
+        [BsonElement("Timestamp")]
+        public BsonTimestamp Timestamp { get; set; }
+
         [BsonElement("Tags")]
         public ICollection<string> Tags { get; set; } = new HashSet<string>();
       
@@ -45,3 +48,14 @@ namespace Akka.Persistence.MongoDb.Journal
         public int? SerializerId { get; set; }
     }
 }
+/*
+  {configuration.OrderingColumnName} INTEGER PRIMARY KEY NOT NULL,
+                    {configuration.PersistenceIdColumnName} VARCHAR(255) NOT NULL,
+                    {configuration.SequenceNrColumnName} INTEGER(8) NOT NULL,
+                    {configuration.IsDeletedColumnName} INTEGER(1) NOT NULL,
+                    {configuration.ManifestColumnName} VARCHAR(255) NULL,
+                    {configuration.TimestampColumnName} INTEGER NOT NULL,
+                    {configuration.PayloadColumnName} BLOB NOT NULL,
+                    {configuration.TagsColumnName} VARCHAR(2000) NULL,
+                    {configuration.SerializerIdColumnName} INTEGER(4),
+ */

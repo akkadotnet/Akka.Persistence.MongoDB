@@ -7,8 +7,6 @@ using Akka.Persistence.Query;
 using Akka.Streams.Dsl;
 using Akka.Streams;
 using Reactive.Streams;
-using Akka.Streams.Implementation;
-using Akka.Streams.Implementation.Stages;
 
 namespace Akka.Persistence.MongoDb.Query
 {
