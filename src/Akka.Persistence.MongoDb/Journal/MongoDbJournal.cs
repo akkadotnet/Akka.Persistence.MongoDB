@@ -322,7 +322,6 @@ namespace Akka.Persistence.MongoDb.Journal
                     Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
-                    Timestamp = new BsonTimestamp(DateTime.UtcNow.Ticks),
                     PersistenceId = message.PersistenceId,
                     SequenceNr = message.SequenceNr,
                     Manifest = manifest,
@@ -342,7 +341,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
-                Timestamp = new BsonTimestamp(DateTime.UtcNow.Ticks),
                 PersistenceId = message.PersistenceId,
                 SequenceNr = message.SequenceNr,
                 Manifest = string.Empty, // don't need a manifest here - it's embedded inside the PersistentMessage
@@ -461,7 +459,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     return false;
             }
         }
-        public void AddNewEventsSubscriber(IActorRef subscriber)
+        private void AddNewEventsSubscriber(IActorRef subscriber)
         {
             _newEventsSubscriber.Add(subscriber);
         }
