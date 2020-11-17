@@ -36,7 +36,7 @@ namespace Akka.Persistence.MongoDb.Journal
         public string Manifest { get; set; }
 
         [BsonElement("Ordering")]
-        public BsonTimestamp Ordering { get; set; }
+        public long Ordering { get; set; }
 
         [BsonElement("Tags")]
         public ICollection<string> Tags { get; set; } = new HashSet<string>();

@@ -3,13 +3,15 @@ using Akka.Persistence.MongoDb.Query;
 using Akka.Persistence.Query;
 using Akka.Persistence.TCK.Query;
 using Akka.Util.Internal;
+using System;
+using System.Collections.Generic;
+using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
-    [Collection("MongoDbSpec")]
-    public class MongoDbAllEventsSpec: AllEventsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbCurrentAllEventsSpec : CurrentAllEventsSpec, IClassFixture<DatabaseFixture>
     {
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
@@ -39,7 +41,7 @@ namespace Akka.Persistence.MongoDb.Tests
         }
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
-        public MongoDbAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)
+        public MongoDbCurrentAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)
         {
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }

@@ -7,10 +7,10 @@
 
 using Akka.Actor;
 using Akka.Persistence.Journal;
+using Akka.Persistence.MongoDb.Auto;
 using Akka.Persistence.MongoDb.Query;
 using Akka.Streams.Dsl;
 using Akka.Util;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -31,6 +31,7 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
+        private SequenceRepository _sequenceRepository;
 
         private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
@@ -61,7 +62,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 return client.GetDatabase(connectionString.DatabaseName);
             });
-
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {
                 var collection = _mongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
@@ -107,6 +107,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 return collection;
             });
+            _sequenceRepository = new SequenceRepository(_mongoDatabase.Value);
         }
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
@@ -160,9 +161,9 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<JournalEntry>.Filter;
             var seqNoFilter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
+                seqNoFilter &= builder.Gt(x => x.Ordering, fromSequenceNr);
             if (toSequenceNr != long.MaxValue)
-                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
+                seqNoFilter &= builder.Lte(x => x.Ordering, toSequenceNr);
 
 
             // Need to know what the highest seqNo of this query will be
@@ -175,14 +176,14 @@ namespace Akka.Persistence.MongoDb.Journal
             if (maxSeqNoEntry == null)
                 return 0L; // recovered nothing
 
-            var maxOrderingId = maxSeqNoEntry.Ordering.Value;
+            var maxOrderingId = maxSeqNoEntry.Ordering;
             var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
 
             var readFilter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
+                readFilter &= builder.Gt(x => x.Ordering, fromSequenceNr);
             if (toSequenceNr != long.MaxValue)
-                readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
+                readFilter &= builder.Lte(x => x.Ordering, toSeqNo);
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
             await _journalCollection.Value
@@ -193,7 +194,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 {
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value),
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering),
                             ActorRefs.NoSender);
                 });
 
@@ -319,7 +320,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new JournalEntry
                 {
                     Id = message.PersistenceId + "_" + message.SequenceNr,
-                    Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
+                    Ordering = _sequenceRepository.GetSequenceValue("journalentry"), // Auto-populates with timestamp
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -338,7 +339,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
-                Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
+                Ordering = _sequenceRepository.GetSequenceValue("journalentry"), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -475,27 +476,32 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             // Limit allows only integer
             var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
-
-            var maxOrdering = 0L;
+            var take = Math.Min(replay.ToOffset - replay.FromOffset, replay.Max);
+            var maxOrdering = await GetHighestOrdering();
             var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.Gte(x => x.SequenceNr, replay.FromOffset);
-            filter &= builder.Lte(x => x.SequenceNr, replay.ToOffset);
-            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
-            await _journalCollection.Value
+            var filter = builder.Gt(x => x.Ordering, replay.FromOffset);
+            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
+
+            var j = await _journalCollection.Value
                 .Find(filter)
                 .Sort(sort)
-                .Limit(limitValue)
+                .Limit(limitValue).ToListAsync();/*
                 .ForEachAsync(entry =>
                 {
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
                     {
-                        var currentSequence = persistent.SequenceNr;
-                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, currentSequence), ActorRefs.NoSender);
-                        if(currentSequence > maxOrdering)
-                            maxOrdering = currentSequence;
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);                        
                     }
-                });
+                });*/
+            foreach(var t in j)
+            {
+                var persistent = ToPersistenceRepresentation(t, ActorRefs.NoSender);
+                foreach (var adapted in AdaptFromJournal(persistent))
+                {
+                    replay.ReplyTo.Tell(new ReplayedEvent(adapted, t.Ordering), ActorRefs.NoSender);
+                }
+            }
             return maxOrdering;
         }
 
@@ -524,12 +530,20 @@ namespace Akka.Persistence.MongoDb.Journal
             return await Task.Run(() =>
             {
                 return _journalCollection.Value.AsQueryable()
-                    .Select(je => je.SequenceNr)
+                    .Select(je => je.Ordering)
                     .Distinct()
                     .Max();
             });
         }
-
+        private async Task<long> CountTotalRows()
+        {
+            return await Task.Run(() =>
+            {
+                return _journalCollection.Value.AsQueryable()
+                    .Select(je => je.SequenceNr)
+                    .Count();
+            });
+        }
         private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
         {
             if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
