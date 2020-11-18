@@ -11,6 +11,7 @@ using Akka.Persistence.MongoDb.Auto;
 using Akka.Persistence.MongoDb.Query;
 using Akka.Streams.Dsl;
 using Akka.Util;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -320,7 +321,8 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new JournalEntry
                 {
                     Id = message.PersistenceId + "_" + message.SequenceNr,
-                    Ordering = _sequenceRepository.GetSequenceValue("journalentry"), // Auto-populates with timestamp
+                    Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
+                    Timestamp = new BsonTimestamp(0), // Auto-populates with timestamp
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -339,7 +341,8 @@ namespace Akka.Persistence.MongoDb.Journal
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
-                Ordering = _sequenceRepository.GetSequenceValue("journalentry"), // Auto-populates with timestamp
+                Ordering = _sequenceRepository.GetSequenceValue("journalentry"),
+                Timestamp = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -474,35 +477,76 @@ namespace Akka.Persistence.MongoDb.Journal
 
         protected virtual async Task<long> ReplayAllEventsAsync(ReplayAllEvents replay)
         {
-            // Limit allows only integer
             var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
-            var take = Math.Min(replay.ToOffset - replay.FromOffset, replay.Max);
-            var maxOrdering = await GetHighestOrdering();
+
+            var fromSequenceNr = replay.FromOffset;
+            var toSequenceNr = replay.ToOffset;
             var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.Gt(x => x.Ordering, replay.FromOffset);
+            List<FilterDefinition<JournalEntry>> filters = new List<FilterDefinition<JournalEntry>>();
+            if (fromSequenceNr > 0)
+                filters.Add(builder.Gt(x => x.Ordering, fromSequenceNr));
+            if (toSequenceNr != long.MaxValue)
+                filters.Add(builder.Lte(x => x.Ordering, toSequenceNr));
+
+            var seqNoFilter = filters.Any() ? builder.And(filters) : null;
+
+
+            // Need to know what the highest seqNo of this query will be
+            // and return that as part of the RecoverySuccess message
+            var maxSeqNoEntry = seqNoFilter is null? await _journalCollection.Value.Find(_=> true)
+                .SortByDescending(x => x.Ordering)
+                .Limit(1)
+                .SingleOrDefaultAsync(): await _journalCollection.Value.Find(seqNoFilter)
+                .SortByDescending(x => x.Ordering)
+                .Limit(1)
+                .SingleOrDefaultAsync();
+
+            if (maxSeqNoEntry == null)
+                return 0L; // recovered nothing
+
+            var maxOrderingId = maxSeqNoEntry.Ordering;
+            var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
+            
+            filters.Clear();
+            if (fromSequenceNr > 0)
+                filters.Add(builder.Gt(x => x.Ordering, fromSequenceNr));
+            if (toSequenceNr != long.MaxValue)
+                filters.Add(builder.Lte(x => x.Ordering, toSeqNo));
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
-            var j = await _journalCollection.Value
-                .Find(filter)
+            var readFilter = filters.Any()? builder.And(filters): null;
+
+            if(readFilter is null)
+            {
+                await _journalCollection.Value
+                .Find(_ => true)
                 .Sort(sort)
-                .Limit(limitValue).ToListAsync();/*
+                .Limit(limitValue)
                 .ForEachAsync(entry =>
                 {
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
                     {
-                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);                        
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);
                     }
-                });*/
-            foreach(var t in j)
-            {
-                var persistent = ToPersistenceRepresentation(t, ActorRefs.NoSender);
-                foreach (var adapted in AdaptFromJournal(persistent))
-                {
-                    replay.ReplyTo.Tell(new ReplayedEvent(adapted, t.Ordering), ActorRefs.NoSender);
-                }
+                });
             }
-            return maxOrdering;
+            else
+            {
+                await _journalCollection.Value
+                .Find(readFilter)
+                .Sort(sort)
+                .Limit(limitValue)
+                .ForEachAsync(entry =>
+                {
+                    var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
+                    foreach (var adapted in AdaptFromJournal(persistent))
+                    {
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);
+                    }
+                });
+            }
+            return maxOrderingId;
         }
 
         private void AddTagSubscriber(IActorRef subscriber, string tag)
