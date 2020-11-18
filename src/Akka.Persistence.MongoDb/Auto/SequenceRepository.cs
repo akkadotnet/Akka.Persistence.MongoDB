@@ -2,6 +2,7 @@
 
 namespace Akka.Persistence.MongoDb.Auto
 {
+    //https://stackoverflow.com/questions/49500551/insert-a-document-while-auto-incrementing-a-sequence-field-in-mongodb
     public class SequenceRepository
     {
         protected readonly IMongoDatabase _database;
