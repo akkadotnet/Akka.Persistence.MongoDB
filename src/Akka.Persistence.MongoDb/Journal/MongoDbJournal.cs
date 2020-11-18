@@ -490,14 +490,18 @@ namespace Akka.Persistence.MongoDb.Journal
             var seqNoFilter = filters.Any() ? builder.And(filters) : null;
 
 
+
+            IFindFluent<JournalEntry, JournalEntry> find;
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
 
             //If filters is empty, this will deadlock - so when seqNoFilter is null find all
-            var maxSeqNoEntry = seqNoFilter is null? await _journalCollection.Value.Find(_=> true)
-                .SortByDescending(x => x.Ordering)
-                .Limit(1)
-                .SingleOrDefaultAsync(): await _journalCollection.Value.Find(seqNoFilter)
+            if (seqNoFilter is null)
+                find = _journalCollection.Value.Find(_ => true);
+            else
+                find = _journalCollection.Value.Find(seqNoFilter);
+
+            var maxSeqNoEntry = await find
                 .SortByDescending(x => x.Ordering)
                 .Limit(1)
                 .SingleOrDefaultAsync();
@@ -519,24 +523,11 @@ namespace Akka.Persistence.MongoDb.Journal
 
             //If filters is empty, this will deadlock - so when readFilter is null find all
             if (readFilter is null)
-            {
-                await _journalCollection.Value
-                .Find(_ => true)
-                .Sort(sort)
-                .Limit(limitValue)
-                .ForEachAsync(entry =>
-                {
-                    var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
-                    foreach (var adapted in AdaptFromJournal(persistent))
-                    {
-                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
-                    }
-                });
-            }
+                find = _journalCollection.Value.Find(_ => true);
             else
-            {
-                await _journalCollection.Value
-                .Find(readFilter)
+                find = _journalCollection.Value.Find(readFilter);
+
+            await find
                 .Sort(sort)
                 .Limit(limitValue)
                 .ForEachAsync(entry =>
@@ -547,7 +538,6 @@ namespace Akka.Persistence.MongoDb.Journal
                         replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
                     }
                 });
-            }
             return maxOrderingId;
         }
 
