@@ -7,7 +7,6 @@
 
 using Akka.Actor;
 using Akka.Persistence.Journal;
-using Akka.Persistence.MongoDb.Auto;
 using Akka.Persistence.MongoDb.Query;
 using Akka.Streams.Dsl;
 using Akka.Util;
@@ -32,7 +31,6 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
-        private SequenceRepository _sequenceRepository;
 
         private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
@@ -108,7 +106,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 return collection;
             });
-            _sequenceRepository = new SequenceRepository(_mongoDatabase.Value);
         }
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
