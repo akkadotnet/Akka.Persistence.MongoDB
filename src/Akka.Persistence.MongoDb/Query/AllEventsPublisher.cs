@@ -1,4 +1,10 @@
-﻿using Akka.Actor;
+﻿//-----------------------------------------------------------------------
+// <copyright file="AllEventsPublisher.cs" company="Akka.NET Project">
+//     Copyright (C) 2017 Akka.NET Contrib <https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB>
+// </copyright>
+//-----------------------------------------------------------------------
+
+using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence.Query;
 using Akka.Streams.Actors;

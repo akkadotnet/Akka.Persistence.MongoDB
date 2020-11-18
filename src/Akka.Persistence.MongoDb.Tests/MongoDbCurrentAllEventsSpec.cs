@@ -1,11 +1,14 @@
-﻿using Akka.Configuration;
+﻿//-----------------------------------------------------------------------
+// <copyright file="MongoDbCurrentAllEventsSpec.cs" company="Akka.NET Project">
+//     Copyright (C) 2017 Akka.NET Contrib <https://github.com/AkkaNetContrib/Akka.Persistence.MongoDB>
+// </copyright>
+//-----------------------------------------------------------------------
+
+using Akka.Configuration;
 using Akka.Persistence.MongoDb.Query;
 using Akka.Persistence.Query;
 using Akka.Persistence.TCK.Query;
 using Akka.Util.Internal;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 
