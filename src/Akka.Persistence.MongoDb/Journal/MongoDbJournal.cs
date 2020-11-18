@@ -162,9 +162,9 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<JournalEntry>.Filter;
             var seqNoFilter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                seqNoFilter &= builder.Gt(x => x.Ordering, fromSequenceNr);
+                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                seqNoFilter &= builder.Lte(x => x.Ordering, toSequenceNr);
+                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
 
 
             // Need to know what the highest seqNo of this query will be
@@ -177,14 +177,14 @@ namespace Akka.Persistence.MongoDb.Journal
             if (maxSeqNoEntry == null)
                 return 0L; // recovered nothing
 
-            var maxOrderingId = maxSeqNoEntry.Ordering;
+            var maxOrderingId = maxSeqNoEntry.Ordering.Value;
             var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
 
             var readFilter = builder.AnyEq(x => x.Tags, tag);
             if (fromSequenceNr > 0)
-                readFilter &= builder.Gt(x => x.Ordering, fromSequenceNr);
+                readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                readFilter &= builder.Lte(x => x.Ordering, toSeqNo);
+                readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
             await _journalCollection.Value
@@ -195,7 +195,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 {
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
-                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering),
+                        replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value),
                             ActorRefs.NoSender);
                 });
 
@@ -321,8 +321,9 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new JournalEntry
                 {
                     Id = message.PersistenceId + "_" + message.SequenceNr,
-                    Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
-                    Timestamp = new BsonTimestamp(0), // Auto-populates with timestamp
+                    //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
+                    Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
+                    //Timestamp = new BsonTimestamp(0), 
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -341,8 +342,9 @@ namespace Akka.Persistence.MongoDb.Journal
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
-                Ordering = _sequenceRepository.GetSequenceValue("journalentry"),
-                Timestamp = new BsonTimestamp(0), // Auto-populates with timestamp
+                //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
+                Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
+                                                 //Timestamp = new BsonTimestamp(0), 
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -484,9 +486,9 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<JournalEntry>.Filter;
             List<FilterDefinition<JournalEntry>> filters = new List<FilterDefinition<JournalEntry>>();
             if (fromSequenceNr > 0)
-                filters.Add(builder.Gt(x => x.Ordering, fromSequenceNr));
+                filters.Add(builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr)));
             if (toSequenceNr != long.MaxValue)
-                filters.Add(builder.Lte(x => x.Ordering, toSequenceNr));
+                filters.Add(builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr)));
 
             var seqNoFilter = filters.Any() ? builder.And(filters) : null;
 
@@ -504,14 +506,14 @@ namespace Akka.Persistence.MongoDb.Journal
             if (maxSeqNoEntry == null)
                 return 0L; // recovered nothing
 
-            var maxOrderingId = maxSeqNoEntry.Ordering;
+            var maxOrderingId = maxSeqNoEntry.Ordering.Value;
             var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
             
             filters.Clear();
             if (fromSequenceNr > 0)
-                filters.Add(builder.Gt(x => x.Ordering, fromSequenceNr));
+                filters.Add(builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr)));
             if (toSequenceNr != long.MaxValue)
-                filters.Add(builder.Lte(x => x.Ordering, toSeqNo));
+                filters.Add(builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo)));
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
             var readFilter = filters.Any()? builder.And(filters): null;
@@ -527,7 +529,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
                     {
-                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
                     }
                 });
             }
@@ -542,7 +544,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                     foreach (var adapted in AdaptFromJournal(persistent))
                     {
-                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering), ActorRefs.NoSender);
+                        replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
                     }
                 });
             }
@@ -576,7 +578,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 return _journalCollection.Value.AsQueryable()
                     .Select(je => je.Ordering)
                     .Distinct()
-                    .Max();
+                    .Max().Value;
             });
         }
         private async Task<long> CountTotalRows()
