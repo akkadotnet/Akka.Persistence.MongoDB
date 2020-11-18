@@ -495,6 +495,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
+
+            //If filters is empty, this will deadlock - so when seqNoFilter is null find all
             var maxSeqNoEntry = seqNoFilter is null? await _journalCollection.Value.Find(_=> true)
                 .SortByDescending(x => x.Ordering)
                 .Limit(1)
@@ -518,7 +520,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var readFilter = filters.Any()? builder.And(filters): null;
 
-            if(readFilter is null)
+            //If filters is empty, this will deadlock - so when readFilter is null find all
+            if (readFilter is null)
             {
                 await _journalCollection.Value
                 .Find(_ => true)
