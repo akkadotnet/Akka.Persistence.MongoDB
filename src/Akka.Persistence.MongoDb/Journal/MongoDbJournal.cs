@@ -481,27 +481,17 @@ namespace Akka.Persistence.MongoDb.Journal
             var fromSequenceNr = replay.FromOffset;
             var toSequenceNr = replay.ToOffset;
             var builder = Builders<JournalEntry>.Filter;
-            List<FilterDefinition<JournalEntry>> filters = new List<FilterDefinition<JournalEntry>>();
+
+            var seqNoFilter = builder.Empty;
             if (fromSequenceNr > 0)
-                filters.Add(builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr)));
+                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                filters.Add(builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr)));
-
-            var seqNoFilter = filters.Any() ? builder.And(filters) : null;
+                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
 
 
-
-            IFindFluent<JournalEntry, JournalEntry> find;
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
-
-            //If filters is empty, this will deadlock - so when seqNoFilter is null find all
-            if (seqNoFilter is null)
-                find = _journalCollection.Value.Find(_ => true);
-            else
-                find = _journalCollection.Value.Find(seqNoFilter);
-
-            var maxSeqNoEntry = await find
+            var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
                 .SortByDescending(x => x.Ordering)
                 .Limit(1)
                 .SingleOrDefaultAsync();
@@ -511,23 +501,15 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var maxOrderingId = maxSeqNoEntry.Ordering.Value;
             var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
-            
-            filters.Clear();
+
+            var readFilter = builder.Empty;
             if (fromSequenceNr > 0)
-                filters.Add(builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr)));
+                readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
             if (toSequenceNr != long.MaxValue)
-                filters.Add(builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo)));
+                readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
-            var readFilter = filters.Any()? builder.And(filters): null;
-
-            //If filters is empty, this will deadlock - so when readFilter is null find all
-            if (readFilter is null)
-                find = _journalCollection.Value.Find(_ => true);
-            else
-                find = _journalCollection.Value.Find(readFilter);
-
-            await find
+            await _journalCollection.Value.Find(readFilter)
                 .Sort(sort)
                 .Limit(limitValue)
                 .ForEachAsync(entry =>
