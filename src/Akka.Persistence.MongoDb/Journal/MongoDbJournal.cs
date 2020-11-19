@@ -12,6 +12,7 @@ using Akka.Streams.Dsl;
 using Akka.Util;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -467,10 +468,9 @@ namespace Akka.Persistence.MongoDb.Journal
             _newEventsSubscriber.Add(subscriber);
         }
         protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(long offset)
-        {
-            
+        {            
             var lastOrdering = await GetHighestOrdering();
-            var ids = GetAllPersistenceIds();
+            var ids = await GetAllPersistenceIds();
             return (ids, lastOrdering);
         }
 
@@ -535,33 +535,21 @@ namespace Akka.Persistence.MongoDb.Journal
             }
         }
 
-        private IEnumerable<string> GetAllPersistenceIds()
+        private async Task<IEnumerable<string>> GetAllPersistenceIds()
         {
-            return _journalCollection.Value.AsQueryable()
-                 .Select(je => je.PersistenceId)
-                 .Distinct()
-                 .ToList();
+            var ids = await _metadataCollection.Value.Find(_=> true).ToListAsync();
+            return ids.Distinct().Select(x => x.PersistenceId);
         }
 
         private async Task<long> GetHighestOrdering()
         {
-            return await Task.Run(() =>
-            {
-                return _journalCollection.Value.AsQueryable()
+            var max = await _journalCollection.Value.AsQueryable()
                     .Select(je => je.Ordering)
-                    .Distinct()
-                    .Max().Value;
-            });
+                    .Distinct().MaxAsync();
+
+            return max.Value;
         }
-        private async Task<long> CountTotalRows()
-        {
-            return await Task.Run(() =>
-            {
-                return _journalCollection.Value.AsQueryable()
-                    .Select(je => je.SequenceNr)
-                    .Count();
-            });
-        }
+        
         private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
         {
             if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
