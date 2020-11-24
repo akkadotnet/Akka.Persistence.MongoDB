@@ -33,13 +33,11 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
 
-        private readonly HashSet<string> _allPersistenceIds = new HashSet<string>();
         private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
          private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
-        private IImmutableDictionary<string, long> _tagSequenceNr = ImmutableDictionary<string, long>.Empty;
-
+        
 
         private readonly Akka.Serialization.Serialization _serialization;
 
@@ -562,11 +560,7 @@ namespace Akka.Persistence.MongoDb.Journal
             }
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="subscriber">TBD</param>
-        public void RemoveSubscriber(IActorRef subscriber)
+        private void RemoveSubscriber(IActorRef subscriber)
         {
             _persistenceIdSubscribers = _persistenceIdSubscribers.SetItems(_persistenceIdSubscribers
                 .Where(kv => kv.Value.Contains(subscriber))
@@ -596,13 +590,6 @@ namespace Akka.Persistence.MongoDb.Journal
         /// </summary>
         protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
 
-        private bool TryAddPersistenceId(string persistenceId)
-        {
-            lock (_allPersistenceIds)
-            {
-                return _allPersistenceIds.Add(persistenceId);
-            }
-        }
 
         private void NotifyPersistenceIdChange(string persistenceId)
         {

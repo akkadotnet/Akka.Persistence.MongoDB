@@ -41,7 +41,6 @@ namespace Akka.Persistence.MongoDb.Query
             _maxBufferSize = config.GetInt("max-buffer-size"); 
             _system = system;
 
-            _lock = new ReaderWriterLockSlim();
             _persistenceIdsPublisher = null;
         }
 
