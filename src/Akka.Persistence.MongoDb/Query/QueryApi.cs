@@ -7,12 +7,10 @@
 
 using Akka.Actor;
 using Akka.Event;
+using Akka.Persistence.Journal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Akka.Persistence.MongoDb.Query
 {
@@ -26,6 +24,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// Used by query-side. The journal will send <see cref="EventAppended"/> messages to
     /// the subscriber when <see cref="AsyncWriteJournal.WriteMessagesAsync"/> has been called.
     /// </summary>
+    [Serializable]
     public sealed class SubscribePersistenceId : ISubscriptionCommand
     {
         /// <summary>
@@ -46,6 +45,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// <summary>
     /// TBD
     /// </summary>
+    [Serializable]
     public sealed class EventAppended : IDeadLetterSuppression
     {
         /// <summary>
@@ -63,24 +63,23 @@ namespace Akka.Persistence.MongoDb.Query
         }
     }
 
-    /// <summary>
-    /// Subscribe the `sender` to current and new persistenceIds.
-    /// Used by query-side. The journal will send one <see cref="CurrentPersistenceIds"/> to the
-    /// subscriber followed by <see cref="PersistenceIdAdded"/> messages when new persistenceIds
-    /// are created.
-    /// </summary>
-    public sealed class SubscribeAllPersistenceIds : ISubscriptionCommand
+    [Serializable]
+    public sealed class SelectCurrentPersistenceIds : IJournalRequest
     {
-        /// <summary>
-        /// TBD
-        /// </summary>
-        public static readonly SubscribeAllPersistenceIds Instance = new SubscribeAllPersistenceIds();
-        private SubscribeAllPersistenceIds() { }
+        public IActorRef ReplyTo { get; }
+        public long Offset { get; }
+
+        public SelectCurrentPersistenceIds(long offset, IActorRef replyTo)
+        {
+            Offset = offset;
+            ReplyTo = replyTo;
+        }
     }
 
     /// <summary>
     /// TBD
     /// </summary>
+    [Serializable]
     public sealed class CurrentPersistenceIds : IDeadLetterSuppression
     {
         /// <summary>
@@ -88,35 +87,39 @@ namespace Akka.Persistence.MongoDb.Query
         /// </summary>
         public readonly IEnumerable<string> AllPersistenceIds;
 
+        public readonly long HighestOrderingNumber;
+
         /// <summary>
         /// TBD
         /// </summary>
         /// <param name="allPersistenceIds">TBD</param>
-        public CurrentPersistenceIds(IEnumerable<string> allPersistenceIds)
+        /// <param name="highestOrderingNumber">TBD</param>
+        public CurrentPersistenceIds(IEnumerable<string> allPersistenceIds, long highestOrderingNumber)
         {
             AllPersistenceIds = allPersistenceIds.ToImmutableHashSet();
+            HighestOrderingNumber = highestOrderingNumber;
         }
     }
 
     /// <summary>
-    /// TBD
+    /// Subscribe the `sender` to new appended events.
+    /// Used by query-side. The journal will send <see cref="NewEventAppended"/> messages to
+    /// the subscriber when `asyncWriteMessages` has been called.
     /// </summary>
-    
-    public sealed class PersistenceIdAdded : IDeadLetterSuppression
+    [Serializable]
+    public sealed class SubscribeNewEvents : ISubscriptionCommand
     {
-        /// <summary>
-        /// TBD
-        /// </summary>
-        public readonly string PersistenceId;
+        public static SubscribeNewEvents Instance = new SubscribeNewEvents();
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="persistenceId">TBD</param>
-        public PersistenceIdAdded(string persistenceId)
-        {
-            PersistenceId = persistenceId;
-        }
+        private SubscribeNewEvents() { }
+    }
+
+    [Serializable]
+    public sealed class NewEventAppended : IDeadLetterSuppression
+    {
+        public static NewEventAppended Instance = new NewEventAppended();
+
+        private NewEventAppended() { }
     }
 
     /// <summary>
@@ -126,6 +129,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// Events are tagged by wrapping in <see cref="Tagged"/>
     /// via an <see cref="IEventAdapter"/>.
     /// </summary>
+    [Serializable]
     public sealed class SubscribeTag : ISubscriptionCommand
     {
         /// <summary>
@@ -146,6 +150,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// <summary>
     /// TBD
     /// </summary>
+    [Serializable]
     public sealed class TaggedEventAppended : IDeadLetterSuppression
     {
         /// <summary>
@@ -166,6 +171,154 @@ namespace Akka.Persistence.MongoDb.Query
     /// <summary>
     /// TBD
     /// </summary>
+    [Serializable]
+    public sealed class ReplayAllEvents : IJournalRequest
+    {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly long FromOffset;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly long ToOffset;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly long Max;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly IActorRef ReplyTo;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ReplayAllEvents"/> class.
+        /// </summary>
+        /// <param name="fromOffset">TBD</param>
+        /// <param name="toOffset">TBD</param>
+        /// <param name="max">TBD</param>
+        /// <param name="replyTo">TBD</param>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown for a number of reasons. These include the following:
+        /// <ul>
+        /// <li>The specified <paramref name="fromOffset"/> is less than zero.</li>
+        /// <li>The specified <paramref name="toOffset"/> is less than or equal to zero.</li>
+        /// <li>The specified <paramref name="max"/> is less than or equal to zero.</li>
+        /// </ul>
+        /// </exception>
+        public ReplayAllEvents(long fromOffset, long toOffset, long max, IActorRef replyTo)
+        {
+            if (fromOffset < 0) throw new ArgumentException("From offset may not be a negative number", nameof(fromOffset));
+            if (toOffset <= 0) throw new ArgumentException("To offset must be a positive number", nameof(toOffset));
+            if (max <= 0) throw new ArgumentException("Maximum number of replayed messages must be a positive number", nameof(max));
+
+            FromOffset = fromOffset;
+            ToOffset = toOffset;
+            Max = max;
+            ReplyTo = replyTo;
+        }
+    }
+
+    /// <summary>
+    /// TBD
+    /// </summary>
+    [Serializable]
+    public sealed class ReplayedEvent : INoSerializationVerificationNeeded, IDeadLetterSuppression
+    {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly IPersistentRepresentation Persistent;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public readonly long Offset;
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="persistent">TBD</param>
+        /// <param name="tag">TBD</param>
+        /// <param name="offset">TBD</param>
+        public ReplayedEvent(IPersistentRepresentation persistent, long offset)
+        {
+            Persistent = persistent;
+            Offset = offset;
+        }
+    }
+
+    public sealed class EventReplaySuccess
+    {
+        public EventReplaySuccess(long highestSequenceNr)
+        {
+            HighestSequenceNr = highestSequenceNr;
+        }
+
+        /// <summary>
+        /// Highest stored sequence number.
+        /// </summary>
+        public long HighestSequenceNr { get; }
+
+        public bool Equals(EventReplaySuccess other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+
+            return Equals(HighestSequenceNr, other.HighestSequenceNr);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            if (!(obj is EventReplaySuccess evt)) return false;
+            return Equals(evt);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode() => HighestSequenceNr.GetHashCode();
+
+        /// <inheritdoc/>
+        public override string ToString() => $"EventReplaySuccess<highestSequenceNr: {HighestSequenceNr}>";
+    }
+
+    public sealed class EventReplayFailure
+    {
+        public EventReplayFailure(Exception cause)
+        {
+            Cause = cause;
+        }
+
+        /// <summary>
+        /// Highest stored sequence number.
+        /// </summary>
+        public Exception Cause { get; }
+
+        public bool Equals(EventReplayFailure other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+
+            return Equals(Cause, other.Cause);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            if (!(obj is EventReplayFailure f)) return false;
+            return Equals(f);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode() => Cause.GetHashCode();
+
+        /// <inheritdoc/>
+        public override string ToString() => $"EventReplayFailure<cause: {Cause.Message}>";
+    }
+
+    /// <summary>
+    /// TBD
+    /// </summary>
+    [Serializable]
     public sealed class ReplayTaggedMessages : IJournalRequest
     {
         /// <summary>
@@ -226,6 +379,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// <summary>
     /// TBD
     /// </summary>
+    [Serializable]
     public sealed class ReplayedTaggedMessage : INoSerializationVerificationNeeded, IDeadLetterSuppression
     {
         /// <summary>

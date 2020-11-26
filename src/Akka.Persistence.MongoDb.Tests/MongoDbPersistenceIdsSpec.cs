@@ -17,6 +17,9 @@ using Akka.Actor;
 using Akka.Streams.TestKit;
 using System.Linq;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Reflection;
+using Reactive.Streams;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
@@ -59,7 +62,6 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-
         [Fact]
         public void ReadJournal_ConcurrentMessaging_should_work()
         {
