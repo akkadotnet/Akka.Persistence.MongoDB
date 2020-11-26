@@ -33,8 +33,8 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
 
-        private readonly HashSet<IActorRef> _allPersistenceIdSubscribers = new HashSet<IActorRef>();
-         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
+
+        private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
         
@@ -572,10 +572,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _newEventsSubscriber.Remove(subscriber);
         }
-        /// <summary>
-        /// TBD
-        /// </summary>
-        protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
+        
         /// <summary>
         /// TBD
         /// </summary>
