@@ -35,14 +35,17 @@ namespace Akka.Persistence.MongoDb.Query
 
         public void DeliverBuffer(long demand)
         {
-            if (!Buffer.IsEmpty && demand > 0) {
+            if (!Buffer.IsEmpty && demand > 0) 
+            {
                 var totalDemand = Math.Min((int)demand, Buffer.Length);
-                if (Buffer.Length == 1) {
+                if (Buffer.Length == 1) 
+                {
                     // optimize for this common case
                     _onNext(Buffer[0]);
                     Buffer = ImmutableArray<T>.Empty;
                 }
-                else if (demand <= int.MaxValue) {
+                else if (demand <= int.MaxValue) 
+                {
                     for (var i = 0; i < totalDemand; i++)
                         _onNext(Buffer[i]);
 
@@ -55,6 +58,7 @@ namespace Akka.Persistence.MongoDb.Query
                     Buffer = ImmutableArray<T>.Empty;
                 }
             }
+
         }
 
     }
