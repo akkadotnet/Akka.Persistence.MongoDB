@@ -302,9 +302,9 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
-            var timeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            //var timeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             object payload = message.Payload;
-            message = message.WithTimestamp(timeStamp);
+            //message = message.WithTimestamp(timeStamp);
             if (message.Payload is Tagged tagged)
             {
                 payload = tagged.Payload;
@@ -373,7 +373,9 @@ namespace Akka.Persistence.MongoDb.Journal
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
-                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                var serPersistent = ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                serPersistent.WithTimestamp(entry.Ordering.Timestamp);
+                return serPersistent;
             }
 
             int? serializerId = null;
