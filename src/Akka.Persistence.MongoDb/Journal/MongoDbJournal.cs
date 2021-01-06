@@ -302,7 +302,9 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
+            var timeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             object payload = message.Payload;
+            message = message.WithTimestamp(timeStamp);
             if (message.Payload is Tagged tagged)
             {
                 payload = tagged.Payload;
@@ -319,7 +321,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     Id = message.PersistenceId + "_" + message.SequenceNr,
                     //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
                     Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
-                    //Timestamp = new BsonTimestamp(0), 
+                    Timestamp = new BsonTimestamp(timeStamp), 
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -340,7 +342,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
-                                                 //Timestamp = new BsonTimestamp(0), 
+                Timestamp = new BsonTimestamp(timeStamp),
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -363,14 +365,16 @@ namespace Akka.Persistence.MongoDb.Journal
                     entry.PersistenceId,
                     manifest,
                     entry.IsDeleted,
-                    sender);
+                    sender,
+                    timestamp: entry.Timestamp.Timestamp);
             }
 
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
-                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                var s = ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                return s;
             }
 
             int? serializerId = null;
@@ -398,12 +402,12 @@ namespace Akka.Persistence.MongoDb.Journal
                 if (deserialized is Persistent p)
                     return p;
 
-                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: entry.Timestamp.Timestamp);
             }
             else // backwards compat for object serialization - Payload was already deserialized by BSON
             {
                 return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
-                    entry.IsDeleted, sender);
+                    entry.IsDeleted, sender, timestamp: entry.Timestamp.Timestamp);
             }
 
         }
