@@ -321,7 +321,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     Id = message.PersistenceId + "_" + message.SequenceNr,
                     //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
                     Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
-                    Timestamp = new BsonTimestamp(timeStamp), 
+                    //Timestamp = new BsonTimestamp(timeStamp), 
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -342,7 +342,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 Id = message.PersistenceId + "_" + message.SequenceNr,
                 //Ordering = _sequenceRepository.GetSequenceValue("journalentry"), 
                 Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
-                Timestamp = new BsonTimestamp(timeStamp),
+                //Timestamp = new BsonTimestamp(timeStamp),
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -366,15 +366,14 @@ namespace Akka.Persistence.MongoDb.Journal
                     manifest,
                     entry.IsDeleted,
                     sender,
-                    timestamp: entry.Timestamp.Timestamp);
+                    timestamp: entry.Ordering.Timestamp);
             }
 
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
-                var s = ser.FromBinary<Persistent>((byte[]) entry.Payload);
-                return s;
+                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
             }
 
             int? serializerId = null;
@@ -402,12 +401,12 @@ namespace Akka.Persistence.MongoDb.Journal
                 if (deserialized is Persistent p)
                     return p;
 
-                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: entry.Timestamp.Timestamp);
+                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
             }
             else // backwards compat for object serialization - Payload was already deserialized by BSON
             {
                 return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
-                    entry.IsDeleted, sender, timestamp: entry.Timestamp.Timestamp);
+                    entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
             }
 
         }
