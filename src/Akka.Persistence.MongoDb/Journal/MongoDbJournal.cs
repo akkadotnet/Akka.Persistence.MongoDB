@@ -363,14 +363,23 @@ namespace Akka.Persistence.MongoDb.Journal
                     entry.PersistenceId,
                     manifest,
                     entry.IsDeleted,
-                    sender);
+                    sender,
+                    timestamp: entry.Ordering.Timestamp);
             }
 
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
-                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                var output = ser.FromBinary<Persistent>((byte[]) entry.Payload);
+
+                // backwards compatibility for https://github.com/akkadotnet/akka.net/pull/4680
+                // it the timestamp is not defined in the binary payload
+                if(output.Timestamp == 0L){ 
+                    output = (Persistent)output.WithTimestamp(entry.Ordering.Timestamp);
+                }
+
+                return output;
             }
 
             int? serializerId = null;
@@ -398,12 +407,12 @@ namespace Akka.Persistence.MongoDb.Journal
                 if (deserialized is Persistent p)
                     return p;
 
-                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender);
+                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp:entry.Ordering.Timestamp);
             }
             else // backwards compat for object serialization - Payload was already deserialized by BSON
             {
                 return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
-                    entry.IsDeleted, sender);
+                    entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
             }
 
         }

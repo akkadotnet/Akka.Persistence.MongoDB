@@ -125,7 +125,7 @@ namespace Akka.Persistence.MongoDb.Query
                             offset: new Sequence(replayed.Offset),
                             persistenceId: replayed.Persistent.PersistenceId,
                             sequenceNr: replayed.Persistent.SequenceNr,
-                            @event: replayed.Persistent.Payload));
+                            @event: replayed.Persistent.Payload, timestamp:replayed.Persistent.Timestamp));
 
                         CurrentOffset = replayed.Offset;
                         Buffer.DeliverBuffer(TotalDemand);
