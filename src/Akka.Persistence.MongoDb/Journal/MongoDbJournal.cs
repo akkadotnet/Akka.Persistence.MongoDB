@@ -402,7 +402,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 if (deserialized is Persistent p)
-                    return p;
+                    return (Persistent)p.WithTimestamp(entry.Ordering.Timestamp);
 
                 return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
             }
