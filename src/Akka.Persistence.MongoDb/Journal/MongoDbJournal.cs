@@ -302,9 +302,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
-            var timeStamp = DateTime.UtcNow.Ticks;
             object payload = message.Payload;
-            message = message.WithTimestamp(timeStamp);
             if (message.Payload is Tagged tagged)
             {
                 payload = tagged.Payload;
@@ -319,14 +317,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new JournalEntry
                 {
                     Id = message.PersistenceId + "_" + message.SequenceNr,
-                    //Instead of letting this to be auto-populated, we can generate the timestamp
-                    //and pass that in here so that both the payload and mongodb entry have same timestamp
-                    //This won't break anything for those using previous version
-                    //the only thing will be that the Timestamp contained in the EventEnvelope will be Zero.
-                    //The tests currently failing are simply testing for Greater than zero Timestamp.
-                    //Data persisted in previous version will simply not have Timestamp in EventEnvelope
-                    //though the MongoDB entry will have Timestamp set as always
-                    Ordering = new BsonTimestamp(timeStamp), // Auto-populates with timestamp
+                    Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                     IsDeleted = message.IsDeleted,
                     Payload = payload,
                     PersistenceId = message.PersistenceId,
@@ -345,14 +336,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return new JournalEntry
             {
                 Id = message.PersistenceId + "_" + message.SequenceNr,
-                //Instead of letting this to be auto-populated, we can generate the timestamp
-                //and pass that in here so that both the payload and mongodb entry have same timestamp
-                //This won't break anything for those using previous version
-                //the only thing will be that the Timestamp contained in the previous EventEnvelope will be Zero.
-                //The tests currently failing are simply testing for Greater than zero Timestamp.
-                //Data persisted in previous version will simply not have Timestamp in EventEnvelope
-                //though the MongoDB entry will have Timestamp set as always
-                Ordering = new BsonTimestamp(timeStamp), // Auto-populates with timestamp
+                Ordering = new BsonTimestamp(0), // Auto-populates with timestamp
                 IsDeleted = message.IsDeleted,
                 Payload = binary,
                 PersistenceId = message.PersistenceId,
@@ -383,7 +367,16 @@ namespace Akka.Persistence.MongoDb.Journal
             if (!legacy)
             {
                 var ser = _serialization.FindSerializerForType(typeof(Persistent));
-                return ser.FromBinary<Persistent>((byte[]) entry.Payload);
+                var output = ser.FromBinary<Persistent>((byte[])entry.Payload);
+
+                // backwards compatibility for https://github.com/akkadotnet/akka.net/pull/4680
+                // it the timestamp is not defined in the binary payload
+                if (output.Timestamp == 0L)
+                {
+                    output = (Persistent)output.WithTimestamp(entry.Ordering.Timestamp);
+                }
+
+                return output;
             }
 
             int? serializerId = null;
