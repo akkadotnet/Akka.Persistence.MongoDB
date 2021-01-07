@@ -79,7 +79,8 @@ namespace Akka.Persistence.MongoDb.Tests
         public void Bug80_CurrentEventsByTag_should_Recover_until_end()
         {
             var actor = Sys.ActorOf(TagActor.Props("y"));
-            var msgCount = 1200;
+            //increased this to test for non-collision with the generated timestamps
+            var msgCount = 5000;
             actor.Tell(msgCount);
             ExpectMsg($"{msgCount}-done", TimeSpan.FromSeconds(20));
 
@@ -96,7 +97,8 @@ namespace Akka.Persistence.MongoDb.Tests
         public void Bug80_AllEventsByTag_should_Recover_all_messages()
         {
             var actor = Sys.ActorOf(TagActor.Props("y"));
-            var msgCount = 1200;
+            //increased this to test for non-collision with the generated timestamps
+            var msgCount = 5000;
             actor.Tell(msgCount);
             ExpectMsg($"{msgCount}-done", TimeSpan.FromSeconds(20));
 
@@ -176,7 +178,7 @@ namespace Akka.Persistence.MongoDb.Tests
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var specString = @"
-                akka.test.single-expect-default = 3s
+                akka.test.single-expect-default = 10s
                 akka.persistence {
                     publish-plugin-commands = on
                     journal {
