@@ -35,7 +35,6 @@ namespace Akka.Persistence.MongoDb.Journal
         [BsonElement("Manifest")]
         public string Manifest { get; set; }
 
-
         [BsonElement("Ordering")]
         public BsonTimestamp Ordering { get; set; }
 
