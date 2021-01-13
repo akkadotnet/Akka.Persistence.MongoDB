@@ -349,9 +349,16 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private static long ToTicks(BsonTimestamp bson)
         {
-            // need to use BsonTimestamp.Value, rather than BsonTimestamp.Ticks, otherwise we lose precision
-            // on int64 -> int32 conversion
-            return DateTimeOffset.FromUnixTimeMilliseconds(bson.Value).Ticks;
+
+
+            // BSON Timestamps are stored natively as Unix epoch seconds + an ordinal value
+
+            // need to use BsonTimestamp.Timestamp because the ordinal value doesn't actually have any
+            // bearing on the time - it's used to try to somewhat order the events that all occurred concurrently
+            // according to the MongoDb clock. No need to include that data in the EventEnvelope.Timestamp field
+            // which is used entirely for end-user purposes.
+
+            return DateTimeOffset.FromUnixTimeSeconds(bson.Timestamp).Ticks;
         }
 
         private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
