@@ -357,6 +357,8 @@ namespace Akka.Persistence.MongoDb.Journal
             // bearing on the time - it's used to try to somewhat order the events that all occurred concurrently
             // according to the MongoDb clock. No need to include that data in the EventEnvelope.Timestamp field
             // which is used entirely for end-user purposes.
+            //
+            // See https://docs.mongodb.com/manual/reference/bson-types/#timestamps
 
             return DateTimeOffset.FromUnixTimeSeconds(bson.Timestamp).Ticks;
         }
