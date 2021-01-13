@@ -347,8 +347,16 @@ namespace Akka.Persistence.MongoDb.Journal
             };
         }
 
+        private static long ToTicks(BsonTimestamp bson)
+        {
+            // need to use BsonTimestamp.Value, rather than BsonTimestamp.Ticks, otherwise we lose precision
+            // on int64 -> int32 conversion
+            return DateTimeOffset.FromUnixTimeMilliseconds(bson.Value).Ticks;
+        }
+
         private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
         {
+
             if (_settings.LegacySerialization)
             {
                 var manifest = string.IsNullOrEmpty(entry.Manifest) ? entry.Payload.GetType().TypeQualifiedName() : entry.Manifest;
@@ -360,7 +368,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     manifest,
                     entry.IsDeleted,
                     sender,
-                    timestamp: entry.Ordering.Timestamp);
+                    timestamp: ToTicks(entry.Ordering)); // MongoDb timestamps are stored as Unix Epoch
             }
 
             var legacy = entry.SerializerId.HasValue || !string.IsNullOrEmpty(entry.Manifest);
@@ -373,7 +381,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 // it the timestamp is not defined in the binary payload
                 if (output.Timestamp == 0L)
                 {
-                    output = (Persistent)output.WithTimestamp(entry.Ordering.Timestamp);
+                    output = (Persistent)output.WithTimestamp(ToTicks(entry.Ordering));
                 }
 
                 return output;
@@ -402,14 +410,14 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 if (deserialized is Persistent p)
-                    return (Persistent)p.WithTimestamp(entry.Ordering.Timestamp);
+                    return (Persistent)p.WithTimestamp(ToTicks(entry.Ordering));
 
-                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
+                return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest, entry.IsDeleted, sender, timestamp: ToTicks(entry.Ordering));
             }
             else // backwards compat for object serialization - Payload was already deserialized by BSON
             {
                 return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
-                    entry.IsDeleted, sender, timestamp: entry.Ordering.Timestamp);
+                    entry.IsDeleted, sender, timestamp: ToTicks(entry.Ordering));
             }
 
         }
