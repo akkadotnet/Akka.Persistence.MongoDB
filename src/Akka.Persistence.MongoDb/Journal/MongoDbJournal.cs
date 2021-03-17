@@ -484,9 +484,9 @@ namespace Akka.Persistence.MongoDb.Journal
             _newEventsSubscriber.Add(subscriber);
         }
         protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(long offset)
-        {            
+        {
+            var ids = await GetAllPersistenceIds(offset);
             var lastOrdering = await GetHighestOrdering();
-            var ids = await GetAllPersistenceIds();
             return (ids, lastOrdering);
         }
 
@@ -551,17 +551,24 @@ namespace Akka.Persistence.MongoDb.Journal
             }
         }
 
-        private async Task<IEnumerable<string>> GetAllPersistenceIds()
+        private async Task<IEnumerable<string>> GetAllPersistenceIds(long offset)
         {
-            var ids = await _metadataCollection.Value.Find(_=> true).ToListAsync();
-            return ids.Distinct().Select(x => x.PersistenceId);
+            var ids = await _journalCollection.Value
+                .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset));
+           
+            var hashset = new List<string>();
+            while (await ids.MoveNextAsync())
+            {
+                hashset.AddRange(ids.Current);
+            }
+            return hashset;
         }
 
         private async Task<long> GetHighestOrdering()
         {
             var max = await _journalCollection.Value.AsQueryable()
                     .Select(je => je.Ordering)
-                    .Distinct().MaxAsync();
+                    .MaxAsync();
 
             return max.Value;
         }
