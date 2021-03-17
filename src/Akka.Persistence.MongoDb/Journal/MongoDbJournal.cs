@@ -19,6 +19,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Akka.Event;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -29,6 +30,7 @@ namespace Akka.Persistence.MongoDb.Journal
     {
         private readonly MongoDbJournalSettings _settings;
 
+        private Lazy<IMongoClient> _client;
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
@@ -37,6 +39,8 @@ namespace Akka.Persistence.MongoDb.Journal
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
+
+        private readonly ILoggingAdapter _log = Context.GetLogger();
         
 
         private readonly Akka.Serialization.Serialization _serialization;
@@ -53,13 +57,18 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             base.PreStart();
 
+            _client = new Lazy<IMongoClient>(() =>
+            {
+                var connectionString = new MongoUrl(_settings.ConnectionString);
+                return new MongoClient(connectionString);
+            });
+
             _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
                 var connectionString = new MongoUrl(_settings.ConnectionString);
-                var client = new MongoClient(connectionString);
-
-                return client.GetDatabase(connectionString.DatabaseName);
+                return _client.Value.GetDatabase(connectionString.DatabaseName);
             });
+
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {
                 var collection = _mongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
@@ -209,18 +218,9 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-
-            //Following the SqlJournal implementation
-            //I have tried MongoDb lookup query and that caused some deadlocks in some tests!
             
             var metadataHighestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
-            //var journalHighestSequenceNr = await _journalCollection.Value.Find(Builders<JournalEntry>.Filter.Eq(x => x.PersistenceId, persistenceId)).Project(x => x.SequenceNr).FirstOrDefaultAsync();
-
-            //if (metadataHighestSequenceNr > journalHighestSequenceNr)
-            //return metadataHighestSequenceNr;
-
-            //return journalHighestSequenceNr;
             return metadataHighestSequenceNr;
         }
 
@@ -246,13 +246,36 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await _journalCollection.Value.InsertManyAsync(journalEntries);
+
+                using (var session = await _client.Value.StartSessionAsync())
+                {
+                    // begin transaction
+                    session.StartTransaction();
+
+                    try
+                    {
+                        await _journalCollection.Value.InsertManyAsync(journalEntries);
+
+                        await SetHighSequenceId(message.PersistenceId, message.HighestSequenceNr);
+
+                        await session.CommitTransactionAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.Error(ex, "MongoDb transaction failed while attempting to " +
+                                       "write entity [{0}] sequence numbers [{1}]->[{2}] " +
+                                       "with payloads [{3}]", message.PersistenceId, 
+                            message.LowestSequenceNr, message.HighestSequenceNr, string.Join(",", persistentMessages.Select(x => x.Payload)));
+                        await session.AbortTransactionAsync();
+                        throw; // re-throw in order to send fail signal back to MongoDb
+                    }
+                }
 
                 if (HasPersistenceIdSubscribers)
                     persistentIds.Add(message.PersistenceId);
             });
 
-            await SetHighSequenceId(messageList);
+            
 
             var result = await Task<IImmutableList<Exception>>
                 .Factory
@@ -431,10 +454,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         }
 
-        private async Task SetHighSequenceId(IList<AtomicWrite> messages)
+        private async Task SetHighSequenceId(string persistenceId, long seqNo)
         {
-            var persistenceId = messages.Select(c => c.PersistenceId).First();
-            var highSequenceId = messages.Max(c => c.HighestSequenceNr);
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
@@ -442,7 +463,7 @@ namespace Akka.Persistence.MongoDb.Journal
             {
                 Id = persistenceId,
                 PersistenceId = persistenceId,
-                SequenceNr = highSequenceId
+                SequenceNr = seqNo
             };
 
             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
@@ -630,7 +651,6 @@ namespace Akka.Persistence.MongoDb.Journal
                     subscriber.Tell(changed);
             }
         }
-
     }
 
 
