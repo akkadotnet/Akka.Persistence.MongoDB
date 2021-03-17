@@ -30,7 +30,6 @@ namespace Akka.Persistence.MongoDb.Journal
     {
         private readonly MongoDbJournalSettings _settings;
 
-        private Lazy<IMongoClient> _client;
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
@@ -56,17 +55,12 @@ namespace Akka.Persistence.MongoDb.Journal
         protected override void PreStart()
         {
             base.PreStart();
-
-            _client = new Lazy<IMongoClient>(() =>
-            {
-                var connectionString = new MongoUrl(_settings.ConnectionString);
-                return new MongoClient(connectionString);
-            });
-
+            
             _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
                 var connectionString = new MongoUrl(_settings.ConnectionString);
-                return _client.Value.GetDatabase(connectionString.DatabaseName);
+                var client = new MongoClient(connectionString);
+                return client.GetDatabase(connectionString.DatabaseName);
             });
 
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
@@ -247,7 +241,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
 
-                using (var session = await _client.Value.StartSessionAsync())
+                using (var session = await _mongoDatabase.Value.Client.StartSessionAsync())
                 {
                     // begin transaction
                     session.StartTransaction();
