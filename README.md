@@ -29,6 +29,7 @@ Both journal and snapshot store share the same configuration keys (however they 
 ```hocon
 akka.persistence {
 	journal {
+	plugin = "akka.persistence.journal.mongodb"
 		mongodb {
 			# qualified type name of the MongoDb persistence journal actor
 			class = "Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb"
@@ -58,6 +59,7 @@ akka.persistence {
 	}
 
 	snapshot-store {
+	plugin = "akka.persistence.snapshot-store.mongodb"
 		mongodb {
 			# qualified type name of the MongoDB persistence snapshot actor
 			class = "Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb"
