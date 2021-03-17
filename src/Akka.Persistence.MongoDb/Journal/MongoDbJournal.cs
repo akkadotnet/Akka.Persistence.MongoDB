@@ -289,10 +289,18 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
+            // read highest sequence number before we start
+            var highestSeqNo = await ReadHighestSequenceNrAsync(persistenceId, 0L);
+
             if (toSequenceNr != long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
 
-            await SetHighSequenceId(persistenceId, toSequenceNr);
+            // only update the sequence number of the top of the journal
+            // is about to be deleted.
+            if (highestSeqNo <= toSequenceNr) 
+            {
+                await SetHighSequenceId(persistenceId, highestSeqNo);
+            }
 
             await _journalCollection.Value.DeleteManyAsync(filter);
         }
