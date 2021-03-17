@@ -24,7 +24,7 @@ using Reactive.Streams;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbPersistenceIdsSpec : Akka.Persistence.TCK.Query.PersistenceIdsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbPersistenceIdsSpec : Akka.Persistence.TCK.Query.PersistenceIdsSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

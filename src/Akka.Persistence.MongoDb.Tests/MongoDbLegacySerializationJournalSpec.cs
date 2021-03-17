@@ -12,7 +12,7 @@ using Xunit;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbLegacySerializationJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbLegacySerializationJournalSpec : JournalSpec
     {
         protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
 

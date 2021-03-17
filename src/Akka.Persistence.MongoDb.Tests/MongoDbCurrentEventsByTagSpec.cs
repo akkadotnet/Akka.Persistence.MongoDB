@@ -21,7 +21,7 @@ using System.Diagnostics;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbCurrentEventsByTagSpec : Akka.Persistence.TCK.Query.CurrentEventsByTagSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbCurrentEventsByTagSpec : Akka.Persistence.TCK.Query.CurrentEventsByTagSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

@@ -21,7 +21,7 @@ using System.Diagnostics;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbCurrentPersistenceIdsSpec : Akka.Persistence.TCK.Query.CurrentPersistenceIdsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbCurrentPersistenceIdsSpec : Akka.Persistence.TCK.Query.CurrentPersistenceIdsSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

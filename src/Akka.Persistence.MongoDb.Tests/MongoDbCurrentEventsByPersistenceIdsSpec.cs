@@ -16,7 +16,7 @@ using Akka.Util.Internal;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbCurrentEventsByPersistenceIdsSpec : TCK.Query.CurrentEventsByPersistenceIdSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbCurrentEventsByPersistenceIdsSpec : TCK.Query.CurrentEventsByPersistenceIdSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

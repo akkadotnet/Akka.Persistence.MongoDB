@@ -12,7 +12,7 @@ using Akka.Configuration;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec
     {
         public MongoDbSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbSnapshotStoreSpec")
         {

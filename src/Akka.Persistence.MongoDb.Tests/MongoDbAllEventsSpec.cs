@@ -15,7 +15,7 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbAllEventsSpec: AllEventsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbAllEventsSpec: AllEventsSpec
     {
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {

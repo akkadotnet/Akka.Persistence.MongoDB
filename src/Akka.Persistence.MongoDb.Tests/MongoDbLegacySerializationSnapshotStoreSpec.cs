@@ -13,7 +13,7 @@ namespace Akka.Persistence.MongoDb.Tests
 {
     // TODO: enable this spec once https://github.com/akkadotnet/akka.net/pull/4190 is available via Akka.NET v1.4.0-beta5 or higher
     //[Collection("MongoDbSpec")]
-    //public class MongoDbLegacySerializationSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
+    //public class MongoDbLegacySerializationSnapshotStoreSpec : SnapshotStoreSpec
     //{
     //    protected override bool SupportsSerialization => false;
 

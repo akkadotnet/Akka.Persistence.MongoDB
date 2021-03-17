@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalPerfSpec: JournalPerfSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbJournalPerfSpec: JournalPerfSpec
     {
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {

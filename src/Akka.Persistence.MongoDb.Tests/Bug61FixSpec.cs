@@ -18,7 +18,7 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class Bug61FixSpec : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
+    public class Bug61FixSpec : Akka.TestKit.Xunit2.TestKit
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests.Serialization
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbJournalSerializationSpec : JournalSerializationSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

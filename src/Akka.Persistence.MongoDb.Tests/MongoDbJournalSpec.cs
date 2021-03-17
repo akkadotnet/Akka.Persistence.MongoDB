@@ -12,7 +12,7 @@ using Akka.Configuration;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbJournalSpec : JournalSpec
     {
         protected override bool SupportsRejectingNonSerializableObjects { get; } = false;        
 

@@ -18,7 +18,7 @@ using Akka.Actor;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbEventsByTagSpec : Akka.Persistence.TCK.Query.EventsByTagSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbEventsByTagSpec : Akka.Persistence.TCK.Query.EventsByTagSpec
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
