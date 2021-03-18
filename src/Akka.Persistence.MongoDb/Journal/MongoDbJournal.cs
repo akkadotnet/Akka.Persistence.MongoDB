@@ -210,18 +210,15 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            //Following the SqlJournal implementation
-            //I have tried MongoDb lookup query and that caused some deadlocks in some tests!
             
-            var metadataHighestSequenceNr = await _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+            var metadataHighestSequenceNrTask = _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
-            //var journalHighestSequenceNr = await _journalCollection.Value.Find(Builders<JournalEntry>.Filter.Eq(x => x.PersistenceId, persistenceId)).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+            var journalHighestSequenceNrTask = _journalCollection.Value.Find(Builders<JournalEntry>.Filter.Eq(x => x.PersistenceId, persistenceId)).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
-            //if (metadataHighestSequenceNr > journalHighestSequenceNr)
-            //return metadataHighestSequenceNr;
+            // journal data is usually good enough, except in cases when it's been deleted.
+            await Task.WhenAll(metadataHighestSequenceNrTask, journalHighestSequenceNrTask);
 
-            //return journalHighestSequenceNr;
-            return metadataHighestSequenceNr;
+            return Math.Max(journalHighestSequenceNrTask.Result, metadataHighestSequenceNrTask.Result);
         }
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
@@ -251,8 +248,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 if (HasPersistenceIdSubscribers)
                     persistentIds.Add(message.PersistenceId);
             });
-
-            await SetHighSequenceId(messageList);
 
             var result = await Task<IImmutableList<Exception>>
                 .Factory
@@ -289,15 +284,25 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
             }
         }
-        protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
+        protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             var builder = Builders<JournalEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
+            // read highest sequence number before we start
+            var highestSeqNo = await ReadHighestSequenceNrAsync(persistenceId, 0L);
+
             if (toSequenceNr != long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
 
-            return _journalCollection.Value.DeleteManyAsync(filter);
+            // only update the sequence number of the top of the journal
+            // is about to be deleted.
+            if (highestSeqNo <= toSequenceNr) 
+            {
+                await SetHighSequenceId(persistenceId, highestSeqNo);
+            }
+
+            await _journalCollection.Value.DeleteManyAsync(filter);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -431,10 +436,8 @@ namespace Akka.Persistence.MongoDb.Journal
 
         }
 
-        private async Task SetHighSequenceId(IList<AtomicWrite> messages)
+        private async Task SetHighSequenceId(string persistenceId, long maxSeqNo)
         {
-            var persistenceId = messages.Select(c => c.PersistenceId).First();
-            var highSequenceId = messages.Max(c => c.HighestSequenceNr);
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
@@ -442,7 +445,7 @@ namespace Akka.Persistence.MongoDb.Journal
             {
                 Id = persistenceId,
                 PersistenceId = persistenceId,
-                SequenceNr = highSequenceId
+                SequenceNr = maxSeqNo
             };
 
             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
@@ -489,9 +492,9 @@ namespace Akka.Persistence.MongoDb.Journal
             _newEventsSubscriber.Add(subscriber);
         }
         protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(long offset)
-        {            
+        {
+            var ids = await GetAllPersistenceIds(offset);
             var lastOrdering = await GetHighestOrdering();
-            var ids = await GetAllPersistenceIds();
             return (ids, lastOrdering);
         }
 
@@ -556,17 +559,24 @@ namespace Akka.Persistence.MongoDb.Journal
             }
         }
 
-        private async Task<IEnumerable<string>> GetAllPersistenceIds()
+        private async Task<IEnumerable<string>> GetAllPersistenceIds(long offset)
         {
-            var ids = await _metadataCollection.Value.Find(_=> true).ToListAsync();
-            return ids.Distinct().Select(x => x.PersistenceId);
+            var ids = await _journalCollection.Value
+                .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset));
+           
+            var hashset = new List<string>();
+            while (await ids.MoveNextAsync())
+            {
+                hashset.AddRange(ids.Current);
+            }
+            return hashset;
         }
 
         private async Task<long> GetHighestOrdering()
         {
             var max = await _journalCollection.Value.AsQueryable()
                     .Select(je => je.Ordering)
-                    .Distinct().MaxAsync();
+                    .MaxAsync();
 
             return max.Value;
         }
