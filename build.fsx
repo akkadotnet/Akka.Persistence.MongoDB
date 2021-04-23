@@ -357,15 +357,17 @@ Target "Help" <| fun _ ->
       "./build.ps1 [target]"
       ""
       " Targets for building:"
-      " * Build         Builds"
-      " * Nuget         Create and optionally publish nugets packages"
-      " * SignPackages  Signs all NuGet packages, provided that the following arguments are passed into the script: SignClientSecret={secret} and SignClientUser={username}"
-      " * RunTests      Runs tests"
-      " * All           Builds, run tests, creates and optionally publish nuget packages"
-      " * DocFx         Creates a DocFx-based website for this solution"
+      " * Build           Builds"
+      " * Nuget           Create and optionally publish nugets packages"
+      " * SignPackages    Signs all NuGet packages, provided that the following arguments are passed into the script: SignClientSecret={secret} and SignClientUser={username}"
+      " * RunTests        Runs Net Framework tests"
+      " * RunTestsNetCore Runs Net Core tests"
+      " * RunTestsNet     Runs Net 5 tests"
+      " * All             Builds, run tests, creates and optionally publish nuget packages"
+      " * DocFx           Creates a DocFx-based website for this solution"
       ""
       " Other Targets"
-      " * Help       Display this help" 
+      " * Help            Display this help" 
       ""]
 
 //--------------------------------------------------------------------------------
@@ -375,15 +377,20 @@ Target "Help" <| fun _ ->
 Target "BuildRelease" DoNothing
 Target "All" DoNothing
 Target "Nuget" DoNothing
+Target "RunTestsFull" DoNothing
+Target "RunTestsNetCoreFull" DoNothing
 
 // build dependencies
 "Clean" ==> "AssemblyInfo" ==> "Build" ==> "BuildRelease"
 
 // tests dependencies
 "Build" ==> "RunTests"
+"Build" ==> "RunTestsNetCore"
+"Build" ==> "RunTestsNet"
+"Build" ==> "NBench"
 
 // nuget dependencies
-"Clean" ==> "Build" ==> "CreateNuget"
+"Clean" ==> "BuildRelease" ==> "CreateNuget"
 "CreateNuget" ==> "SignPackages" ==> "PublishNuget" ==> "Nuget"
 
 // docs
@@ -392,6 +399,8 @@ Target "Nuget" DoNothing
 // all
 "BuildRelease" ==> "All"
 "RunTests" ==> "All"
+"RunTestsNetCore" ==> "All"
+"RunTestsNet" ==> "All"
 "NBench" ==> "All"
 "Nuget" ==> "All"
 
