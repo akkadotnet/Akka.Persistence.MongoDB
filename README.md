@@ -94,7 +94,10 @@ You can programmatically overrides the connection string setting in the HOCON co
 MongoDB client connection to the server. The `connection-string` settings in the HOCON configuration will be ignored if any of these `MongoClientSettings`
 exists inside the Setup object.
 
-Example:
+> [!NOTE] 
+> The HOCON configuration is still needed for this to work, only the `connection-string` setting in the configuration will be overriden.
+
+Setting connection override for both snapshot store and journal:
 ```
 // Set snapshotClientSettings or journalClientSettings to null if you do not use them.
 var snapshotClientSettings = new MongoClientSettings();
@@ -107,6 +110,30 @@ var journalDatabaseName = "theJournalDatabase"
 var setup = BootstrapSetup.Create()
   .WithConfig(myHoconConfig)
   .And(new MongoDbPersistenceSetup(snapshotDatabaseName, snapshotClientSettings, journalDatabaseName, journalClientSettings));
+
+var actorSystem = ActorSystem.Create("actorSystem", setup);
+```
+
+Setting connection override only for snapshot store:
+```
+var snapshotClientSettings = new MongoClientSettings();
+var snapshotDatabaseName = "theSnapshotDatabase"
+
+var setup = BootstrapSetup.Create()
+  .WithConfig(myHoconConfig)
+  .And(new MongoDbPersistenceSetup(snapshotDatabaseName, snapshotClientSettings, null, null));
+
+var actorSystem = ActorSystem.Create("actorSystem", setup);
+```
+
+Setting connection override only for journal:
+```
+var journalClientSettings = new MongoClientSettings();
+var journalDatabaseName = "theJournalDatabase"
+
+var setup = BootstrapSetup.Create()
+  .WithConfig(myHoconConfig)
+  .And(new MongoDbPersistenceSetup(null, null, journalDatabaseName, journalClientSettings));
 
 var actorSystem = ActorSystem.Create("actorSystem", setup);
 ```
