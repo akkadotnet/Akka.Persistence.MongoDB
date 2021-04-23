@@ -87,6 +87,30 @@ akka.persistence {
 }
 ```
 
+### Programmatic configuration
+
+You can programmatically overrides the connection string setting in the HOCON configuration by adding a `MongoDbPersistenceSetup` to the 
+`ActorSystemSetup` during `ActorSystem` creation. The `MongoDbPersistenceSetup` takes `MongoClientSettings` instances to be used to configure
+MongoDB client connection to the server. The `connection-string` settings in the HOCON configuration will be ignored if any of these `MongoClientSettings`
+exists inside the Setup object.
+
+Example:
+```
+// Set snapshotClientSettings or journalClientSettings to null if you do not use them.
+var snapshotClientSettings = new MongoClientSettings();
+var journalClientSettings = new MongoClientSettings();
+
+// database names are not needed when its client setting is set to null
+var snapshotDatabaseName = "theSnapshotDatabase"
+var journalDatabaseName = "theJournalDatabase"
+
+var setup = BootstrapSetup.Create()
+  .WithConfig(myHoconConfig)
+  .And(new MongoDbPersistenceSetup(snapshotDatabaseName, snapshotClientSettings, journalDatabaseName, journalClientSettings));
+
+var actorSystem = ActorSystem.Create("actorSystem", setup);
+```
+
 ### Serialization
 [Going from v1.4.0 onwards, all events and snapshots are saved as byte arrays using the standard Akka.Persistence format](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72).
 
