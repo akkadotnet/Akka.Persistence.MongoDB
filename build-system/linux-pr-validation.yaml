@@ -14,9 +14,18 @@ pr:
     include: [ dev, master ] # branch names which will trigger a build
 
 jobs:
-- template: azure-pipeline.template.yaml
-  parameters:
-    name: Ubuntu
-    vmImage: 'ubuntu-16.04'
-    scriptFileName: ./build.sh
-    scriptArgs: all
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'net_core_tests_linux'
+      displayName: '.NET Core Unit Tests (Linux)'
+      vmImage: 'ubuntu-18.04'
+      scriptFileName: ./build.sh
+      scriptArgs: runTestsNetCore
+
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'net_5_tests_linux'
+      displayName: '.NET 5 Unit Tests (Linux)'
+      vmImage: 'ubuntu-18.04'
+      scriptFileName: ./build.sh
+      scriptArgs: runTestsNet
