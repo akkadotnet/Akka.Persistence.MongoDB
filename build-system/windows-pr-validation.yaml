@@ -14,9 +14,36 @@ pr:
 name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 
 jobs:
-- template: azure-pipeline.template.yaml
-  parameters:
-    name: Windows
-    vmImage: 'vs2017-win2016'
-    scriptFileName: build.cmd
-    scriptArgs: all
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'netfx_tests_windows'
+      displayName: '.NET Framework Unit Tests (Windows)'
+      vmImage: 'windows-2019'
+      scriptFileName: build.cmd
+      scriptArgs: runTests
+
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'net_core_tests_windows'
+      displayName: '.NET Core Unit Tests (Windows)'
+      vmImage: 'windows-2019'
+      scriptFileName: build.cmd
+      scriptArgs: runTestsNetCore
+
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'net_5_tests_windows'
+      displayName: '.NET 5 Unit Tests (Windows)'
+      vmImage: 'windows-2019'
+      scriptFileName: build.cmd
+      scriptArgs: runTestsNet
+
+  - template: azure-pipeline.template.yaml
+    parameters:
+      name: 'nuget_pack'
+      displayName: 'NuGet Pack'
+      vmImage: 'windows-2019'
+      scriptFileName: build.cmd
+      scriptArgs: CreateNuget nugetprerelease=dev
+      outputDirectory: 'bin/nuget'
+      artifactName: 'nuget_pack-$(Build.BuildId)'
