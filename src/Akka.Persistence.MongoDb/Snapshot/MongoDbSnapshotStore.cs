@@ -39,10 +39,20 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
             _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
             {
-                var connectionString = new MongoUrl(_settings.ConnectionString);
-                var client = new MongoClient(connectionString);
-
-                var snapshot = client.GetDatabase(connectionString.DatabaseName);
+                MongoClient client;
+                IMongoDatabase snapshot;
+                var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
+                if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
+                {
+                    var connectionString = new MongoUrl(_settings.ConnectionString);
+                    client = new MongoClient(connectionString);
+                    snapshot = client.GetDatabase(connectionString.DatabaseName);
+                }
+                else
+                {
+                    client = new MongoClient(setupOption.Value.SnapshotConnectionSettings);
+                    snapshot = client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
+                }
 
                 var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
                 if (_settings.AutoInitialize)
