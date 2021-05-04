@@ -55,9 +55,16 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
-                var connectionString = new MongoUrl(_settings.ConnectionString);
-                var client = new MongoClient(connectionString);
+                MongoClient client;
+                var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
+                if (setupOption.HasValue && setupOption.Value.JournalConnectionSettings != null)
+                {
+                    client = new MongoClient(setupOption.Value.JournalConnectionSettings);
+                    return client.GetDatabase(setupOption.Value.JournalDatabaseName);
+                }
 
+                var connectionString = new MongoUrl(_settings.ConnectionString);
+                client = new MongoClient(connectionString);
                 return client.GetDatabase(connectionString.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>

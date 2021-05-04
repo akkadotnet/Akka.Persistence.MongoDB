@@ -43,7 +43,16 @@ let toolsDir = __SOURCE_DIRECTORY__ @@ "tools"
 let output = __SOURCE_DIRECTORY__  @@ "bin"
 let outputTests = __SOURCE_DIRECTORY__ @@ "TestResults"
 let outputPerfTests = __SOURCE_DIRECTORY__ @@ "PerfResults"
+let outputBinaries = output @@ "binaries"
 let outputNuGet = output @@ "nuget"
+let outputBinariesNet45 = outputBinaries @@ "net45"
+let outputBinariesNetStandard = outputBinaries @@ "netstandard2.0"
+let outputBinariesNet = outputBinaries @@ "net5.0"
+
+// Configuration values for tests
+let testNetFrameworkVersion = "net471"
+let testNetCoreVersion = "netcoreapp3.1"
+let testNetVersion = "net5.0"
 
 Target "Clean" (fun _ ->
     ActivateFinalTarget "KillCreatedProcesses"
@@ -52,7 +61,13 @@ Target "Clean" (fun _ ->
     CleanDir outputTests
     CleanDir outputPerfTests
     CleanDir outputNuGet
+    CleanDir outputBinariesNet45
+    CleanDir outputBinariesNetStandard
+    CleanDir outputBinariesNet
     CleanDir "docs/_site"
+
+    CleanDirs !! "./**/bin"
+    CleanDirs !! "./**/obj"
 )
 
 Target "AssemblyInfo" (fun _ ->
@@ -61,17 +76,35 @@ Target "AssemblyInfo" (fun _ ->
 )
 
 Target "Build" (fun _ ->          
+    let additionalArgs = if versionSuffix.Length > 0 then [sprintf "/p:VersionSuffix=%s" versionSuffix] else []
     DotNetCli.Build
         (fun p -> 
             { p with
                 Project = solutionFile
-                Configuration = configuration }) // "Rebuild"  
+                Configuration = configuration 
+                AdditionalArgs = additionalArgs }) // "Rebuild"  
 )
 
 
 //--------------------------------------------------------------------------------
 // Tests targets 
 //--------------------------------------------------------------------------------
+type Runtime =
+    | NetCore
+    | Net
+    | NetFramework
+
+let getTestAssembly runtime project =
+    let assemblyPath = match runtime with
+                        | NetCore -> !! ("src" @@ "**" @@ "bin" @@ "Release" @@ testNetCoreVersion @@ fileNameWithoutExt project + ".dll")
+                        | NetFramework -> !! ("src" @@ "**" @@ "bin" @@ "Release" @@ testNetFrameworkVersion @@ fileNameWithoutExt project + ".dll")
+                        | Net -> !! ("src" @@ "**" @@ "bin" @@ "Release" @@ testNetVersion @@ fileNameWithoutExt project + ".dll")
+
+    if Seq.isEmpty assemblyPath then
+        None
+    else
+        Some (assemblyPath |> Seq.head)
+
 module internal ResultHandling =
     let (|OK|Failure|) = function
         | 0 -> OK
@@ -99,8 +132,8 @@ Target "RunTests" (fun _ ->
     let runSingleProject project =
         let arguments =
             match (hasTeamCity) with
-            | true -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --results-directory %s -- -parallel none -teamcity" (outputTests))
-            | false -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --results-directory %s -- -parallel none" (outputTests))
+            | true -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none -teamcity" testNetFrameworkVersion outputTests)
+            | false -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none" testNetFrameworkVersion outputTests)
 
         let result = ExecProcess(fun info ->
             info.FileName <- "dotnet"
@@ -109,6 +142,55 @@ Target "RunTests" (fun _ ->
         
         ResultHandling.failBuildIfXUnitReportedError TestRunnerErrorLevel.Error result  
 
+    CreateDir outputTests
+    projects |> Seq.iter (log)
+    projects |> Seq.iter (runSingleProject)
+)
+
+Target "RunTestsNetCore" (fun _ ->
+    let projects = 
+        match (isWindows) with 
+        | true -> !! "./src/**/*.Tests.csproj"
+        | _ -> !! "./src/**/*.Tests.csproj" // if you need to filter specs for Linux vs. Windows, do it here
+
+    let runSingleProject project =
+        let arguments =
+            match (hasTeamCity) with
+            | true -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none -teamcity" testNetCoreVersion outputTests)
+            | false -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none" testNetCoreVersion outputTests)
+
+        let result = ExecProcess(fun info ->
+            info.FileName <- "dotnet"
+            info.WorkingDirectory <- (Directory.GetParent project).FullName
+            info.Arguments <- arguments) (TimeSpan.FromMinutes 30.0) 
+        
+        ResultHandling.failBuildIfXUnitReportedError TestRunnerErrorLevel.Error result  
+
+    CreateDir outputTests
+    projects |> Seq.iter (log)
+    projects |> Seq.iter (runSingleProject)
+)
+
+Target "RunTestsNet" (fun _ ->
+    let projects = 
+        match (isWindows) with 
+        | true -> !! "./src/**/*.Tests.csproj"
+        | _ -> !! "./src/**/*.Tests.csproj" // if you need to filter specs for Linux vs. Windows, do it here
+
+    let runSingleProject project =
+        let arguments =
+            match (hasTeamCity) with
+            | true -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none -teamcity" testNetVersion outputTests)
+            | false -> (sprintf "test -c Release --no-build --logger:trx --logger:\"console;verbosity=normal\" --framework %s --results-directory %s -- -parallel none" testNetVersion outputTests)
+
+        let result = ExecProcess(fun info ->
+            info.FileName <- "dotnet"
+            info.WorkingDirectory <- (Directory.GetParent project).FullName
+            info.Arguments <- arguments) (TimeSpan.FromMinutes 30.0) 
+        
+        ResultHandling.failBuildIfXUnitReportedError TestRunnerErrorLevel.Error result  
+
+    CreateDir outputTests
     projects |> Seq.iter (log)
     projects |> Seq.iter (runSingleProject)
 )
@@ -275,15 +357,17 @@ Target "Help" <| fun _ ->
       "./build.ps1 [target]"
       ""
       " Targets for building:"
-      " * Build         Builds"
-      " * Nuget         Create and optionally publish nugets packages"
-      " * SignPackages  Signs all NuGet packages, provided that the following arguments are passed into the script: SignClientSecret={secret} and SignClientUser={username}"
-      " * RunTests      Runs tests"
-      " * All           Builds, run tests, creates and optionally publish nuget packages"
-      " * DocFx         Creates a DocFx-based website for this solution"
+      " * Build           Builds"
+      " * Nuget           Create and optionally publish nugets packages"
+      " * SignPackages    Signs all NuGet packages, provided that the following arguments are passed into the script: SignClientSecret={secret} and SignClientUser={username}"
+      " * RunTests        Runs Net Framework tests"
+      " * RunTestsNetCore Runs Net Core tests"
+      " * RunTestsNet     Runs Net 5 tests"
+      " * All             Builds, run tests, creates and optionally publish nuget packages"
+      " * DocFx           Creates a DocFx-based website for this solution"
       ""
       " Other Targets"
-      " * Help       Display this help" 
+      " * Help            Display this help" 
       ""]
 
 //--------------------------------------------------------------------------------
@@ -293,15 +377,20 @@ Target "Help" <| fun _ ->
 Target "BuildRelease" DoNothing
 Target "All" DoNothing
 Target "Nuget" DoNothing
+Target "RunTestsFull" DoNothing
+Target "RunTestsNetCoreFull" DoNothing
 
 // build dependencies
 "Clean" ==> "AssemblyInfo" ==> "Build" ==> "BuildRelease"
 
 // tests dependencies
 "Build" ==> "RunTests"
+"Build" ==> "RunTestsNetCore"
+"Build" ==> "RunTestsNet"
+"Build" ==> "NBench"
 
 // nuget dependencies
-"Clean" ==> "Build" ==> "CreateNuget"
+"Clean" ==> "BuildRelease" ==> "CreateNuget"
 "CreateNuget" ==> "SignPackages" ==> "PublishNuget" ==> "Nuget"
 
 // docs
@@ -310,6 +399,8 @@ Target "Nuget" DoNothing
 // all
 "BuildRelease" ==> "All"
 "RunTests" ==> "All"
+"RunTestsNetCore" ==> "All"
+"RunTestsNet" ==> "All"
 "NBench" ==> "All"
 "Nuget" ==> "All"
 

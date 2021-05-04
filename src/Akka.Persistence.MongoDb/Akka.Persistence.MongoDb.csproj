@@ -2,7 +2,7 @@
   <Import Project="..\common.props" />
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>$(NetStandardLibVersion)</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,6 +11,6 @@
   <ItemGroup>
     <PackageReference Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageReference Include="akka.streams" Version="$(AkkaVersion)" />
-    <PackageReference Include="MongoDB.Driver" Version="2.12.0" />
+    <PackageReference Include="MongoDB.Driver" Version="2.12.2" />
   </ItemGroup>
 </Project>
