@@ -19,7 +19,7 @@ namespace Akka.Persistence.MongoDb.Tests
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
             mongoPersistence.JournalSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.JournalSettings.AutoInitialize.Should().BeFalse();
+            mongoPersistence.JournalSettings.AutoInitialize.Should().BeTrue();
             mongoPersistence.JournalSettings.Collection.Should().Be("EventJournal");
             mongoPersistence.JournalSettings.MetadataCollection.Should().Be("Metadata");
             mongoPersistence.JournalSettings.LegacySerialization.Should().BeFalse();
@@ -31,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
             mongoPersistence.SnapshotStoreSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeFalse();
+            mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeTrue();
             mongoPersistence.SnapshotStoreSettings.Collection.Should().Be("SnapshotStore");
             mongoPersistence.SnapshotStoreSettings.LegacySerialization.Should().BeFalse();
         }
