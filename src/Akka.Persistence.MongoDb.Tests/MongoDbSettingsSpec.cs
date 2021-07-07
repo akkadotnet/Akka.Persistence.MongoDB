@@ -31,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
             mongoPersistence.SnapshotStoreSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeFalse();
+            mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeTrue();
             mongoPersistence.SnapshotStoreSettings.Collection.Should().Be("SnapshotStore");
             mongoPersistence.SnapshotStoreSettings.LegacySerialization.Should().BeFalse();
         }
