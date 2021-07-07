@@ -19,7 +19,7 @@ namespace Akka.Persistence.MongoDb.Tests
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
             mongoPersistence.JournalSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.JournalSettings.AutoInitialize.Should().BeFalse();
+            mongoPersistence.JournalSettings.AutoInitialize.Should().BeTrue();
             mongoPersistence.JournalSettings.Collection.Should().Be("EventJournal");
             mongoPersistence.JournalSettings.MetadataCollection.Should().Be("Metadata");
             mongoPersistence.JournalSettings.LegacySerialization.Should().BeFalse();
