@@ -250,7 +250,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await _journalCollection.Value.InsertManyAsync(journalEntries);
+                await _journalCollection.Value.InsertManyAsync(journalEntries, new InsertManyOptions { IsOrdered = true });
 
                 if (HasPersistenceIdSubscribers)
                     persistentIds.Add(message.PersistenceId);
