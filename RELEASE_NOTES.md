@@ -1,3 +1,7 @@
+#### 1.4.32 January 19 2022 ####
+
+* [Bump Akka.NET version to 1.4.32](https://github.com/akkadotnet/akka.net/releases/tag/1.4.32)
+
 #### 1.4.31 December 21 2021 ####
 
 * [Bump Akka.NET version to 1.4.31](https://github.com/akkadotnet/akka.net/releases/tag/1.4.31)
