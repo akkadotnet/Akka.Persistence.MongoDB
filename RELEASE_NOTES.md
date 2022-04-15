@@ -1,6 +1,7 @@
-#### 1.4.32 January 19 2022 ####
+#### 1.4.37 April 15 2022 ####
 
-* [Bump Akka.NET version to 1.4.32](https://github.com/akkadotnet/akka.net/releases/tag/1.4.32)
+* [Bump Akka.NET version to 1.4.37](https://github.com/akkadotnet/akka.net/releases/tag/1.4.37)
+* [Bump MongoDb.Driver to 2.15.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/245)
 
 #### 1.4.31 December 21 2021 ####
 
