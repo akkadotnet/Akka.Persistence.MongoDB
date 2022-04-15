@@ -1,4 +1,4 @@
-#### 1.4.37.1-beta1 April 15 2022 ####
+#### 1.4.38-beta1 April 15 2022 ####
 
 * [Fix BsonTimestamp causes NRE to be thrown](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/249)
 
