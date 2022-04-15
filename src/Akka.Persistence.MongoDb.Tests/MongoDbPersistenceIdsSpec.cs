@@ -83,6 +83,29 @@ namespace Akka.Persistence.MongoDb.Tests
             return pref;
         }
 
+        public override void ReadJournal_AllPersistenceIds_should_find_new_events_after_demand_request()
+        {
+            var queries = ReadJournal.AsInstanceOf<IPersistenceIdsQuery>();
+
+            Setup("h", 1);
+            Setup("i", 1);
+
+            var source = queries.PersistenceIds();
+            var probe = source.RunWith(this.SinkProbe<string>(), Materializer);
+
+            probe.Within(TimeSpan.FromSeconds(10), () =>
+            {
+                probe.Request(1).ExpectNext();
+                return probe.ExpectNoMsg(TimeSpan.FromMilliseconds(100));
+            });
+
+            Setup("j", 1);
+            probe.Within(TimeSpan.FromSeconds(10), () =>
+            {
+                probe.Request(5).ExpectNext();
+                return probe.ExpectNext();
+            });
+        }
     }
 
     
