@@ -27,6 +27,8 @@ namespace Akka.Persistence.MongoDb.Journal
     /// </summary>
     public class MongoDbJournal : AsyncWriteJournal
     {
+        private static readonly BsonTimestamp ZeroTimestamp = new BsonTimestamp(0);
+        
         private readonly MongoDbJournalSettings _settings;
 
         private Lazy<IMongoDatabase> _mongoDatabase;
@@ -371,7 +373,7 @@ namespace Akka.Persistence.MongoDb.Journal
             // which is used entirely for end-user purposes.
             //
             // See https://docs.mongodb.com/manual/reference/bson-types/#timestamps
-
+            bson = bson ?? ZeroTimestamp;
             return DateTimeOffset.FromUnixTimeSeconds(bson.Timestamp).Ticks;
         }
 
