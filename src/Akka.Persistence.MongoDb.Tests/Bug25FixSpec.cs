@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
+    [Collection("MongoDbSpec")]
     public class Bug25FixSpec : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
     {
         class MyJournalActor : ReceivePersistentActor
@@ -111,7 +112,8 @@ namespace Akka.Persistence.MongoDb.Tests
                     }
                 }";
 
-            return ConfigurationFactory.ParseString(specString);
+            return ConfigurationFactory.ParseString(specString)
+                .WithFallback(MongoDbPersistence.DefaultConfiguration());
         }
     }
 }

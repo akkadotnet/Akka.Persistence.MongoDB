@@ -37,7 +37,8 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                     }
                 }";
 
-            return ConfigurationFactory.ParseString(specString);
+            return ConfigurationFactory.ParseString(specString)
+                .WithFallback(MongoDbPersistence.DefaultConfiguration());
         }
 
 
