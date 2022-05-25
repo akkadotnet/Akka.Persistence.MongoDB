@@ -27,7 +27,8 @@ namespace Akka.Persistence.MongoDb.Tests
                     }
                 }";
 
-            return ConfigurationFactory.ParseString(specString);
+            return ConfigurationFactory.ParseString(specString)
+                .WithFallback(MongoDbPersistence.DefaultConfiguration());
         }
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 

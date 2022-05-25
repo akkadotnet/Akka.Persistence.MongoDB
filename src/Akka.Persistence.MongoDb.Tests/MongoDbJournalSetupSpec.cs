@@ -15,6 +15,7 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
+    [Collection("MongoDbSpec")]
     public class MongoDbJournalSetupSpec : JournalSpec, IClassFixture<DatabaseFixture>
     {
         // TEST: MongoDb journal plugin set using Setup should behave exactly like when it is
@@ -55,7 +56,8 @@ namespace Akka.Persistence.MongoDb.Tests
                     }
                 }";
 
-            return ConfigurationFactory.ParseString(specString);
+            return ConfigurationFactory.ParseString(specString)
+                .WithFallback(MongoDbPersistence.DefaultConfiguration());
         }
     }
 }

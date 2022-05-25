@@ -8,7 +8,6 @@
 using Akka.Actor;
 using Akka.Persistence.Journal;
 using Akka.Persistence.MongoDb.Query;
-using Akka.Streams.Dsl;
 using Akka.Util;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -19,6 +18,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Akka.Configuration;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -43,12 +43,17 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private readonly Akka.Serialization.Serialization _serialization;
 
-        public MongoDbJournal()
+        public MongoDbJournal() : this(MongoDbPersistence.Get(Context.System).JournalSettings)
+        { }
+
+        // This constructor is needed because config can come from both Akka.Persistence and Akka.Cluster.Sharding
+        public MongoDbJournal(Config config) : this(new MongoDbJournalSettings(config))
+        { }
+
+        private MongoDbJournal(MongoDbJournalSettings settings)
         {
-            _settings = MongoDbPersistence.Get(Context.System).JournalSettings;
-
+            _settings = settings;
             _serialization = Context.System.Serialization;
-
         }
 
         protected override void PreStart()
