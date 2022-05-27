@@ -8,6 +8,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Akka.Configuration;
 using Akka.Persistence.Snapshot;
 using Akka.Util;
 using MongoDB.Driver;
@@ -26,10 +27,15 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private readonly Akka.Serialization.Serialization _serialization;
 
-        public MongoDbSnapshotStore()
+        public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
+        { }
+        
+        public MongoDbSnapshotStore(Config config) : this(new MongoDbSnapshotSettings(config))
+        { }
+        
+        public MongoDbSnapshotStore(MongoDbSnapshotSettings settings)
         {
-            _settings = MongoDbPersistence.Get(Context.System).SnapshotStoreSettings;
-
+            _settings = settings;
             _serialization = Context.System.Serialization;
         }
 

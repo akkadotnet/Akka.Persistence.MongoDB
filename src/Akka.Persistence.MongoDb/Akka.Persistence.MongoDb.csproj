@@ -11,6 +11,6 @@
   <ItemGroup>
     <PackageReference Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageReference Include="akka.streams" Version="$(AkkaVersion)" />
-    <PackageReference Include="MongoDB.Driver" Version="2.15.0" />
+    <PackageReference Include="MongoDB.Driver" Version="2.15.1" />
   </ItemGroup>
 </Project>
