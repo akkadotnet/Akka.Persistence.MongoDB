@@ -9,6 +9,7 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
+    [Collection("MongoDbSpec")]
     public class MongoDbSnapshotStoreSetupSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
     {
         // TEST: MongoDb snapshot plugin set using Setup should behave exactly like when it is
