@@ -1,4 +1,10 @@
-#### 1.4.37.1-beta1 April 15 2022 ####
+#### 1.4.38-beta2 May 27 2022 ####
+
+* [Fix compatibility with Akka.Cluster.Sharding in persistence mode](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/259)
+* [Bump Akka.NET version to 1.4.38](https://github.com/akkadotnet/akka.net/releases/tag/1.4.38)
+* [Bump MongoDb.Driver to 2.15.1](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/255)
+
+#### 1.4.38-beta1 April 15 2022 ####
 
 * [Fix BsonTimestamp causes NRE to be thrown](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/249)
 
