@@ -18,7 +18,7 @@ jobs:
     parameters:
       name: 'netfx_tests_windows'
       displayName: '.NET Framework Unit Tests (Windows)'
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2022'
       scriptFileName: build.cmd
       scriptArgs: runTests
 
@@ -26,7 +26,7 @@ jobs:
     parameters:
       name: 'net_core_tests_windows'
       displayName: '.NET Core Unit Tests (Windows)'
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2022'
       scriptFileName: build.cmd
       scriptArgs: runTestsNetCore
 
@@ -34,7 +34,7 @@ jobs:
     parameters:
       name: 'net_5_tests_windows'
       displayName: '.NET 5 Unit Tests (Windows)'
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2022'
       scriptFileName: build.cmd
       scriptArgs: runTestsNet
 
@@ -42,7 +42,7 @@ jobs:
     parameters:
       name: 'nuget_pack'
       displayName: 'NuGet Pack'
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2022'
       scriptFileName: build.cmd
       scriptArgs: CreateNuget nugetprerelease=dev
       outputDirectory: 'bin/nuget'

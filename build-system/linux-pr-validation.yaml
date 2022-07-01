@@ -18,7 +18,7 @@ jobs:
     parameters:
       name: 'net_core_tests_linux'
       displayName: '.NET Core Unit Tests (Linux)'
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
       scriptFileName: ./build.sh
       scriptArgs: runTestsNetCore
 
@@ -26,6 +26,6 @@ jobs:
     parameters:
       name: 'net_5_tests_linux'
       displayName: '.NET 5 Unit Tests (Linux)'
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
       scriptFileName: ./build.sh
       scriptArgs: runTestsNet
