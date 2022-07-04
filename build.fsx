@@ -52,7 +52,7 @@ let outputBinariesNet = outputBinaries @@ "net5.0"
 // Configuration values for tests
 let testNetFrameworkVersion = "net471"
 let testNetCoreVersion = "netcoreapp3.1"
-let testNetVersion = "net5.0"
+let testNetVersion = "net6.0"
 
 Target "Clean" (fun _ ->
     ActivateFinalTarget "KillCreatedProcesses"
