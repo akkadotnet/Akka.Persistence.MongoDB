@@ -2,7 +2,7 @@
 # See https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema for reference
 
 pool:
-  vmImage: vs2017-win2016
+  vmImage: windows-latest
   demands: Cmd
 
 trigger:
@@ -22,6 +22,10 @@ variables:
   - name: githubRepositoryName
     value: akkadotnet/Akka.Persistence.MongoDB
 steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET 6 SDK 6.0.100'
+  inputs:
+    version: 6.0.100
 - task: BatchScript@1
   displayName: 'FAKE Build'
   inputs:
