@@ -227,7 +227,11 @@ namespace Akka.Persistence.MongoDb.Journal
             
             var metadataHighestSequenceNrTask = _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr).FirstOrDefaultAsync();
 
-            var journalHighestSequenceNrTask = _journalCollection.Value.Find(Builders<JournalEntry>.Filter.Eq(x => x.PersistenceId, persistenceId)).Project(x => x.SequenceNr).FirstOrDefaultAsync();
+            var journalHighestSequenceNrTask = _journalCollection.Value.Find(Builders<JournalEntry>
+                .Filter.Eq(x => x.PersistenceId, persistenceId))
+                .SortByDescending(x => x.SequenceNr)
+                .Project(x => x.SequenceNr)
+                .FirstOrDefaultAsync();
 
             // journal data is usually good enough, except in cases when it's been deleted.
             await Task.WhenAll(metadataHighestSequenceNrTask, journalHighestSequenceNrTask);
