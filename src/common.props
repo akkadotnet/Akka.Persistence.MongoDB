@@ -22,9 +22,9 @@
     <NetFrameworkTestVersion>net471</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
-    <XunitVersion>2.4.1</XunitVersion>
-    <TestSdkVersion>17.2.0</TestSdkVersion>
-    <AkkaVersion>1.4.40</AkkaVersion>
+    <XunitVersion>2.4.2</XunitVersion>
+    <TestSdkVersion>17.3.2</TestSdkVersion>
+    <AkkaVersion>1.4.48</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
