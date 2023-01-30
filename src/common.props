@@ -24,7 +24,7 @@
 
     <XunitVersion>2.4.2</XunitVersion>
     <TestSdkVersion>17.4.1</TestSdkVersion>
-    <AkkaVersion>1.4.48</AkkaVersion>
+    <AkkaVersion>1.4.49</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
