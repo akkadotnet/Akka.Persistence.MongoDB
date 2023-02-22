@@ -18,7 +18,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public DatabaseFixture()
         {
-            _runner = MongoDbRunner.Start();
+            _runner = MongoDbRunner.Start(singleNodeReplSet: true);
             ConnectionString = _runner.ConnectionString + "akkanet";
         }
 
