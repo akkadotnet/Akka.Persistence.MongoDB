@@ -21,6 +21,11 @@ namespace Akka.Persistence.MongoDb
         public string ConnectionString { get; private set; }
 
         /// <summary>
+        /// database name.
+        /// </summary>
+        public string DatabaseName { get; private set; } = "akka";
+        
+        /// <summary>
         /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
         /// </summary>
         public bool AutoInitialize { get; private set; }

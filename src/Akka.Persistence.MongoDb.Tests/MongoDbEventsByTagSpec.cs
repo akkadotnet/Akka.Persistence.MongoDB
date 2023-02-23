@@ -24,10 +24,10 @@ namespace Akka.Persistence.MongoDb.Tests
         private readonly ITestOutputHelper _output;
 
         public MongoDbEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
+            : base(CreateSpecConfig(databaseFixture), "MongoDbCurrentEventsByTagSpec", output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.ConnectionString);
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
 
             var x = Sys.ActorOf(TestActor.Props("x"));
@@ -35,7 +35,7 @@ namespace Akka.Persistence.MongoDb.Tests
             ExpectMsg("warm-up-done", TimeSpan.FromSeconds(10));
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
             var specString = @"
                 akka.test.single-expect-default = 10s
@@ -45,7 +45,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {
@@ -60,7 +60,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.ConnectionString + @"""
                         }
                     }
                     query {

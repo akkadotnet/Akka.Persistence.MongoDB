@@ -19,6 +19,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
+using MongoDB.Driver.Core.Configuration;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -72,7 +73,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 var connectionString = new MongoUrl(_settings.ConnectionString);
                 client = new MongoClient(connectionString);
-                return client.GetDatabase(connectionString.DatabaseName);
+                return client.GetDatabase(_settings.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {

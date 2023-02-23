@@ -14,13 +14,13 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
         private readonly ITestOutputHelper _output;
 
         public MongoDbJournalSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalSerializationSpec), output)
+            : base(CreateSpecConfig(databaseFixture), nameof(MongoDbJournalSerializationSpec), output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.ConnectionString);
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
             var specString = @"
                 akka.test.single-expect-default = 3s

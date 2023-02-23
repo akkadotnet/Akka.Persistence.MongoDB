@@ -49,10 +49,10 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 IMongoDatabase snapshot;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
-                {
+                {                    
                     var connectionString = new MongoUrl(_settings.ConnectionString);
                     client = new MongoClient(connectionString);
-                    snapshot = client.GetDatabase(connectionString.DatabaseName);
+                    snapshot = client.GetDatabase(_settings.DatabaseName);
                 }
                 else
                 {
