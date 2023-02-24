@@ -48,7 +48,7 @@ namespace Akka.Persistence.MongoDb.Tests
         private readonly ITestOutputHelper _output;
 
         public Bug25FixSpec(ITestOutputHelper helper, DatabaseFixture fixture) 
-            : base(CreateSpecConfig(fixture), output: helper)
+            : base(CreateSpecConfig(fixture, Counter.Current), output: helper)
         {
             var s = fixture.ConnectionString.Split('?');
             var connectionString = s[0] + $"{Counter.Current}?" + s[1];
@@ -97,10 +97,10 @@ namespace Akka.Persistence.MongoDb.Tests
             ExpectMsg("hit"); // receive message upon recovery
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {

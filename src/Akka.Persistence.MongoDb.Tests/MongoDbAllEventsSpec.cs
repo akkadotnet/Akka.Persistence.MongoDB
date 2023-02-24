@@ -17,10 +17,10 @@ namespace Akka.Persistence.MongoDb.Tests
     [Collection("MongoDbSpec")]
     public class MongoDbAllEventsSpec: AllEventsSpec, IClassFixture<DatabaseFixture>
     {
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             // akka.test.single-expect-default = 10s
             var specString = @"
                 akka.test.single-expect-default = 10s
@@ -54,7 +54,7 @@ namespace Akka.Persistence.MongoDb.Tests
         }
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
-        public MongoDbAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbAllEventsSpec", output)
+        public MongoDbAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)
         {
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }

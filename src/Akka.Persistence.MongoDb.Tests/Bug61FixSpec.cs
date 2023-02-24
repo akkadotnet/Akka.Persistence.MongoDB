@@ -40,10 +40,12 @@ namespace Akka.Persistence.MongoDb.Tests
         public const int MessageCount = 20;
 
         public Bug61FixSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture), "MongoDbCurrentEventsByTagSpec", output)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString);
+            output.WriteLine(connectionString);
             Materializer = Sys.Materializer();
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
@@ -176,10 +178,10 @@ namespace Akka.Persistence.MongoDb.Tests
         }
 
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
