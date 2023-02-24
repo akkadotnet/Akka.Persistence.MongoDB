@@ -40,8 +40,7 @@ namespace Akka.Persistence.MongoDb.Journal
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
-        private string _connectionString;
-
+        
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbJournal() : this(MongoDbPersistence.Get(Context.System).JournalSettings)
@@ -53,14 +52,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private MongoDbJournal(MongoDbJournalSettings settings)
         {
-            if(!settings.ConnectionString.Contains("testdb"))
-            {
-                var s = settings.ConnectionString.Split('?');
-                _connectionString = s[0] + $"testdb?" + s[1];
-            } 
-            else
-                _connectionString = settings.ConnectionString;
-
             _settings = settings;
             _serialization = Context.System.Serialization;
         }
@@ -79,7 +70,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
                 
-                var connectionString = new MongoUrl(_connectionString);
+                var connectionString = new MongoUrl(_settings.ConnectionString);
                 client = new MongoClient(connectionString);
                 return client.GetDatabase(connectionString.DatabaseName);
             });

@@ -24,7 +24,6 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
 
-        private string _connectionString;
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
@@ -35,14 +34,6 @@ namespace Akka.Persistence.MongoDb.Snapshot
         
         public MongoDbSnapshotStore(MongoDbSnapshotSettings settings)
         {
-            if (!settings.ConnectionString.Contains("testdb"))
-            {
-                var s = settings.ConnectionString.Split('?');
-                _connectionString = s[0] + $"testdb?" + s[1];
-            }
-            else
-                _connectionString = settings.ConnectionString;
-
             _settings = settings;
             _serialization = Context.System.Serialization;
         }
@@ -58,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
                 {                    
-                    var connectionString = new MongoUrl(_connectionString);
+                    var connectionString = new MongoUrl(_settings.ConnectionString);
                     client = new MongoClient(connectionString);
                     snapshot = client.GetDatabase(connectionString.DatabaseName);
                 }
