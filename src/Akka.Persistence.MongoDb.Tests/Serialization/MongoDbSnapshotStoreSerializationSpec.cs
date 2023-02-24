@@ -13,16 +13,18 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
         private readonly ITestOutputHelper _output;
 
         public MongoDbSnapshotStoreSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture), nameof(MongoDbSnapshotStoreSerializationSpec), output)
-        {
-            _output = output;
-            output.WriteLine(databaseFixture.ConnectionString);
-        }
-
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbSnapshotStoreSerializationSpec), output)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
+            _output = output;
+            output.WriteLine(connectionString);
+        }
+
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
+        {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
