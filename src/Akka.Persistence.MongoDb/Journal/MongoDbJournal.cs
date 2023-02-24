@@ -19,7 +19,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
-using MongoDB.Driver.Core.Configuration;
+using Akka.Util.Internal;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -35,12 +35,12 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
-
+        public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
-        
+        private string _connectionString;
 
         private readonly Akka.Serialization.Serialization _serialization;
 
@@ -53,6 +53,14 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private MongoDbJournal(MongoDbJournalSettings settings)
         {
+            if(!settings.ConnectionString.Contains("testdb"))
+            {
+                var s = settings.ConnectionString.Split('?');
+                _connectionString = s[0] + $"testdb?" + s[1];
+            } 
+            else
+                _connectionString = settings.ConnectionString;
+
             _settings = settings;
             _serialization = Context.System.Serialization;
         }
@@ -70,10 +78,10 @@ namespace Akka.Persistence.MongoDb.Journal
                     client = new MongoClient(setupOption.Value.JournalConnectionSettings);
                     return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
-
-                var connectionString = new MongoUrl(_settings.ConnectionString);
+                
+                var connectionString = new MongoUrl(_connectionString);
                 client = new MongoClient(connectionString);
-                return client.GetDatabase(_settings.DatabaseName);
+                return client.GetDatabase(connectionString.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {

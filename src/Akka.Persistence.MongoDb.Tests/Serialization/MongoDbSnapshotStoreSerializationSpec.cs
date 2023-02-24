@@ -9,7 +9,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
     [Collection("MongoDbSpec")]
     public class MongoDbSnapshotStoreSerializationSpec : SnapshotStoreSerializationSpec, IClassFixture<DatabaseFixture>
     {
-        //public static readonly AtomicCounter Counter = new AtomicCounter(0);
+        public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
         public MongoDbSnapshotStoreSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
@@ -21,6 +21,8 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"testdb{Counter.GetAndIncrement()}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
@@ -29,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString  + @"""
+                            connection-string = """ + connectionString  + @"""
                             auto-initialize = on
                             collection = ""SnapshotStore""
                         }

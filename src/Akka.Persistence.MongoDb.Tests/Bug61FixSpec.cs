@@ -6,6 +6,7 @@ using Akka.Persistence.Query;
 using Akka.Streams;
 using Akka.Util.Internal;
 using FluentAssertions;
+using MongoDB.Driver.Core.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -177,6 +178,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"testdb{Counter.GetAndIncrement()}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
@@ -185,7 +188,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            connection-string = """ + connectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {

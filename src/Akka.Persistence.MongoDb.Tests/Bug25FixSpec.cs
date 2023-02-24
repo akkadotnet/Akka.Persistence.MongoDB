@@ -44,18 +44,20 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private readonly MongoUrl _connectionString;
         private Lazy<IMongoDatabase> _database;
-        //public static readonly AtomicCounter Counter = new AtomicCounter(0);
+        public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
         public Bug25FixSpec(ITestOutputHelper helper, DatabaseFixture fixture) 
             : base(CreateSpecConfig(fixture), output: helper)
         {
-            _connectionString = new MongoUrl(fixture.ConnectionString/* + Counter.Current*/);
-            //Counter.IncrementAndGet();
+            var s = fixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"testdb{Counter.Current}?" + s[1];
+            _connectionString = new MongoUrl(connectionString/* + Counter.Current*/);
+            Counter.IncrementAndGet();
             _output = helper;
             _database = new Lazy<IMongoDatabase>(() => 
             new MongoClient(_connectionString)
-            .GetDatabase(fixture.DatabaseName));
+            .GetDatabase(_connectionString.DatabaseName));
         }
 
         [Fact(DisplayName = "Bugfix: Should be able to deserialize older entities written without manifests")]
@@ -97,6 +99,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"testdb{Counter.Current}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
@@ -105,7 +109,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            connection-string = """ + connectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }

@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Reflection;
 using Reactive.Streams;
+using MongoDB.Driver.Core.Misc;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
@@ -39,6 +40,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"testdb{Counter.GetAndIncrement()}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
@@ -47,7 +50,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
+                            connection-string = """ + connectionString + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }

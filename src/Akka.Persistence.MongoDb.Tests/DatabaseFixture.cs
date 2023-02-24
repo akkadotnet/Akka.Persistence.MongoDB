@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using Akka.Util.Internal;
 using Mongo2Go;
 using System;
 
@@ -13,9 +14,8 @@ namespace Akka.Persistence.MongoDb.Tests
     public class DatabaseFixture : IDisposable
     {
         private MongoDbRunner _runner;
-
+        
         public string ConnectionString { get; private set; }
-        public string DatabaseName { get; private set; } = "akka";  
 
         public DatabaseFixture()
         {
