@@ -7,6 +7,7 @@
 
 using Akka.Util.Internal;
 using Mongo2Go;
+using MongoDB.Driver.Core.Misc;
 using System;
 
 namespace Akka.Persistence.MongoDb.Tests
@@ -20,8 +21,10 @@ namespace Akka.Persistence.MongoDb.Tests
         public DatabaseFixture()
         {
             _runner = MongoDbRunner.Start(singleNodeReplSet: true);
+            var s = _runner.ConnectionString.Split('?');
+            var connectionString = s[0] + $"akkanet?" + s[1];
             //_runner = MongoDbRunner.Start();
-            ConnectionString = _runner.ConnectionString;// + "akkanet";
+            ConnectionString = connectionString;// + "akkanet";
         }
 
         public void Dispose()

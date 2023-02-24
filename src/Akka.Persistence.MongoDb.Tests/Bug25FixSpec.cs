@@ -51,7 +51,7 @@ namespace Akka.Persistence.MongoDb.Tests
             : base(CreateSpecConfig(fixture), output: helper)
         {
             var s = fixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"testdb{Counter.Current}?" + s[1];
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _connectionString = new MongoUrl(connectionString/* + Counter.Current*/);
             Counter.IncrementAndGet();
             _output = helper;
@@ -100,7 +100,7 @@ namespace Akka.Persistence.MongoDb.Tests
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"testdb{Counter.Current}?" + s[1];
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
