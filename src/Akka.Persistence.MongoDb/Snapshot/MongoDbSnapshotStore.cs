@@ -24,14 +24,15 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
 
+
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
         { }
-        
+
         public MongoDbSnapshotStore(Config config) : this(new MongoDbSnapshotSettings(config))
         { }
-        
+
         public MongoDbSnapshotStore(MongoDbSnapshotSettings settings)
         {
             _settings = settings;
@@ -48,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 IMongoDatabase snapshot;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
-                {                    
+                {
                     var connectionString = new MongoUrl(_settings.ConnectionString);
                     client = new MongoClient(connectionString);
                     snapshot = client.GetDatabase(connectionString.DatabaseName);
@@ -79,18 +80,13 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            var a = _snapshotCollection.Value
-                    .Find(filter);
-            var b = a.SortByDescending(x => x.SequenceNr);
-            var c = b.Limit(1);
-            var d = c.Project(x => x);
-            var one = d.FirstOrDefault();
-            var two = d.ToListAsync().Result;
-            
-            var e = ToSelectedSnapshot(d.FirstOrDefault());
-            //var f = e.FirstOrDefaultAsync();
-            return Task.Run(() => e);
-                
+            return
+                _snapshotCollection.Value
+                    .Find(filter)
+                    .SortByDescending(x => x.SequenceNr)
+                    .Limit(1)
+                    .Project(x => ToSelectedSnapshot(x))
+                    .FirstOrDefaultAsync();
         }
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
