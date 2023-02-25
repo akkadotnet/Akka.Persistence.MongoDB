@@ -79,13 +79,18 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            return
-                _snapshotCollection.Value
-                    .Find(filter)
-                    .SortByDescending(x => x.SequenceNr)
-                    .Limit(1)
-                    .Project(x => ToSelectedSnapshot(x))
-                    .FirstOrDefaultAsync();
+            var a = _snapshotCollection.Value
+                    .Find(filter);
+            var b = a.SortByDescending(x => x.SequenceNr);
+            var c = b.Limit(1);
+            var d = c.Project(x => x);
+            var one = d.FirstOrDefault();
+            var two = d.ToListAsync().Result;
+            
+            var e = ToSelectedSnapshot(d.FirstOrDefault());
+            //var f = e.FirstOrDefaultAsync();
+            return Task.Run(() => e);
+                
         }
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
