@@ -10,10 +10,10 @@ namespace Akka.Persistence.MongoDb.Tests
     [Collection("MongoDbSpec")]
     public class MongoDbJournalPerfSpec: JournalPerfSpec, IClassFixture<DatabaseFixture>
     {
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             // akka.test.single-expect-default = 10s
             var specString = @"
                 akka.persistence {
@@ -34,7 +34,7 @@ namespace Akka.Persistence.MongoDb.Tests
         }
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
-        public MongoDbJournalPerfSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbJournalPerfSpec", output)
+        public MongoDbJournalPerfSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbJournalPerfSpec", output)
         {
             EventsCount = 1000;
             ExpectDuration = TimeSpan.FromMinutes(10);

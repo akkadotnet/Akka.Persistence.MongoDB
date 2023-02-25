@@ -24,10 +24,12 @@ namespace Akka.Persistence.MongoDb.Tests
         private readonly ITestOutputHelper _output;
 
         public MongoDbEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture), "MongoDbCurrentEventsByTagSpec", output)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString);
+            output.WriteLine(connectionString);
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
 
             var x = Sys.ActorOf(TestActor.Props("x"));
@@ -35,10 +37,10 @@ namespace Akka.Persistence.MongoDb.Tests
             ExpectMsg("warm-up-done", TimeSpan.FromSeconds(10));
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {

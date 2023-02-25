@@ -24,9 +24,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static ActorSystemSetup CreateBootstrapSetup(DatabaseFixture fixture)
         {
-            var s = fixture.ConnectionString.Split('?');
-            var con = s[0] + $"?" + s[1];
-            var connectionString = new MongoUrl(con);
+            var connectionString = new MongoUrl(fixture.ConnectionString);
             var client = new MongoClient(connectionString);
             var databaseName = connectionString.DatabaseName;
             var settings = client.Settings;

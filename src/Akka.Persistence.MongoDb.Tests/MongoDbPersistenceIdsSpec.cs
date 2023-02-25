@@ -31,17 +31,19 @@ namespace Akka.Persistence.MongoDb.Tests
         private readonly ITestOutputHelper _output;
 
         public MongoDbPersistenceIdsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) 
-            : base(CreateSpecConfig(databaseFixture), "MongoDbPersistenceIdsSpec", output)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbPersistenceIdsSpec", output)
         {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString);
+            output.WriteLine(connectionString);
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
             var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.GetAndIncrement()}?" + s[1];
+            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
