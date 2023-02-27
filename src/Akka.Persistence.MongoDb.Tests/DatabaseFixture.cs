@@ -21,12 +21,15 @@ namespace Akka.Persistence.MongoDb.Tests
         public DatabaseFixture()
         {
             _runner = MongoDbRunner.Start(singleNodeReplSet: true);
-            var s = _runner.ConnectionString.Split('?');
-            var connectionString = s[0] + $"akkanet?" + s[1];
             //_runner = MongoDbRunner.Start();
-            ConnectionString = connectionString;// + "akkanet";
+            ConnectionString = ConString(_runner.ConnectionString);// + "akkanet";
         }
-
+        private string ConString(string cString)
+        {
+            var s = cString.Split('?');
+            var connectionString = s[0] + $"akkanet?" + s[1];
+            return connectionString;
+        }
         public void Dispose()
         {
             _runner.Dispose();

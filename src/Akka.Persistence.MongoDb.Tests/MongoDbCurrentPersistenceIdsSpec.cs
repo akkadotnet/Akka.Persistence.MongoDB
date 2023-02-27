@@ -29,17 +29,13 @@ namespace Akka.Persistence.MongoDb.Tests
         public MongoDbCurrentPersistenceIdsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentPersistenceIdsSpec", output)
         {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _output = output;
-            output.WriteLine(connectionString);
+            output.WriteLine(ConnectionString(databaseFixture, Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
@@ -48,7 +44,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + connectionString + @"""
+                            connection-string = """ + ConnectionString(databaseFixture, id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -63,7 +59,12 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-
+        private static string ConnectionString(DatabaseFixture databaseFixture, int id)
+        {
+            var s = databaseFixture.ConnectionString.Split('?');
+            var connectionString = s[0] + $"{id}?" + s[1];
+            return connectionString;
+        }
         public override void ReadJournal_query_CurrentPersistenceIds_should_not_see_new_events_after_complete()
         {
             var queries = ReadJournal.AsInstanceOf<ICurrentPersistenceIdsQuery>();
