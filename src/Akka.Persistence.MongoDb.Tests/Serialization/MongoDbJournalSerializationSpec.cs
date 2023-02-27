@@ -11,14 +11,14 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
     public class MongoDbJournalSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
-        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
+
         private readonly ITestOutputHelper _output;
 
         public MongoDbJournalSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalSerializationSpec), output)
         {
             _output = output;
-            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
@@ -31,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }

@@ -24,7 +24,6 @@ namespace Akka.Persistence.MongoDb.Tests
     public class MongoDbCurrentEventsByTagSpec : Akka.Persistence.TCK.Query.CurrentEventsByTagSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
-        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
         private readonly ITestOutputHelper _output;
 
         public MongoDbCurrentEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
@@ -32,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests
         {
            
             _output = output;
-            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
 
             var x = Sys.ActorOf(TestActor.Props("x"));
@@ -50,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {
@@ -65,7 +64,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                         }
                     }
                     query {

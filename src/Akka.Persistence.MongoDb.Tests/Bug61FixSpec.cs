@@ -24,7 +24,7 @@ namespace Akka.Persistence.MongoDb.Tests
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
-        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
+
         protected MongoDbReadJournal ReadJournal { get; }
 
         protected IMaterializer Materializer { get; }
@@ -44,7 +44,7 @@ namespace Akka.Persistence.MongoDb.Tests
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
             _output = output;
-            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             Materializer = Sys.Materializer();
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
@@ -187,7 +187,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {
