@@ -35,7 +35,6 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
-        public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
