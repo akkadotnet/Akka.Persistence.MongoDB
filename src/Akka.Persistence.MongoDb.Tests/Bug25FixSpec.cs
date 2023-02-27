@@ -41,7 +41,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             public override string PersistenceId { get; }
         }
-
+        
         private readonly MongoUrl _connectionString;
         private Lazy<IMongoDatabase> _database;
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
@@ -49,8 +49,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public Bug25FixSpec(ITestOutputHelper helper, DatabaseFixture fixture) 
             : base(CreateSpecConfig(fixture, Counter.Current), output: helper)
-        {
-            _connectionString = new MongoUrl(fixture.ConnectionString + Counter.Current);
+        {           
+            _connectionString = new MongoUrl(fixture.MongoDbConnectionString(Counter.Current));
             Counter.IncrementAndGet();
             _output = helper;
             _database = new Lazy<IMongoDatabase>(() => 
@@ -105,7 +105,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }

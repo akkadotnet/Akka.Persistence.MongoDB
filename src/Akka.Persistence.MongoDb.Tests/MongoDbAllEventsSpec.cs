@@ -28,7 +28,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -37,7 +37,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                         }
                     }
                     query {
@@ -50,6 +50,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
+        
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
         public MongoDbAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)

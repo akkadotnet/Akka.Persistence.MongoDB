@@ -25,12 +25,13 @@ namespace Akka.Persistence.MongoDb.Tests
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbEventsByPersistenceIdSpec", output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
+
             var specString = @"
                 akka.test.single-expect-default = 3s
                 akka.persistence {
@@ -39,7 +40,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -54,7 +55,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-
+        
     }
 
     

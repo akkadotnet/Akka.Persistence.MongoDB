@@ -29,8 +29,9 @@ namespace Akka.Persistence.MongoDb.Tests
         public MongoDbCurrentEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
+           
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
 
             var x = Sys.ActorOf(TestActor.Props("x"));
@@ -48,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {
@@ -63,7 +64,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                         }
                     }
                     query {
@@ -76,8 +77,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-
-
+        
         //public override void ReadJournal_query_CurrentEventsByTag_should_find_existing_events()
         //{
         //    var a = Sys.ActorOf(TestActor.Props("a"));

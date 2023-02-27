@@ -30,7 +30,7 @@ namespace Akka.Persistence.MongoDb.Tests
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentPersistenceIdsSpec", output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
@@ -44,7 +44,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -59,7 +59,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-
+        
         public override void ReadJournal_query_CurrentPersistenceIds_should_not_see_new_events_after_complete()
         {
             var queries = ReadJournal.AsInstanceOf<ICurrentPersistenceIdsQuery>();

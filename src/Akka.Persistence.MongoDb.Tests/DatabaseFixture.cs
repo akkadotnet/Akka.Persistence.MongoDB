@@ -5,7 +5,9 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using Akka.Util.Internal;
 using Mongo2Go;
+using MongoDB.Driver.Core.Misc;
 using System;
 
 namespace Akka.Persistence.MongoDb.Tests
@@ -13,15 +15,26 @@ namespace Akka.Persistence.MongoDb.Tests
     public class DatabaseFixture : IDisposable
     {
         private MongoDbRunner _runner;
-
         public string ConnectionString { get; private set; }
 
         public DatabaseFixture()
         {
-            _runner = MongoDbRunner.Start();
-            ConnectionString = _runner.ConnectionString + "akkanet";
+            _runner = MongoDbRunner.Start(singleNodeReplSet: true);
+            //_runner = MongoDbRunner.Start();
+            ConnectionString = ConString(_runner.ConnectionString);// + "akkanet";
         }
-
+        public string MongoDbConnectionString(int id)
+        {
+            var s = ConnectionString.Split('?');
+            var connectionString = s[0] + $"{id}?" + s[1];
+            return connectionString;
+        }
+        private string ConString(string cString)
+        {
+            var s = cString.Split('?');
+            var connectionString = s[0] + $"akkanet?" + s[1];
+            return connectionString;
+        }
         public void Dispose()
         {
             _runner.Dispose();

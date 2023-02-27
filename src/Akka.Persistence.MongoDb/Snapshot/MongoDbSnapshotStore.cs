@@ -29,10 +29,10 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
         { }
-        
+
         public MongoDbSnapshotStore(Config config) : this(new MongoDbSnapshotSettings(config))
         { }
-        
+
         public MongoDbSnapshotStore(MongoDbSnapshotSettings settings)
         {
             _settings = settings;

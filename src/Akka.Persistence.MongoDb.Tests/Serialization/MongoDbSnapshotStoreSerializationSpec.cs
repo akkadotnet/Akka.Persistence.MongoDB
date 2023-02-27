@@ -10,13 +10,14 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
     public class MongoDbSnapshotStoreSerializationSpec : SnapshotStoreSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
+
         private readonly ITestOutputHelper _output;
 
         public MongoDbSnapshotStoreSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbSnapshotStoreSerializationSpec), output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
@@ -29,7 +30,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""SnapshotStore""
                         }
@@ -38,5 +39,6 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
 
             return ConfigurationFactory.ParseString(specString);
         }
+        
     }
 }

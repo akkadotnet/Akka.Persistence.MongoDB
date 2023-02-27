@@ -19,6 +19,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
+using Akka.Util.Internal;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -35,12 +36,10 @@ namespace Akka.Persistence.MongoDb.Journal
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
 
-
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers = ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
         private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
         
-
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbJournal() : this(MongoDbPersistence.Get(Context.System).JournalSettings)
@@ -69,7 +68,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     client = new MongoClient(setupOption.Value.JournalConnectionSettings);
                     return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
-
+                
                 var connectionString = new MongoUrl(_settings.ConnectionString);
                 client = new MongoClient(connectionString);
                 return client.GetDatabase(connectionString.DatabaseName);

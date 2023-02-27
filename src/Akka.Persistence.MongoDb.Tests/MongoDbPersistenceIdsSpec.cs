@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Reflection;
 using Reactive.Streams;
+using MongoDB.Driver.Core.Misc;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
@@ -27,13 +28,14 @@ namespace Akka.Persistence.MongoDb.Tests
     public class MongoDbPersistenceIdsSpec : Akka.Persistence.TCK.Query.PersistenceIdsSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
+
         private readonly ITestOutputHelper _output;
 
         public MongoDbPersistenceIdsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) 
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbPersistenceIdsSpec", output)
         {
             _output = output;
-            output.WriteLine(databaseFixture.ConnectionString + Counter.Current);
+            output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
@@ -47,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + id + @"""
+                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -62,6 +64,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
+        
         [Fact]
         public void ReadJournal_ConcurrentMessaging_should_work()
         {

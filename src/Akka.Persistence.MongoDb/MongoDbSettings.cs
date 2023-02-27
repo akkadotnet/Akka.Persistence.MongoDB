@@ -19,7 +19,7 @@ namespace Akka.Persistence.MongoDb
         /// Connection string used to access the MongoDb, also specifies the database.
         /// </summary>
         public string ConnectionString { get; private set; }
-
+              
         /// <summary>
         /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
         /// </summary>
