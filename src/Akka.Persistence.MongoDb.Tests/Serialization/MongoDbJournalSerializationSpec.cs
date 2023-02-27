@@ -11,13 +11,14 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
     public class MongoDbJournalSerializationSpec : JournalSerializationSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
+        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
         private readonly ITestOutputHelper _output;
 
         public MongoDbJournalSerializationSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), nameof(MongoDbJournalSerializationSpec), output)
         {
             _output = output;
-            output.WriteLine(ConnectionString(databaseFixture, Counter.Current));
+            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
         }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
@@ -30,7 +31,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -40,13 +41,7 @@ namespace Akka.Persistence.MongoDb.Tests.Serialization
             return ConfigurationFactory.ParseString(specString)
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
         }
-        private static string ConnectionString(DatabaseFixture databaseFixture, int id)
-        {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{id}?" + s[1];
-            return connectionString;
-        }
-
+        
         [Fact(Skip = "Waiting on better error messages")]
         public override void Journal_should_serialize_Persistent_with_EventAdapter_manifest()
         {

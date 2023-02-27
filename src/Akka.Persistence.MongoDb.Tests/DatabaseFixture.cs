@@ -15,21 +15,17 @@ namespace Akka.Persistence.MongoDb.Tests
     public class DatabaseFixture : IDisposable
     {
         private MongoDbRunner _runner;
-        
+        private MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
+
         public string ConnectionString { get; private set; }
 
         public DatabaseFixture()
         {
             _runner = MongoDbRunner.Start(singleNodeReplSet: true);
             //_runner = MongoDbRunner.Start();
-            ConnectionString = ConString(_runner.ConnectionString);// + "akkanet";
+            ConnectionString = _mongoDb.ConnectionString(_runner.ConnectionString);// + "akkanet";
         }
-        private string ConString(string cString)
-        {
-            var s = cString.Split('?');
-            var connectionString = s[0] + $"akkanet?" + s[1];
-            return connectionString;
-        }
+        
         public void Dispose()
         {
             _runner.Dispose();

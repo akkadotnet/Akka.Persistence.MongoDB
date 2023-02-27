@@ -7,6 +7,7 @@ using Akka.Streams;
 using Akka.Util.Internal;
 using FluentAssertions;
 using MongoDB.Driver.Core.Configuration;
+using MongoDB.Driver.Core.Misc;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -23,7 +24,7 @@ namespace Akka.Persistence.MongoDb.Tests
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
-
+        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
         protected MongoDbReadJournal ReadJournal { get; }
 
         protected IMaterializer Materializer { get; }
@@ -42,10 +43,8 @@ namespace Akka.Persistence.MongoDb.Tests
         public Bug61FixSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
         {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
             _output = output;
-            output.WriteLine(connectionString);
+            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
             Materializer = Sys.Materializer();
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
@@ -180,8 +179,6 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
@@ -190,7 +187,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + connectionString + @"""
+                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                             event-adapters {

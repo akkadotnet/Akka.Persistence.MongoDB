@@ -41,6 +41,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             public override string PersistenceId { get; }
         }
+        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
 
         private readonly MongoUrl _connectionString;
         private Lazy<IMongoDatabase> _database;
@@ -49,10 +50,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public Bug25FixSpec(ITestOutputHelper helper, DatabaseFixture fixture) 
             : base(CreateSpecConfig(fixture, Counter.Current), output: helper)
-        {
-            var s = fixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{Counter.Current}?" + s[1];
-            _connectionString = new MongoUrl(connectionString/* + Counter.Current*/);
+        {           
+            _connectionString = new MongoUrl(_mongoDb.ConnectionString(fixture, Counter.Current));
             Counter.IncrementAndGet();
             _output = helper;
             _database = new Lazy<IMongoDatabase>(() => 
@@ -99,8 +98,6 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{id}?" + s[1];
             var specString = @"
                 akka.test.single-expect-default = 10s
                 akka.persistence {
@@ -109,7 +106,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + connectionString + @"""
+                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }

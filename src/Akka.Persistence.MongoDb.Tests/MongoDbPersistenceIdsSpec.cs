@@ -28,13 +28,14 @@ namespace Akka.Persistence.MongoDb.Tests
     public class MongoDbPersistenceIdsSpec : Akka.Persistence.TCK.Query.PersistenceIdsSpec, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
+        private static MongoDbConnectionString _mongoDb = new MongoDbConnectionString();
         private readonly ITestOutputHelper _output;
 
         public MongoDbPersistenceIdsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) 
             : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbPersistenceIdsSpec", output)
         {
             _output = output;
-            output.WriteLine(ConnectionString(databaseFixture, Counter.Current));
+            output.WriteLine(_mongoDb.ConnectionString(databaseFixture, Counter.Current));
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }
 
@@ -48,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         plugin = ""akka.persistence.journal.mongodb""
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + ConnectionString(databaseFixture, id) + @"""
+                            connection-string = """ + _mongoDb.ConnectionString(databaseFixture, id) + @"""
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -63,12 +64,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
             return ConfigurationFactory.ParseString(specString);
         }
-        private static string ConnectionString(DatabaseFixture databaseFixture, int id)
-        {
-            var s = databaseFixture.ConnectionString.Split('?');
-            var connectionString = s[0] + $"{id}?" + s[1];
-            return connectionString;
-        }
+        
         [Fact]
         public void ReadJournal_ConcurrentMessaging_should_work()
         {
