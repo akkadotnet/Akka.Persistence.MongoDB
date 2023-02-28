@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
 using Akka.Util.Internal;
+using Akka.Streams.Stage;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -31,7 +32,7 @@ namespace Akka.Persistence.MongoDb.Journal
         private static readonly BsonTimestamp ZeroTimestamp = new BsonTimestamp(0);
         
         private readonly MongoDbJournalSettings _settings;
-
+        private MongoClient _client;
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
@@ -61,17 +62,16 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
-                MongoClient client;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (setupOption.HasValue && setupOption.Value.JournalConnectionSettings != null)
                 {
-                    client = new MongoClient(setupOption.Value.JournalConnectionSettings);
-                    return client.GetDatabase(setupOption.Value.JournalDatabaseName);
+                    _client = new MongoClient(setupOption.Value.JournalConnectionSettings);
+                    return _client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
                 
                 var connectionString = new MongoUrl(_settings.ConnectionString);
-                client = new MongoClient(connectionString);
-                return client.GetDatabase(connectionString.DatabaseName);
+                _client = new MongoClient(connectionString);
+                return _client.GetDatabase(connectionString.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {
@@ -260,7 +260,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await _journalCollection.Value.InsertManyAsync(journalEntries, new InsertManyOptions { IsOrdered = true });
+                await InsertEntries(journalEntries);
 
                 if (HasPersistenceIdSubscribers)
                     persistentIds.Add(message.PersistenceId);
@@ -290,7 +290,35 @@ namespace Akka.Persistence.MongoDb.Journal
                 NotifyNewEventAppended();
             return result;
         }
+        private async ValueTask InsertEntries(IEnumerable<JournalEntry> entries)
+        {
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        foreach (var entry in entries)
+                        {
+                            await _journalCollection.Value.InsertOneAsync(session, entry);
+                        }
 
+                        //All good , lets commit the transaction 
+                        await session.CommitTransactionAsync();
+                    }
+                    catch (Exception ex) 
+                    {
+                        await session.AbortTransactionAsync();
+                    }
+
+                }
+            }
+            else
+                await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true });
+        }
         private void NotifyNewEventAppended()
         {
             if (HasNewEventSubscribers)
