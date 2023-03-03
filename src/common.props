@@ -7,10 +7,7 @@
     <PackageProjectUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
     <PackageReleaseNotes>
-      Bump Akka version to 1.4.14
-      Corrected `CurrentPersistentIds` query and `AllPersistentIds` queries to be more memory efficient and query entity ID data directly from Mongo
-      Introduced `AllEvents` and `CurrentEvents` query to read the entire MongoDb journal
-      Deprecated previous `GetMaxSeqNo` behavior - we no longer query the max sequence number directly from the journal AND the metadata collection. We only get that data directly from the metadata collection itself, which should make this query an O(1) operation rather than O(n)
+      Bump Akka version to 1.5.0
     </PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
@@ -24,7 +21,7 @@
 
     <XunitVersion>2.4.2</XunitVersion>
     <TestSdkVersion>17.5.0</TestSdkVersion>
-    <AkkaVersion>1.5.0-beta6</AkkaVersion>
+    <AkkaVersion>1.5.0</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
