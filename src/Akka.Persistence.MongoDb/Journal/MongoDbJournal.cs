@@ -312,6 +312,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     catch (Exception ex) 
                     {
                         await session.AbortTransactionAsync();
+                        throw ex;   
                     }
 
                 }
