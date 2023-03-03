@@ -43,7 +43,7 @@ namespace Akka.Persistence.MongoDb
         protected MongoDbSettings(Config config)
         {
             ConnectionString = config.GetString("connection-string");
-            Transaction = config.GetBoolean("transaction");
+            Transaction = config.GetBoolean("use-write-transaction");
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
             LegacySerialization = config.GetBoolean("legacy-serialization");

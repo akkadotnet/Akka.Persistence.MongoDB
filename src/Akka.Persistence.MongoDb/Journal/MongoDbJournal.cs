@@ -306,8 +306,6 @@ namespace Akka.Persistence.MongoDb.Journal
                             await _journalCollection.Value.InsertOneAsync(session, entry);
                         }
 
-                        //All good , lets commit the transaction 
-                        await session.CommitTransactionAsync();
                     }
                     catch (Exception ex) 
                     {
@@ -315,6 +313,8 @@ namespace Akka.Persistence.MongoDb.Journal
                         throw ex;   
                     }
 
+                    //All good , lets commit the transaction 
+                    await session.CommitTransactionAsync();
                 }
             }
             else
