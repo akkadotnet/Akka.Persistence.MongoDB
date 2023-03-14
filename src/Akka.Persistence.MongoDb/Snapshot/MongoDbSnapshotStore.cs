@@ -21,7 +21,6 @@ namespace Akka.Persistence.MongoDb.Snapshot
     public class MongoDbSnapshotStore : SnapshotStore
     {
         private readonly MongoDbSnapshotSettings _settings;
-        private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
         
         private readonly Akka.Serialization.Serialization _serialization;
@@ -41,26 +40,24 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override void PreStart()
         {
             base.PreStart();
-            _mongoDatabase = new Lazy<IMongoDatabase>(() =>
+            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
             {
-               MongoClient client;
+                MongoClient client;
+                IMongoDatabase snapshot;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
                 {
                     var connectionString = new MongoUrl(_settings.ConnectionString);
                     client = new MongoClient(connectionString);
-                    return client.GetDatabase(connectionString.DatabaseName);
+                    snapshot = client.GetDatabase(connectionString.DatabaseName);
                 }
                 else
                 {
                     client = new MongoClient(setupOption.Value.SnapshotConnectionSettings);
-                    return client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
+                    snapshot = client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
                 }
-                
-            });
-            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
-            {
-                var collection = _mongoDatabase.Value.GetCollection<SnapshotEntry>(_settings.Collection);
+
+                var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
                 if (_settings.AutoInitialize)
                 {
                     var modelWithAscendingPersistenceIdAndDescendingSequenceNr = new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
@@ -94,11 +91,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
             if (_settings.Transaction)
             {
-                // I DID IT THIS WAY BECAUSE CLIENT NULL
-                var client = _mongoDatabase.Value.Client;
                 var sessionOptions = new ClientSessionOptions { };
                 
-                using (var session = await client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                using (var session = await _snapshotCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
                 {
                     // Begin transaction
                     session.StartTransaction();
