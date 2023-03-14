@@ -301,7 +301,11 @@ namespace Akka.Persistence.MongoDb.Journal
                     session.StartTransaction();
                     try
                     {
-                        //16MB: if is bigger than this that means you do it one by one
+                        //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
+                        //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
+                        //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
                         await _journalCollection.Value.InsertManyAsync(session, entries, new InsertManyOptions { IsOrdered = true });
                     }
                     catch (Exception ex) 

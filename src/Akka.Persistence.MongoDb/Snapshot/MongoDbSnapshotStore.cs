@@ -94,6 +94,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
             if (_settings.Transaction)
             {
+                // I DID IT THIS WAY BECAUSE CLIENT NULL
                 var client = _mongoDatabase.Value.Client;
                 var sessionOptions = new ClientSessionOptions { };
                 
