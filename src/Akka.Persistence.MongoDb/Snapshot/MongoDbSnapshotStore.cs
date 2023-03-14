@@ -9,8 +9,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
-using Akka.Persistence.MongoDb.Journal;
-using Akka.Persistence.Serialization;
 using Akka.Persistence.Snapshot;
 using Akka.Util;
 using MongoDB.Driver;
