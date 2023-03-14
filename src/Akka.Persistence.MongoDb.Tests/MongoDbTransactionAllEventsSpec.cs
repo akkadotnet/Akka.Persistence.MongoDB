@@ -9,7 +9,7 @@ using Xunit;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbTransactionsSpec : AllEventsSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbTransactionAllEventsSpec : AllEventsSpec, IClassFixture<DatabaseFixture>
     {
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
         {
@@ -23,7 +23,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
                             connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
-                            transaction = on
+                            use-write-transaction = on
                             auto-initialize = on
                             collection = ""EventJournal""
                         }
@@ -33,7 +33,7 @@ namespace Akka.Persistence.MongoDb.Tests
                         mongodb {
                             class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
                             connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
-                            transaction = on
+                            use-write-transaction = on
                            }
                     }
                     query {
@@ -49,7 +49,7 @@ namespace Akka.Persistence.MongoDb.Tests
 
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
 
-        public MongoDbTransactionsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)
+        public MongoDbTransactionAllEventsSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbAllEventsSpec", output)
         {
             ReadJournal = Sys.ReadJournalFor<MongoDbReadJournal>(MongoDbReadJournal.Identifier);
         }

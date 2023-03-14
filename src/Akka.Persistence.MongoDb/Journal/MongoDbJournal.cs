@@ -301,11 +301,8 @@ namespace Akka.Persistence.MongoDb.Journal
                     session.StartTransaction();
                     try
                     {
-                        foreach (var entry in entries)
-                        {
-                            await _journalCollection.Value.InsertOneAsync(session, entry);
-                        }
-
+                        //16MB: if is bigger than this that means you do it one by one
+                        await _journalCollection.Value.InsertManyAsync(session, entries, new InsertManyOptions { IsOrdered = true });
                     }
                     catch (Exception ex) 
                     {
@@ -347,8 +344,28 @@ namespace Akka.Persistence.MongoDb.Journal
             {
                 await SetHighSequenceId(persistenceId, highestSeqNo);
             }
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _journalCollection.Value.DeleteManyAsync(session,filter);
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _journalCollection.Value.DeleteManyAsync(filter);
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+                await _journalCollection.Value.DeleteManyAsync(filter);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -493,8 +510,28 @@ namespace Akka.Persistence.MongoDb.Journal
                 PersistenceId = persistenceId,
                 SequenceNr = maxSeqNo
             };
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _metadataCollection.Value.ReplaceOneAsync(session, filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
         }
 
         protected override bool ReceivePluginInternal(object message)

@@ -9,6 +9,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
+using Akka.Persistence.MongoDb.Journal;
+using Akka.Persistence.Serialization;
 using Akka.Persistence.Snapshot;
 using Akka.Util;
 using MongoDB.Driver;
@@ -21,10 +23,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
     public class MongoDbSnapshotStore : SnapshotStore
     {
         private readonly MongoDbSnapshotSettings _settings;
-
+        private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
-
-
+        
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
@@ -42,25 +43,26 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override void PreStart()
         {
             base.PreStart();
-
-            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
+            _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
-                MongoClient client;
-                IMongoDatabase snapshot;
+               MongoClient client;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
                 {
                     var connectionString = new MongoUrl(_settings.ConnectionString);
                     client = new MongoClient(connectionString);
-                    snapshot = client.GetDatabase(connectionString.DatabaseName);
+                    return client.GetDatabase(connectionString.DatabaseName);
                 }
                 else
                 {
                     client = new MongoClient(setupOption.Value.SnapshotConnectionSettings);
-                    snapshot = client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
+                    return client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
                 }
-
-                var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
+                
+            });
+            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
+            {
+                var collection = _mongoDatabase.Value.GetCollection<SnapshotEntry>(_settings.Collection);
                 if (_settings.AutoInitialize)
                 {
                     var modelWithAscendingPersistenceIdAndDescendingSequenceNr = new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
@@ -92,8 +94,34 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
+            if (_settings.Transaction)
+            {
+                var client = _mongoDatabase.Value.Client;
+                var sessionOptions = new ClientSessionOptions { };
+                
+                using (var session = await client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _snapshotCollection.Value.ReplaceOneAsync(
+                            session,
+                        CreateSnapshotIdFilter(snapshotEntry.Id),
+                        snapshotEntry,
+                        new ReplaceOptions { IsUpsert = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _snapshotCollection.Value.ReplaceOneAsync(
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+                await _snapshotCollection.Value.ReplaceOneAsync(
                 CreateSnapshotIdFilter(snapshotEntry.Id),
                 snapshotEntry,
                 new ReplaceOptions { IsUpsert = true });
