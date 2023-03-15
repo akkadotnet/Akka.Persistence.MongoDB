@@ -32,7 +32,6 @@ namespace Akka.Persistence.MongoDb.Journal
         private static readonly BsonTimestamp ZeroTimestamp = new BsonTimestamp(0);
         
         private readonly MongoDbJournalSettings _settings;
-        private MongoClient _client;
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
@@ -62,16 +61,17 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _mongoDatabase = new Lazy<IMongoDatabase>(() =>
             {
+                MongoClient client;
                 var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
                 if (setupOption.HasValue && setupOption.Value.JournalConnectionSettings != null)
                 {
-                    _client = new MongoClient(setupOption.Value.JournalConnectionSettings);
-                    return _client.GetDatabase(setupOption.Value.JournalDatabaseName);
+                    client = new MongoClient(setupOption.Value.JournalConnectionSettings);
+                    return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
-                
+
                 var connectionString = new MongoUrl(_settings.ConnectionString);
-                _client = new MongoClient(connectionString);
-                return _client.GetDatabase(connectionString.DatabaseName);
+                client = new MongoClient(connectionString);
+                return client.GetDatabase(connectionString.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
             {
@@ -295,7 +295,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (_settings.Transaction)
             {
                 var sessionOptions = new ClientSessionOptions { };
-                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
                 {
                     // Begin transaction
                     session.StartTransaction();
@@ -351,7 +351,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (_settings.Transaction)
             {
                 var sessionOptions = new ClientSessionOptions { };
-                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
                 {
                     // Begin transaction
                     session.StartTransaction();
@@ -517,7 +517,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (_settings.Transaction)
             {
                 var sessionOptions = new ClientSessionOptions { };
-                using (var session = await _client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
                 {
                     // Begin transaction
                     session.StartTransaction();
