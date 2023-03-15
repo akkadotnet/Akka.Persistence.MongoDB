@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
 using Akka.Util.Internal;
+using Akka.Streams.Stage;
 
 namespace Akka.Persistence.MongoDb.Journal
 {
@@ -31,7 +32,6 @@ namespace Akka.Persistence.MongoDb.Journal
         private static readonly BsonTimestamp ZeroTimestamp = new BsonTimestamp(0);
         
         private readonly MongoDbJournalSettings _settings;
-
         private Lazy<IMongoDatabase> _mongoDatabase;
         private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
         private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
@@ -68,7 +68,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     client = new MongoClient(setupOption.Value.JournalConnectionSettings);
                     return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
-                
+
                 var connectionString = new MongoUrl(_settings.ConnectionString);
                 client = new MongoClient(connectionString);
                 return client.GetDatabase(connectionString.DatabaseName);
@@ -260,7 +260,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 }
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await _journalCollection.Value.InsertManyAsync(journalEntries, new InsertManyOptions { IsOrdered = true });
+                await InsertEntries(journalEntries);
 
                 if (HasPersistenceIdSubscribers)
                     persistentIds.Add(message.PersistenceId);
@@ -290,7 +290,37 @@ namespace Akka.Persistence.MongoDb.Journal
                 NotifyNewEventAppended();
             return result;
         }
+        private async ValueTask InsertEntries(IEnumerable<JournalEntry> entries)
+        {
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
+                        //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
+                        //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
+                        await _journalCollection.Value.InsertManyAsync(session, entries, new InsertManyOptions { IsOrdered = true });
+                    }
+                    catch (Exception ex) 
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;   
+                    }
 
+                    //All good , lets commit the transaction 
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+                await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true });
+        }
         private void NotifyNewEventAppended()
         {
             if (HasNewEventSubscribers)
@@ -318,8 +348,28 @@ namespace Akka.Persistence.MongoDb.Journal
             {
                 await SetHighSequenceId(persistenceId, highestSeqNo);
             }
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _journalCollection.Value.DeleteManyAsync(session,filter);
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _journalCollection.Value.DeleteManyAsync(filter);
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+                await _journalCollection.Value.DeleteManyAsync(filter);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -464,8 +514,28 @@ namespace Akka.Persistence.MongoDb.Journal
                 PersistenceId = persistenceId,
                 SequenceNr = maxSeqNo
             };
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                using (var session = await _journalCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _metadataCollection.Value.ReplaceOneAsync(session, filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+             await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry, new ReplaceOptions() { IsUpsert = true });
         }
 
         protected override bool ReceivePluginInternal(object message)

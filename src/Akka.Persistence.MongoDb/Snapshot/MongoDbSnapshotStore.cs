@@ -21,10 +21,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
     public class MongoDbSnapshotStore : SnapshotStore
     {
         private readonly MongoDbSnapshotSettings _settings;
-
         private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
-
-
+        
         private readonly Akka.Serialization.Serialization _serialization;
 
         public MongoDbSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
@@ -42,7 +40,6 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override void PreStart()
         {
             base.PreStart();
-
             _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
             {
                 MongoClient client;
@@ -92,8 +89,33 @@ namespace Akka.Persistence.MongoDb.Snapshot
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
+            if (_settings.Transaction)
+            {
+                var sessionOptions = new ClientSessionOptions { };
+                
+                using (var session = await _snapshotCollection.Value.Database.Client.StartSessionAsync(sessionOptions/*, cancellationToken*/))
+                {
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
+                    {
+                        await _snapshotCollection.Value.ReplaceOneAsync(
+                            session,
+                        CreateSnapshotIdFilter(snapshotEntry.Id),
+                        snapshotEntry,
+                        new ReplaceOptions { IsUpsert = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        await session.AbortTransactionAsync();
+                        throw ex;
+                    }
 
-            await _snapshotCollection.Value.ReplaceOneAsync(
+                    await session.CommitTransactionAsync();
+                }
+            }
+            else
+                await _snapshotCollection.Value.ReplaceOneAsync(
                 CreateSnapshotIdFilter(snapshotEntry.Id),
                 snapshotEntry,
                 new ReplaceOptions { IsUpsert = true });
