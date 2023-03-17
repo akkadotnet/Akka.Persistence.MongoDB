@@ -32,8 +32,8 @@ jobs:
 
   - template: azure-pipeline.template.yaml
     parameters:
-      name: 'net_5_tests_windows'
-      displayName: '.NET 5 Unit Tests (Windows)'
+      name: 'net_6_tests_windows'
+      displayName: '.NET 6 Unit Tests (Windows)'
       vmImage: 'windows-latest'
       scriptFileName: build.cmd
       scriptArgs: runTestsNet

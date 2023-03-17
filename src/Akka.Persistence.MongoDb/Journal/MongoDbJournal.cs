@@ -68,9 +68,11 @@ namespace Akka.Persistence.MongoDb.Journal
                     client = new MongoClient(setupOption.Value.JournalConnectionSettings);
                     return client.GetDatabase(setupOption.Value.JournalDatabaseName);
                 }
-
+                //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
                 var connectionString = new MongoUrl(_settings.ConnectionString);
-                client = new MongoClient(connectionString);
+                var clientSettings = MongoClientSettings.FromUrl(connectionString);
+                clientSettings.LinqProvider = LinqProvider.V2;
+                client = new MongoClient(clientSettings);
                 return client.GetDatabase(connectionString.DatabaseName);
             });
             _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
