@@ -20,7 +20,7 @@
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
     <XunitVersion>2.4.2</XunitVersion>
-    <TestSdkVersion>17.5.0</TestSdkVersion>
+    <TestSdkVersion>17.6.1</TestSdkVersion>
     <AkkaVersion>1.5.7</AkkaVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
