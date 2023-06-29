@@ -1,3 +1,8 @@
+#### 1.5.7 May 31 2023 ####
+
+* [Bump Akka.NET to 1.5.7](https://github.com/akkadotnet/akka.net/releases/tag/1.5.7)
+* [Bump MongoDb.Driver to 2.19.1](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/311)
+
 #### 1.5.1.1 March 24 2023 ####
 
 * [fixed ObjectSerializer initialization for backward compatibility](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/310) - this solves a compatibility problem in older Akka.Persistence.MongoDb applications that was introduced by updating MongoDb.Driver to 2.19.0.
