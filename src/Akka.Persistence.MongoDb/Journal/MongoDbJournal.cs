@@ -94,9 +94,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 if (_settings.AutoInitialize)
                 {
-                    var (perCallCts, unitedCts) = CreatePerCalLCts();
-                    using (perCallCts)
-                    using (unitedCts)
+                    using var unitedCts = CreatePerCalLCts();
                     {
                         var modelForEntryAndSequenceNr = new CreateIndexModel<JournalEntry>(Builders<JournalEntry>
                             .IndexKeys
@@ -123,9 +121,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             _metadataCollection = new Lazy<IMongoCollection<MetadataEntry>>(() =>
             {
-                var (perCallCts, unitedCts) = CreatePerCalLCts();
-                using (perCallCts)
-                using (unitedCts)
+                using var unitedCts = CreatePerCalLCts();
                 {
                     var collection = _mongoDatabase.Value.GetCollection<MetadataEntry>(_settings.MetadataCollection);
 
@@ -146,12 +142,12 @@ namespace Akka.Persistence.MongoDb.Journal
             });
         }
 
-        private (CancellationTokenSource perCallCts, CancellationTokenSource untiedCts) CreatePerCalLCts()
+        private CancellationTokenSource CreatePerCalLCts()
         {
-            var perCallCts = new CancellationTokenSource(_settings.CallTimeout);
             var unitedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(perCallCts.Token, _pendingCommandsCancellation.Token);
-            return (perCallCts, unitedCts);
+                CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+            unitedCts.CancelAfter(_settings.CallTimeout);
+            return unitedCts;
         }
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr,
@@ -173,9 +169,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
 
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 var collections = await _journalCollection.Value
                     .Find(filter)
@@ -216,9 +210,7 @@ namespace Akka.Persistence.MongoDb.Journal
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
 
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
                     .SortByDescending(x => x.Ordering)
@@ -266,9 +258,7 @@ namespace Akka.Persistence.MongoDb.Journal
             var builder = Builders<MetadataEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
 
                 var metadataHighestSequenceNrTask = _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr)
@@ -343,38 +333,35 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private async ValueTask InsertEntries(IEnumerable<JournalEntry> entries)
         {
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 if (_settings.Transaction)
                 {
                     var sessionOptions = new ClientSessionOptions { };
-                    using (var session =
-                           await _journalCollection.Value.Database.Client.StartSessionAsync(
-                               sessionOptions, unitedCts.Token))
+                    using var session =
+                        await _journalCollection.Value.Database.Client.StartSessionAsync(
+                            sessionOptions, unitedCts.Token);
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
                     {
-                        // Begin transaction
-                        session.StartTransaction();
-                        try
-                        {
-                            //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
-                            //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
-                            //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
-                            //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
-                            //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
-                            await _journalCollection.Value.InsertManyAsync(session, entries,
-                                new InsertManyOptions { IsOrdered = true });
-                        }
-                        catch (Exception ex)
-                        {
-                            await session.AbortTransactionAsync();
-                            throw ex;
-                        }
-
-                        //All good , lets commit the transaction 
-                        await session.CommitTransactionAsync(unitedCts.Token);
+                        //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
+                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
+                        //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
+                        //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
+                        await _journalCollection.Value.InsertManyAsync(session, entries,
+                            new InsertManyOptions { IsOrdered = true }, cancellationToken:unitedCts.Token);
                     }
+                    catch (Exception ex)
+                    {
+                        using var cancelCts = CreatePerCalLCts();
+                        await session.AbortTransactionAsync(cancelCts.Token);
+                        throw;
+                    }
+
+                    //All good , lets commit the transaction 
+                    await session.CommitTransactionAsync(unitedCts.Token);
                 }
                 else
                     await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true }, unitedCts.Token);
@@ -410,30 +397,30 @@ namespace Akka.Persistence.MongoDb.Journal
                 await SetHighSequenceId(persistenceId, highestSeqNo);
             }
 
+            using var unitedCts = CreatePerCalLCts();
             if (_settings.Transaction)
             {
                 var sessionOptions = new ClientSessionOptions { };
-                using (var session =
-                       await _journalCollection.Value.Database.Client.StartSessionAsync(
-                           sessionOptions /*, cancellationToken*/))
+                using var session =
+                    await _journalCollection.Value.Database.Client.StartSessionAsync(
+                        sessionOptions, unitedCts.Token);
+                // Begin transaction
+                session.StartTransaction();
+                try
                 {
-                    // Begin transaction
-                    session.StartTransaction();
-                    try
-                    {
-                        await _journalCollection.Value.DeleteManyAsync(session, filter);
-                    }
-                    catch (Exception ex)
-                    {
-                        await session.AbortTransactionAsync();
-                        throw ex;
-                    }
-
-                    await session.CommitTransactionAsync();
+                    await _journalCollection.Value.DeleteManyAsync(session, filter, cancellationToken:unitedCts.Token);
                 }
+                catch (Exception ex)
+                {
+                    using var cancelCts = CreatePerCalLCts();
+                    await session.AbortTransactionAsync(cancelCts.Token);
+                    throw ex;
+                }
+
+                await session.CommitTransactionAsync(unitedCts.Token);
             }
             else
-                await _journalCollection.Value.DeleteManyAsync(filter);
+                await _journalCollection.Value.DeleteManyAsync(filter, unitedCts.Token);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -580,33 +567,30 @@ namespace Akka.Persistence.MongoDb.Journal
                 SequenceNr = maxSeqNo
             };
             
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
 
                 if (_settings.Transaction)
                 {
                     var sessionOptions = new ClientSessionOptions { };
-                    using (var session =
-                           await _journalCollection.Value.Database.Client.StartSessionAsync(
-                               sessionOptions, unitedCts.Token))
+                    using var session =
+                        await _journalCollection.Value.Database.Client.StartSessionAsync(
+                            sessionOptions, unitedCts.Token);
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
                     {
-                        // Begin transaction
-                        session.StartTransaction();
-                        try
-                        {
-                            await _metadataCollection.Value.ReplaceOneAsync(session, filter, metadataEntry,
-                                new ReplaceOptions() { IsUpsert = true }, unitedCts.Token);
-                        }
-                        catch (Exception ex)
-                        {
-                            await session.AbortTransactionAsync();
-                            throw;
-                        }
-
-                        await session.CommitTransactionAsync(unitedCts.Token);
+                        await _metadataCollection.Value.ReplaceOneAsync(session, filter, metadataEntry,
+                            new ReplaceOptions() { IsUpsert = true }, unitedCts.Token);
                     }
+                    catch (Exception ex)
+                    {
+                        using var cancellationCts = CreatePerCalLCts();
+                        await session.AbortTransactionAsync(cancellationCts.Token);
+                        throw;
+                    }
+
+                    await session.CommitTransactionAsync(unitedCts.Token);
                 }
                 else
                     await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry,
@@ -683,9 +667,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             // Need to know what the highest seqNo of this query will be
             // and return that as part of the RecoverySuccess message
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
                     .SortByDescending(x => x.Ordering)
@@ -734,9 +716,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private async Task<IEnumerable<string>> GetAllPersistenceIds(long offset)
         {
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 var ids = await _journalCollection.Value
                     .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset), cancellationToken:unitedCts.Token);
@@ -753,9 +733,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private async Task<long> GetHighestOrdering()
         {
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCalLCts();
             {
                 var max = await _journalCollection.Value.AsQueryable()
                     .Select(je => je.Ordering)
