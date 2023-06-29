@@ -97,6 +97,15 @@ namespace Akka.Persistence.MongoDb.Journal
 
                     collection.Indexes
                         .CreateOne(modelWithOrdering);
+
+                    var tagsWithOrdering = new CreateIndexModel<JournalEntry>(
+                       Builders<JournalEntry>
+                           .IndexKeys
+                           .Ascending(entry => entry.Tags)
+                           .Ascending(entry => entry.Ordering));
+
+                    collection.Indexes
+                        .CreateOne(tagsWithOrdering);
                 }
 
                 return collection;
