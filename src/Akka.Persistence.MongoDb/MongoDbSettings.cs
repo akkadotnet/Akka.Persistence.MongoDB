@@ -39,6 +39,14 @@ namespace Akka.Persistence.MongoDb
         /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
         /// </summary>
         public bool LegacySerialization { get; }
+        
+        /// <summary>
+        /// Timeout for individual database operations.
+        /// </summary>
+        /// <remarks>
+        /// Defaults to 10s.
+        /// </remarks>
+        public TimeSpan CallTimeout { get; }
 
         protected MongoDbSettings(Config config)
         {
@@ -47,6 +55,7 @@ namespace Akka.Persistence.MongoDb
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
             LegacySerialization = config.GetBoolean("legacy-serialization");
+            CallTimeout = config.GetTimeSpan("call-timeout", TimeSpan.FromSeconds(10));
         }
     }
 

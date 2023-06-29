@@ -3,6 +3,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>$(NetStandardLibVersion)</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
