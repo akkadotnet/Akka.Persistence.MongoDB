@@ -111,18 +111,19 @@ namespace Akka.Persistence.MongoDb.Journal
                             .CreateOneAsync(modelWithOrdering, cancellationToken: unitedCts.Token)
                             .Wait();
 
-                    collection.Indexes
-                        .CreateOne(modelWithOrdering);
+                        collection.Indexes
+                            .CreateOne(modelWithOrdering);
 
-                    var tagsWithOrdering = new CreateIndexModel<JournalEntry>(
-                       Builders<JournalEntry>
-                           .IndexKeys
-                           .Ascending(entry => entry.Tags)
-                           .Ascending(entry => entry.Ordering));
+                        var tagsWithOrdering = new CreateIndexModel<JournalEntry>(
+                            Builders<JournalEntry>
+                                .IndexKeys
+                                .Ascending(entry => entry.Tags)
+                                .Ascending(entry => entry.Ordering));
 
-                    collection.Indexes
-                        .CreateOne(tagsWithOrdering);
-                  }
+                        collection.Indexes
+                            .CreateOneAsync(tagsWithOrdering, cancellationToken:unitedCts.Token)
+                            .Wait();
+                    }
                 }
 
                 return collection;
@@ -269,7 +270,6 @@ namespace Akka.Persistence.MongoDb.Journal
 
             using var unitedCts = CreatePerCallCts();
             {
-
                 var metadataHighestSequenceNrTask = _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr)
                     .FirstOrDefaultAsync(unitedCts.Token);
 
@@ -360,7 +360,7 @@ namespace Akka.Persistence.MongoDb.Journal
                         //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
                         //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
                         await _journalCollection.Value.InsertManyAsync(session, entries,
-                            new InsertManyOptions { IsOrdered = true }, cancellationToken:unitedCts.Token);
+                            new InsertManyOptions { IsOrdered = true }, cancellationToken: unitedCts.Token);
                     }
                     catch (Exception ex)
                     {
@@ -373,7 +373,8 @@ namespace Akka.Persistence.MongoDb.Journal
                     await session.CommitTransactionAsync(unitedCts.Token);
                 }
                 else
-                    await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true }, unitedCts.Token);
+                    await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true },
+                        unitedCts.Token);
             }
         }
 
@@ -417,7 +418,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 session.StartTransaction();
                 try
                 {
-                    await _journalCollection.Value.DeleteManyAsync(session, filter, cancellationToken:unitedCts.Token);
+                    await _journalCollection.Value.DeleteManyAsync(session, filter, cancellationToken: unitedCts.Token);
                 }
                 catch (Exception ex)
                 {
@@ -575,10 +576,9 @@ namespace Akka.Persistence.MongoDb.Journal
                 PersistenceId = persistenceId,
                 SequenceNr = maxSeqNo
             };
-            
+
             using var unitedCts = CreatePerCallCts();
             {
-
                 if (_settings.Transaction)
                 {
                     var sessionOptions = new ClientSessionOptions { };
@@ -728,7 +728,8 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             {
                 var ids = await _journalCollection.Value
-                    .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset), cancellationToken:unitedCts.Token);
+                    .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset),
+                        cancellationToken: unitedCts.Token);
 
                 var hashset = new List<string>();
                 while (await ids.MoveNextAsync(unitedCts.Token))
