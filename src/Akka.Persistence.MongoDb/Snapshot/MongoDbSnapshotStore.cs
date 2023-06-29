@@ -45,12 +45,12 @@ namespace Akka.Persistence.MongoDb.Snapshot
             _serialization = Context.System.Serialization;
         }
 
-        private (CancellationTokenSource perCallCts, CancellationTokenSource untiedCts) CreatePerCalLCts()
+        private CancellationTokenSource CreatePerCallCts()
         {
-            var perCallCts = new CancellationTokenSource(_settings.CallTimeout);
             var unitedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(perCallCts.Token, _pendingCommandsCancellation.Token);
-            return (perCallCts, unitedCts);
+                CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+            unitedCts.CancelAfter(_settings.CallTimeout);
+            return unitedCts;
         }
 
         protected override void PreStart()
@@ -79,9 +79,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
                 if (_settings.AutoInitialize)
                 {
-                    var (perCallCts, unitedCts) = CreatePerCalLCts();
-                    using (perCallCts)
-                    using (unitedCts)
+                    using var unitedCts = CreatePerCallCts();
                     {
                         var modelWithAscendingPersistenceIdAndDescendingSequenceNr =
                             new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
@@ -110,9 +108,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCallCts();
             {
 
                 return
@@ -127,37 +123,34 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCallCts();
             {
                 var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
                 if (_settings.Transaction)
                 {
                     var sessionOptions = new ClientSessionOptions { };
 
-                    using (var session =
-                           await _snapshotCollection.Value.Database.Client.StartSessionAsync(
-                               sessionOptions, unitedCts.Token))
+                    using var session =
+                        await _snapshotCollection.Value.Database.Client.StartSessionAsync(
+                            sessionOptions, unitedCts.Token);
+                    // Begin transaction
+                    session.StartTransaction();
+                    try
                     {
-                        // Begin transaction
-                        session.StartTransaction();
-                        try
-                        {
-                            await _snapshotCollection.Value.ReplaceOneAsync(
-                                session,
-                                CreateSnapshotIdFilter(snapshotEntry.Id),
-                                snapshotEntry,
-                                new ReplaceOptions { IsUpsert = true }, unitedCts.Token);
-                        }
-                        catch (Exception ex)
-                        {
-                            await session.AbortTransactionAsync();
-                            throw;
-                        }
-
-                        await session.CommitTransactionAsync(unitedCts.Token);
+                        await _snapshotCollection.Value.ReplaceOneAsync(
+                            session,
+                            CreateSnapshotIdFilter(snapshotEntry.Id),
+                            snapshotEntry,
+                            new ReplaceOptions { IsUpsert = true }, unitedCts.Token);
                     }
+                    catch (Exception ex)
+                    {
+                        using var cancelCts = CreatePerCallCts();
+                        await session.AbortTransactionAsync(cancelCts.Token);
+                        throw;
+                    }
+
+                    await session.CommitTransactionAsync(unitedCts.Token);
                 }
                 else
                     await _snapshotCollection.Value.ReplaceOneAsync(
@@ -178,9 +171,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
                 filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
 
-            var (perCallCts, unitedCts) = CreatePerCalLCts();
-            using (perCallCts)
-            using (unitedCts)
+            using var unitedCts = CreatePerCallCts();
             {
                 return _snapshotCollection.Value.FindOneAndDeleteAsync(filter, cancellationToken:unitedCts.Token);
             }
@@ -190,7 +181,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
         {
             var filter = CreateRangeFilter(persistenceId, criteria);
 
-            return _snapshotCollection.Value.DeleteManyAsync(filter);
+            using var unitedCts = CreatePerCallCts();
+            return _snapshotCollection.Value.DeleteManyAsync(filter, unitedCts.Token);
         }
 
         private static FilterDefinition<SnapshotEntry> CreateSnapshotIdFilter(string snapshotId)
