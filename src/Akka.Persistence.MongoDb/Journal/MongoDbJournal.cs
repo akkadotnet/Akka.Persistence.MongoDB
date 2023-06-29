@@ -43,12 +43,12 @@ namespace Akka.Persistence.MongoDb.Journal
         private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers =
             ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
 
-        private readonly HashSet<IActorRef> _newEventsSubscriber = new HashSet<IActorRef>();
+        private readonly HashSet<IActorRef> _newEventsSubscriber = new();
 
         /// <summary>
         /// Used to cancel all outstanding commands when the actor is stopped.
         /// </summary>
-        private readonly CancellationTokenSource _pendingCommandsCancellation = new CancellationTokenSource();
+        private readonly CancellationTokenSource _pendingCommandsCancellation = new();
 
         private readonly Akka.Serialization.Serialization _serialization;
 
