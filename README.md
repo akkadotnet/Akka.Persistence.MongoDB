@@ -29,7 +29,7 @@ Both journal and snapshot store share the same configuration keys (however they 
 ```hocon
 akka.persistence {
 	journal {
-	plugin = "akka.persistence.journal.mongodb"
+		plugin = "akka.persistence.journal.mongodb"
 		mongodb {
 			# qualified type name of the MongoDb persistence journal actor
 			class = "Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb"
@@ -37,8 +37,11 @@ akka.persistence {
 			# connection string used for database access
 			connection-string = ""
 
+			# transaction
+			use-write-transaction = off
+
 			# should corresponding journal table's indexes be initialized automatically
-			auto-initialize = off
+			auto-initialize = on
 
 			# dispatcher used to drive journal actor
 			plugin-dispatcher = "akka.actor.default-dispatcher"
@@ -55,11 +58,17 @@ akka.persistence {
 			#
 			# NOTE: this will likely break features such as Akka.Cluster.Sharding, IActorRef serialization, AtLeastOnceDelivery, and more.
 			legacy-serialization = off
+			
+			# Per-call timeout setting - Journal will err on the side of caution and fail calls that take longer than this
+			# to complete. This is to prevent the journal from blocking indefinitely if the database is slow or unresponsive.
+			# If you experience frequent failures due to timeouts, you may want to increase this value.
+			# Default: 10 seconds
+			call-timeout = 10s
 		}
 	}
 
 	snapshot-store {
-	plugin = "akka.persistence.snapshot-store.mongodb"
+		plugin = "akka.persistence.snapshot-store.mongodb"
 		mongodb {
 			# qualified type name of the MongoDB persistence snapshot actor
 			class = "Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb"
@@ -67,8 +76,11 @@ akka.persistence {
 			# connection string used for database access
 			connection-string = ""
 
+			# transaction
+			use-write-transaction = off
+
 			# should corresponding snapshot's indexes be initialized automatically
-			auto-initialize = off
+			auto-initialize = on
 
 			# dispatcher used to drive snapshot storage actor
 			plugin-dispatcher = "akka.actor.default-dispatcher"
@@ -82,8 +94,36 @@ akka.persistence {
 			#
 			# NOTE: this will likely break features such as Akka.Cluster.Sharding, IActorRef serialization, AtLeastOnceDelivery, and more.
 			legacy-serialization = off
+
+      # Per-call timeout setting - Journal will err on the side of caution and fail calls that take longer than this
+      # to complete. This is to prevent the journal from blocking indefinitely if the database is slow or unresponsive.
+      # If you experience frequent failures due to timeouts, you may want to increase this value.
+      # Default: 10 seconds
+      call-timeout = 10s
 		}
 	}
+
+    query {
+        mongodb {
+            # Implementation class of the EventStore ReadJournalProvider
+            class = "Akka.Persistence.MongoDb.Query.MongoDbReadJournalProvider, Akka.Persistence.MongoDb"
+
+            # Absolute path to the write journal plugin configuration entry that this 
+            # query journal will connect to. 
+            # If undefined (or "") it will connect to the default journal as specified by the
+            # akka.persistence.journal.plugin property.
+            write-plugin = ""
+
+            # The SQL write journal is notifying the query side as soon as things
+            # are persisted, but for efficiency reasons the query side retrieves the events 
+            # in batches that sometimes can be delayed up to the configured `refresh-interval`.
+            refresh-interval = 3s
+  
+            # How many events to fetch in one query (replay) and keep buffered until they
+            # are delivered downstreams.
+            max-buffer-size = 500
+        }
+    }
 }
 ```
 
