@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using FluentAssertions;
+using FluentAssertions.Extensions;
 using Xunit;
 
 namespace Akka.Persistence.MongoDb.Tests
@@ -23,6 +24,7 @@ namespace Akka.Persistence.MongoDb.Tests
             mongoPersistence.JournalSettings.Collection.Should().Be("EventJournal");
             mongoPersistence.JournalSettings.MetadataCollection.Should().Be("Metadata");
             mongoPersistence.JournalSettings.LegacySerialization.Should().BeFalse();
+            mongoPersistence.JournalSettings.CallTimeout.Should().Be(10.Seconds());
         }
 
         [Fact]
@@ -34,6 +36,7 @@ namespace Akka.Persistence.MongoDb.Tests
             mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeTrue();
             mongoPersistence.SnapshotStoreSettings.Collection.Should().Be("SnapshotStore");
             mongoPersistence.SnapshotStoreSettings.LegacySerialization.Should().BeFalse();
+            mongoPersistence.SnapshotStoreSettings.CallTimeout.Should().Be(10.Seconds());
         }
     }
 }
