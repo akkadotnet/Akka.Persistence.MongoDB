@@ -739,7 +739,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using (unitedCts)
             {
                 var ids = await _journalCollection.Value
-                    .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset), unitedCts.Token);
+                    .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset), cancellationToken:unitedCts.Token);
 
                 var hashset = new List<string>();
                 while (await ids.MoveNextAsync(unitedCts.Token))
