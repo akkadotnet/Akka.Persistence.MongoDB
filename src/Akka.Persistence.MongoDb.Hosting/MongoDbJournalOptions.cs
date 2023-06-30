@@ -19,17 +19,13 @@ public class MongoDbJournalOptions : JournalOptions
     public MongoDbJournalOptions(bool isDefault, string identifier = "mongodb") : base(isDefault)
     {
         Identifier = identifier;
+        AutoInitialize = true;
     }
 
     /// <summary>
     /// Connection string used to access the MongoDb, also specifies the database.
     /// </summary>
     public string ConnectionString { get; set; } = "";
-
-    /// <summary>
-    /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
-    /// </summary>
-    public bool AutoInitialize { get; set; } = true;
 
     /// <summary>
     /// Name of the collection for the event journal or snapshots
@@ -57,7 +53,7 @@ public class MongoDbJournalOptions : JournalOptions
     /// <remarks>
     /// Defaults to 10s.
     /// </remarks>
-    public TimeSpan CallTimeout { get; } = TimeSpan.FromSeconds(10);
+    public TimeSpan CallTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
 
     public override string Identifier { get; set; }

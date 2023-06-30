@@ -15,7 +15,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{BE1178E1
 		build.sh = build.sh
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Akka.Persistence.MongoDb.Hosting", "src\Akka.Persistence.MongoDb.Hosting\Akka.Persistence.MongoDb.Hosting.csproj", "{72B8C165-FE00-465F-A2E9-60B4B79F81AF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.Persistence.MongoDb.Hosting", "src\Akka.Persistence.MongoDb.Hosting\Akka.Persistence.MongoDb.Hosting.csproj", "{72B8C165-FE00-465F-A2E9-60B4B79F81AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Akka.Persistence.MongoDb.Hosting.Tests", "src\Akka.Persistence.MongoDb.Hosting.Tests\Akka.Persistence.MongoDb.Hosting.Tests.csproj", "{7DA742BE-BE29-48E3-AA6D-D06C9D7C6464}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,6 +37,10 @@ Global
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DA742BE-BE29-48E3-AA6D-D06C9D7C6464}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DA742BE-BE29-48E3-AA6D-D06C9D7C6464}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DA742BE-BE29-48E3-AA6D-D06C9D7C6464}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DA742BE-BE29-48E3-AA6D-D06C9D7C6464}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

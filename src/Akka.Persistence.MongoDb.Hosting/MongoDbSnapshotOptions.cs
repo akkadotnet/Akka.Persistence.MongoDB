@@ -19,6 +19,7 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     public MongoDbSnapshotOptions(bool isDefault, string identifier = "mongodb") : base(isDefault)
     {
         Identifier = identifier;
+        AutoInitialize = true;
     }
 
     /// <summary>
@@ -27,14 +28,9 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     public string ConnectionString { get; set; } = "";
 
     /// <summary>
-    /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
-    /// </summary>
-    public bool AutoInitialize { get; set; } = true;
-
-    /// <summary>
     /// Name of the collection for the event journal or snapshots
     /// </summary>
-    public string Collection { get; set; } = "EventJournal";
+    public string Collection { get; set; } = "SnapshotStore";
 
     /// <summary>
     /// Transaction
@@ -44,7 +40,7 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     /// <summary>
     /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
     /// </summary>
-    public bool LegacySerialization { get; } = false;
+    public bool LegacySerialization { get; set; } = false;
 
     /// <summary>
     /// Timeout for individual database operations.
@@ -52,7 +48,7 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     /// <remarks>
     /// Defaults to 10s.
     /// </remarks>
-    public TimeSpan CallTimeout { get; } = TimeSpan.FromSeconds(10);
+    public TimeSpan CallTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
 
     public override string Identifier { get; set; }
