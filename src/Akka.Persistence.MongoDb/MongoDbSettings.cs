@@ -64,6 +64,8 @@ namespace Akka.Persistence.MongoDb
     /// </summary>
     public class MongoDbJournalSettings : MongoDbSettings
     {
+        public const string JournalConfigPath = "akka.persistence.journal.mongodb";
+
         public string MetadataCollection { get; private set; }
 
         public MongoDbJournalSettings(Config config) : base(config)
@@ -81,6 +83,8 @@ namespace Akka.Persistence.MongoDb
     /// </summary>
     public class MongoDbSnapshotSettings : MongoDbSettings
     {
+        public const string SnapshotStoreConfigPath = "akka.persistence.snapshot-store.mongodb";
+
         public MongoDbSnapshotSettings(Config config) : base(config)
         {
             if (config == null)

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\common.props" />
+
+  <PropertyGroup>
+    <TargetFrameworks>$(NetStandardLibVersion)</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Akka.Persistence.Hosting" Version="$(AkkaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Akka.Persistence.MongoDb\Akka.Persistence.MongoDb.csproj" />
+  </ItemGroup>
+</Project>
