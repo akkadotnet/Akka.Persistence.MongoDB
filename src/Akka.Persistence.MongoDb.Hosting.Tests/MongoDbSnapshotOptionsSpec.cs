@@ -1,6 +1,10 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using Akka.Configuration;
 using FluentAssertions;
+using FluentAssertions.Extensions;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Akka.Persistence.MongoDb.Hosting.Tests
@@ -96,49 +100,46 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
             config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout);
         }
 
-//        [Fact(DisplayName = "MongoDbSnapshotOptions should be bindable to IConfiguration")]
-//        public void SnapshotOptionsIConfigurationBindingTest()
-//        {
-//            const string json = @"
-//{
-//  ""Logging"": {
-//    ""LogLevel"": {
-//      ""Default"": ""Information"",
-//      ""Microsoft.AspNetCore"": ""Warning""
-//    }
-//  },
-//  ""Akka"": {
-//    ""SnapshotOptions"": {
-//      ""StoredAs"": ""JsonB"",
+        [Fact(DisplayName = "MongoDbSnapshotOptions should be bindable to IConfiguration")]
+        public void SnapshotOptionsIConfigurationBindingTest()
+        {
+            const string json = @"
+            {
+              ""Logging"": {
+                ""LogLevel"": {
+                  ""Default"": ""Information"",
+                  ""Microsoft.AspNetCore"": ""Warning""
+                }
+              },
+              ""Akka"": {
+                ""SnapshotOptions"": {
+                  ""ConnectionString"": ""mongodb://localhost:27017"",
+                  ""UseWriteTransaction"": ""true"",
+                  ""Identifier"": ""custommongodb"",
+                  ""AutoInitialize"": true,
+                  ""IsDefaultPlugin"": false,
+                  
+                  ""Collection"": ""CustomEnventJournalCollection"",
+                  ""LegacySerialization"" : ""true"",
+                  ""CallTimeout"": ""00:10:00"",
+                  ""Serializer"": ""hyperion"",
+                }
+              }
+            }";
 
-//      ""ConnectionString"": ""Server=localhost,1533;Database=Akka;User Id=sa;"",
-//      ""ConnectionTimeout"": ""00:00:55"",
-//      ""SchemaName"": ""schema"",
-//      ""TableName"" : ""snapshot"",
-//      ""SequentialAccess"": false,
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+            var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
-//      ""IsDefaultPlugin"": false,
-//      ""Identifier"": ""CustomSnapshot"",
-//      ""AutoInitialize"": true,
-//      ""Serializer"": ""hyperion""
-//    }
-//  }
-//}";
-//            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
-//            var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
-
-//            var options = jsonConfig.GetSection("Akka:SnapshotOptions").Get<MongoDbSnapshotOptions>();
-//            options.IsDefaultPlugin.Should().BeFalse();
-//            options.Identifier.Should().Be("CustomSnapshot");
-//            options.AutoInitialize.Should().BeTrue();
-//            options.Serializer.Should().Be("hyperion");
-//            options.ConnectionString.Should().Be("Server=localhost,1533;Database=Akka;User Id=sa;");
-//            options.ConnectionTimeout.Should().Be(55.Seconds());
-//            options.SchemaName.Should().Be("schema");
-//            options.TableName.Should().Be("snapshot");
-//            options.SequentialAccess.Should().BeFalse();
-
-//            options.StoredAs.Should().Be(StoredAsType.JsonB);
-//        }
+            var options = jsonConfig.GetSection("Akka:SnapshotOptions").Get<MongoDbSnapshotOptions>();
+            options.ConnectionString.Should().Be("mongodb://localhost:27017");
+            options.UseWriteTransaction.Should().BeTrue();
+            options.Identifier.Should().Be("custommongodb");
+            options.AutoInitialize.Should().BeTrue();
+            options.IsDefaultPlugin.Should().BeFalse();
+            options.Collection.Should().Be("CustomEnventJournalCollection");
+            options.LegacySerialization.Should().BeTrue();
+            options.CallTimeout.Should().Be(10.Minutes());
+            options.Serializer.Should().Be("hyperion");
+        }
     }
 }

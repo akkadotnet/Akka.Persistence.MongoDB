@@ -1,15 +1,16 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using Akka.Configuration;
-using Akka.Persistence.Journal;
-using Akka.Util;
 using FluentAssertions;
+using FluentAssertions.Extensions;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Akka.Persistence.MongoDb.Hosting.Tests
 {
     public class MongoDbJournalOptionsSpec
     {
-
         [Fact(DisplayName = "MongoDbJournalOptions as default plugin should generate plugin setting")]
         public void DefaultPluginJournalOptionsTest()
         {
@@ -103,56 +104,48 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
 
         }
 
-        //        const string Json = @"
-        //{
-        //  ""Logging"": {
-        //    ""LogLevel"": {
-        //      ""Default"": ""Information"",
-        //      ""Microsoft.AspNetCore"": ""Warning""
-        //    }
-        //  },
-        //  ""Akka"": {
-        //    ""JournalOptions"": {
-        //      ""StoredAs"": ""JsonB"",
-        //      ""UseBigIntIdentityForOrderingColumn"": true,
+        const string Json = @"
+        {
+          ""Logging"": {
+            ""LogLevel"": {
+              ""Default"": ""Information"",
+              ""Microsoft.AspNetCore"": ""Warning""
+            }
+          },
+          ""Akka"": {
+            ""JournalOptions"": {
+              ""ConnectionString"": ""mongodb://localhost:27017"",
+              ""UseWriteTransaction"": ""true"",
+              ""Identifier"": ""custommongodb"",
+              ""AutoInitialize"": true,
+              ""IsDefaultPlugin"": false,
+              
+              ""Collection"": ""CustomEnventJournalCollection"",
+              ""MetadataCollection"": ""CustomMetadataCollection"",
+              ""LegacySerialization"" : ""true"",
+              ""CallTimeout"": ""00:10:00"",
+              ""Serializer"": ""hyperion"",
+            }
+          }
+        }";
 
-        //      ""ConnectionString"": ""Server=localhost,1533;Database=Akka;User Id=sa;"",
-        //      ""ConnectionTimeout"": ""00:00:55"",
-        //      ""SchemaName"": ""schema"",
-        //      ""TableName"" : ""journal"",
-        //      ""MetadataTableName"": ""meta"",
-        //      ""SequentialAccess"": false,
+        [Fact(DisplayName = "MongoDbJournalOptions should be bindable to IConfiguration")]
+        public void JournalOptionsIConfigurationBindingTest()
+        {
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
+            var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
-        //      ""IsDefaultPlugin"": false,
-        //      ""Identifier"": ""custom"",
-        //      ""AutoInitialize"": true,
-        //      ""Serializer"": ""hyperion""
-        //    }
-        //  }
-        //}";
-
-        //        [Fact(DisplayName = "MongoDbJournalOptions should be bindable to IConfiguration")]
-        //        public void JournalOptionsIConfigurationBindingTest()
-        //        {
-        //            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
-        //            var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
-
-        //            var options = jsonConfig.GetSection("Akka:JournalOptions").Get<MongoDbJournalOptions>();
-        //            options.IsDefaultPlugin.Should().BeFalse();
-        //            options.Identifier.Should().Be("custom");
-        //            options.AutoInitialize.Should().BeTrue();
-        //            options.Serializer.Should().Be("hyperion");
-        //            options.ConnectionString.Should().Be("Server=localhost,1533;Database=Akka;User Id=sa;");
-        //            options.ConnectionTimeout.Should().Be(55.Seconds());
-        //            options.SchemaName.Should().Be("schema");
-        //            options.TableName.Should().Be("journal");
-        //            options.MetadataTableName.Should().Be("meta");
-        //            options.SequentialAccess.Should().BeFalse();
-
-        //            options.StoredAs.Should().Be(StoredAsType.JsonB);
-        //            options.UseBigIntIdentityForOrderingColumn.Should().BeTrue();
-        //        }
-
-
+            var options = jsonConfig.GetSection("Akka:JournalOptions").Get<MongoDbJournalOptions>();
+            options.ConnectionString.Should().Be("mongodb://localhost:27017");
+            options.UseWriteTransaction.Should().BeTrue();
+            options.Identifier.Should().Be("custommongodb");
+            options.AutoInitialize.Should().BeTrue();
+            options.IsDefaultPlugin.Should().BeFalse();
+            options.Collection.Should().Be("CustomEnventJournalCollection");
+            options.MetadataCollection.Should().Be("CustomMetadataCollection");
+            options.LegacySerialization.Should().BeTrue();
+            options.CallTimeout.Should().Be(10.Minutes());
+            options.Serializer.Should().Be("hyperion");
+        }
     }
 }
