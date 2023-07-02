@@ -57,7 +57,6 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     public static AkkaConfigurationBuilder WithMongoDbPersistence(
         this AkkaConfigurationBuilder builder,
         string connectionString,
-
         PersistenceMode mode = PersistenceMode.Both,
         bool autoInitialize = true,
         Action<AkkaPersistenceJournalBuilder>? journalBuilder = null,

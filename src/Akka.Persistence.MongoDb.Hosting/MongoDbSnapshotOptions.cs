@@ -50,7 +50,6 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     /// </remarks>
     public TimeSpan CallTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
-
     public override string Identifier { get; set; }
     protected override Config InternalDefaultConfig { get; } = Default;
 
