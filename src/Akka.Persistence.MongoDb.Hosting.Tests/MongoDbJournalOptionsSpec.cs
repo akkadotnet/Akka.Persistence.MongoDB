@@ -101,7 +101,6 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
             config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction);
             config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization);
             config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout);
-
         }
 
         const string Json = @"
@@ -132,7 +131,7 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
         [Fact(DisplayName = "MongoDbJournalOptions should be bindable to IConfiguration")]
         public void JournalOptionsIConfigurationBindingTest()
         {
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
             var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
             var options = jsonConfig.GetSection("Akka:JournalOptions").Get<MongoDbJournalOptions>();
@@ -146,6 +145,9 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
             options.LegacySerialization.Should().BeTrue();
             options.CallTimeout.Should().Be(10.Minutes());
             options.Serializer.Should().Be("hyperion");
+
+            // Dispose called here as project not using latest language features.
+            stream.Dispose();
         }
     }
 }

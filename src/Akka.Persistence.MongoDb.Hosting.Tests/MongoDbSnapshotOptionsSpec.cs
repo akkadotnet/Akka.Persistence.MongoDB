@@ -127,7 +127,7 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
               }
             }";
 
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
             var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
             var options = jsonConfig.GetSection("Akka:SnapshotOptions").Get<MongoDbSnapshotOptions>();
@@ -140,6 +140,9 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
             options.LegacySerialization.Should().BeTrue();
             options.CallTimeout.Should().Be(10.Minutes());
             options.Serializer.Should().Be("hyperion");
+
+            // Dispose called here as project not using latest language features.
+            stream.Dispose();
         }
     }
 }
