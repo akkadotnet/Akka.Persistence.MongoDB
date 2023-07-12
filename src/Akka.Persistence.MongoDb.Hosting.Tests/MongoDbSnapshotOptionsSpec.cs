@@ -118,7 +118,6 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
                   ""Identifier"": ""custommongodb"",
                   ""AutoInitialize"": true,
                   ""IsDefaultPlugin"": false,
-                  
                   ""Collection"": ""CustomEnventJournalCollection"",
                   ""LegacySerialization"" : ""true"",
                   ""CallTimeout"": ""00:10:00"",
