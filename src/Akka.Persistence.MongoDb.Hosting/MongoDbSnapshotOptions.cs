@@ -35,7 +35,7 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     /// <summary>
     /// Transaction
     /// </summary>
-    public bool UseWriteTransaction { get; set; }
+    public bool UseWriteTransaction { get; set; } = false;
 
     /// <summary>
     /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
