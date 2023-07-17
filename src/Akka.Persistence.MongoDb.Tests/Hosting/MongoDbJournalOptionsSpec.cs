@@ -2,12 +2,13 @@
 using System.IO;
 using System.Text;
 using Akka.Configuration;
+using Akka.Persistence.MongoDb.Hosting;
 using FluentAssertions;
 using FluentAssertions.Extensions;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace Akka.Persistence.MongoDb.Hosting.Tests
+namespace Akka.Persistence.MongoDb.Tests.Hosting
 {
     public class MongoDbJournalOptionsSpec
     {
