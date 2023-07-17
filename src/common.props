@@ -22,6 +22,7 @@
     <XunitVersion>2.4.2</XunitVersion>
     <TestSdkVersion>17.6.3</TestSdkVersion>
     <AkkaVersion>1.5.8</AkkaVersion>
+	<FluentAssertionsVersion>6.11.0</FluentAssertionsVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
