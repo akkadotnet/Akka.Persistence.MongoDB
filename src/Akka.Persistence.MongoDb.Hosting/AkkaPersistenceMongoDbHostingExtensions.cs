@@ -195,7 +195,8 @@ public static class AkkaPersistenceMongoDbHostingExtensions
             (_, null) =>
                 builder
                     .AddHocon(journalOptions.ToConfig(), HoconAddMode.Prepend)
-                    .AddHocon(journalOptions.DefaultConfig, HoconAddMode.Append),
+                    .AddHocon(journalOptions.DefaultConfig, HoconAddMode.Append)
+                    .AddHocon(MongoDbPersistence.DefaultConfiguration(), HoconAddMode.Append),
 
             (null, _) =>
                 builder
@@ -207,7 +208,8 @@ public static class AkkaPersistenceMongoDbHostingExtensions
                     .AddHocon(journalOptions.ToConfig(), HoconAddMode.Prepend)
                     .AddHocon(snapshotOptions.ToConfig(), HoconAddMode.Prepend)
                     .AddHocon(journalOptions.DefaultConfig, HoconAddMode.Append)
-                    .AddHocon(snapshotOptions.DefaultConfig, HoconAddMode.Append),
+                    .AddHocon(snapshotOptions.DefaultConfig, HoconAddMode.Append)
+                    .AddHocon(MongoDbPersistence.DefaultConfiguration(), HoconAddMode.Append),
         };
     }
 }
