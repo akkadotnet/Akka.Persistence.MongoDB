@@ -17,6 +17,21 @@ public static AkkaConfigurationBuilder WithMongoDbPersistence(
     bool isDefaultPlugin = true);
 ```
 
+```csharp
+public static AkkaConfigurationBuilder WithMongoDbPersistence(
+    this AkkaConfigurationBuilder builder,
+    Action<MongoDbJournalOptions>? journalOptionConfigurator = null,
+    Action<MongoDbSnapshotOptions>? snapshotOptionConfigurator = null,
+    bool isDefaultPlugin = true)
+```
+
+```csharp
+public static AkkaConfigurationBuilder WithMongoDbPersistence(
+    this AkkaConfigurationBuilder builder,
+    MongoDbJournalOptions? journalOptions = null,
+    MongoDbSnapshotOptions? snapshotOptions = null)
+```
+
 ### Parameters
 
 * `connectionString` __string__
@@ -35,7 +50,38 @@ public static AkkaConfigurationBuilder WithMongoDbPersistence(
 
   Should the Mongo Db store collection be initialized automatically. __Default__: `false`
 
-* `configurator` __Action\<AkkaPersistenceJournalBuilder\>__
+* `journalBuilder` __Action\<AkkaPersistenceJournalBuilder\>__
 
   An Action delegate used to configure an `AkkaPersistenceJournalBuilder` instance. Used to configure [Event Adapters](https://getakka.net/articles/persistence/event-adapters.html)
 
+* `journalConfigurator` __Action\<MongoDbJournalOptions\>__
+
+  An Action delegate to configure a `MongoDbJournalOptions` instance.
+
+* `snapshotConfigurator` __Action\<MongoDbSnapshotOptions\>__
+
+  An Action delegate to configure a `MongoDbSnapshotOptions` instance.
+
+* `journalOptions` __MongoDbJournalOptions__
+
+  An `MongoDbJournalOptions` instance to configure the SqlServer journal.
+
+* `snapshotOptions` __MongoDbSnapshotOptions__
+
+  An `MongoDbSnapshotOptions` instance to configure the SqlServer snapshot store.
+
+## Example
+
+```csharp
+using var host = new HostBuilder()
+    .ConfigureServices((context, services) =>
+    {
+        services.AddAkka("mongoDbDemo", (builder, provider) =>
+        {
+            builder
+                .WithMongoDbPersistence("your-mongodb-connection-string");
+        });
+    }).Build();
+
+await host.RunAsync();
+```
