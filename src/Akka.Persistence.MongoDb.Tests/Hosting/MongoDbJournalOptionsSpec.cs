@@ -99,9 +99,9 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             config.GetBoolean("auto-initialize").Should().Be(options.AutoInitialize);
             config.GetString("collection").Should().Be(options.Collection);
             config.GetString("metadata-collection").Should().Be(options.MetadataCollection);
-            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction);
-            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization);
-            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout);
+            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction.Value);
+            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization.Value);
+            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout.Value);
         }
 
         const string Json = @"

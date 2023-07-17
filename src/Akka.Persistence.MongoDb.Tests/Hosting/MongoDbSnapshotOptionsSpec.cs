@@ -2,12 +2,13 @@
 using System.IO;
 using System.Text;
 using Akka.Configuration;
+using Akka.Persistence.MongoDb.Hosting;
 using FluentAssertions;
 using FluentAssertions.Extensions;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace Akka.Persistence.MongoDb.Hosting.Tests
+namespace Akka.Persistence.MongoDb.Tests.Hosting
 {
     public class MongoDbSnapshotOptionsSpec
     {
@@ -95,9 +96,9 @@ namespace Akka.Persistence.MongoDb.Hosting.Tests
             config.GetString("connection-string").Should().Be(options.ConnectionString);
             config.GetBoolean("auto-initialize").Should().Be(options.AutoInitialize);
             config.GetString("collection").Should().Be(options.Collection);
-            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction);
-            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization);
-            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout);
+            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction.Value);
+            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization.Value);
+            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout.Value);
         }
 
         [Fact(DisplayName = "MongoDbSnapshotOptions should be bindable to IConfiguration")]
