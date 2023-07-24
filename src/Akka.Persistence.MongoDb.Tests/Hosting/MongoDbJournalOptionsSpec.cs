@@ -131,7 +131,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
         [Fact(DisplayName = "MongoDbJournalOptions should be bindable to IConfiguration")]
         public void JournalOptionsIConfigurationBindingTest()
         {
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Json));
             var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
             var options = jsonConfig.GetSection("Akka:JournalOptions").Get<MongoDbJournalOptions>();
@@ -145,9 +145,6 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             options.LegacySerialization.Should().BeTrue();
             options.CallTimeout.Should().Be(10.Minutes());
             options.Serializer.Should().Be("hyperion");
-
-            // Dispose called here as project not using latest language features.
-            stream.Dispose();
         }
     }
 }
