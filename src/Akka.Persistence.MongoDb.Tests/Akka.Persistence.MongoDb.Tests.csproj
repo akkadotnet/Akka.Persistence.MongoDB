@@ -4,16 +4,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentAssertions" Version="$(FluentAssertionsVersion)" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(TestSdkVersion)" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitVersion)">
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="xunit" Version="$(XunitVersion)" />
-    <PackageReference Include="Akka.Persistence.TCK" Version="$(AkkaVersion)" />
-    <PackageReference Include="Mongo2Go" Version="2.2.16" />
-    <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="Akka.Persistence.TCK" />
+    <PackageReference Include="Mongo2Go" />
+    <PackageReference Include="System.Net.NetworkInformation" />
   </ItemGroup>
 
   <ItemGroup>

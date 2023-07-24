@@ -4,7 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.Hosting" Version="$(AkkaVersion)" />
+    <PackageReference Include="Akka.Persistence.Hosting" />
   </ItemGroup>
 
   <ItemGroup>

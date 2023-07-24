@@ -20,15 +20,11 @@
     <NetFrameworkTestVersion>net471</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
+    <AkkaVersion>1.5.8</AkkaVersion>
     <XunitVersion>2.4.2</XunitVersion>
     <TestSdkVersion>17.6.3</TestSdkVersion>
-    <AkkaVersion>1.5.8</AkkaVersion>
     <FluentAssertionsVersion>6.11.0</FluentAssertionsVersion>
   </PropertyGroup>
-  <!-- SourceLink support for all Akka.NET projects -->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-  </ItemGroup>
   <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
