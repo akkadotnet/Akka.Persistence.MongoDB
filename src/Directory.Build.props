@@ -12,6 +12,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
     <NetCoreTestVersion>netcoreapp3.1</NetCoreTestVersion>
