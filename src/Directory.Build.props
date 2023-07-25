@@ -25,6 +25,10 @@
     <TestSdkVersion>17.6.3</TestSdkVersion>
     <FluentAssertionsVersion>6.11.0</FluentAssertionsVersion>
   </PropertyGroup>
+  <!-- SourceLink support for all Akka.NET projects -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
   <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <!-- Optional: Embed source files that are not tracked by the source control manager in the PDB -->
