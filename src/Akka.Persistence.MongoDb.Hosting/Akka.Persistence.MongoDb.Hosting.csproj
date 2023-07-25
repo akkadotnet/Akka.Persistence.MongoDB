@@ -1,13 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\common.props" />
-
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>$(NetStandardLibVersion)</TargetFrameworks>
-    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka.Persistence.Hosting" Version="$(AkkaVersion)" />
+    <PackageReference Include="Akka.Persistence.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
