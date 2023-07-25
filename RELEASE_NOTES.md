@@ -1,3 +1,10 @@
+#### 1.5.9 Date TBC ####
+* [Bump Akka.NET to 1.5.9](TBC)
+* [Bump XunitVersion from 2.4.2 to 2.5.0 ](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/332)
+* [Move to using Build Props file and central package management.](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/333)
+* [Bump MongoDB.Driver from 2.19.1 to 2.20.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/326)
+* [Adding Hosting Extensions for Akka.Persistence.MongoDB](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/331)
+ 
 #### 1.5.8 June 30 2023 ####
 
 * [Bump Akka.NET to 1.5.8](https://github.com/akkadotnet/akka.net/releases/tag/1.5.8)
