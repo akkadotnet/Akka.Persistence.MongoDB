@@ -20,7 +20,7 @@
     <NetFrameworkTestVersion>net471</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
-    <AkkaVersion>1.5.11</AkkaVersion>
+    <AkkaVersion>1.5.12</AkkaVersion>
     <AkkaHostingVersion>1.5.12</AkkaHostingVersion>
     <XunitVersion>2.5.0</XunitVersion>
     <TestSdkVersion>17.6.3</TestSdkVersion>
