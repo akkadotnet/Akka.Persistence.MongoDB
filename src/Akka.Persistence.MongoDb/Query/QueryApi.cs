@@ -14,9 +14,7 @@ using System.Collections.Immutable;
 
 namespace Akka.Persistence.MongoDb.Query
 {
-    /// <summary>
-    /// TBD
-    /// </summary>
+    [Obsolete("Query is not implemented.")]
     public interface ISubscriptionCommand { }
 
     /// <summary>
@@ -25,6 +23,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// the subscriber when <see cref="AsyncWriteJournal.WriteMessagesAsync"/> has been called.
     /// </summary>
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class SubscribePersistenceId : ISubscriptionCommand
     {
         /// <summary>
@@ -46,6 +45,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// TBD
     /// </summary>
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class EventAppended : IDeadLetterSuppression
     {
         /// <summary>
@@ -107,6 +107,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// the subscriber when `asyncWriteMessages` has been called.
     /// </summary>
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class SubscribeNewEvents : ISubscriptionCommand
     {
         public static SubscribeNewEvents Instance = new SubscribeNewEvents();
@@ -115,6 +116,7 @@ namespace Akka.Persistence.MongoDb.Query
     }
 
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class NewEventAppended : IDeadLetterSuppression
     {
         public static NewEventAppended Instance = new NewEventAppended();
@@ -130,6 +132,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// via an <see cref="IEventAdapter"/>.
     /// </summary>
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class SubscribeTag : ISubscriptionCommand
     {
         /// <summary>
@@ -151,6 +154,7 @@ namespace Akka.Persistence.MongoDb.Query
     /// TBD
     /// </summary>
     [Serializable]
+    [Obsolete("Query is not implemented.", true)]
     public sealed class TaggedEventAppended : IDeadLetterSuppression
     {
         /// <summary>

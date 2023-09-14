@@ -90,7 +90,6 @@ namespace Akka.Persistence.MongoDb.Query
             switch (message)
             {
                 case EventsByTagPublisher.Continue _:
-                case TaggedEventAppended _:
                     if (IsTimeForReplay) Replay();
                     break;
                 case Request _:
@@ -126,7 +125,8 @@ namespace Akka.Persistence.MongoDb.Query
                             persistenceId: replayed.Persistent.PersistenceId,
                             sequenceNr: replayed.Persistent.SequenceNr,
                             timestamp: replayed.Persistent.Timestamp,
-                            @event: replayed.Persistent.Payload));
+                            @event: replayed.Persistent.Payload,
+                            tags: new [] { replayed.Tag }));
 
                         CurrentOffset = replayed.Offset;
                         Buffer.DeliverBuffer(TotalDemand);
@@ -144,7 +144,6 @@ namespace Akka.Persistence.MongoDb.Query
                         Buffer.DeliverBuffer(TotalDemand);
                         break;
                     case EventsByTagPublisher.Continue _:
-                    case TaggedEventAppended _:
                         // ignore
                         break;
                     case Cancel _:
@@ -179,7 +178,6 @@ namespace Akka.Persistence.MongoDb.Query
 
         protected override void ReceiveInitialRequest()
         {
-            JournalRef.Tell(new SubscribeTag(Tag));
             Replay();
         }
 

@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
 
+#nullable enable
 namespace Akka.Persistence.MongoDb.Journal
 {
     /// <summary>
@@ -28,19 +29,14 @@ namespace Akka.Persistence.MongoDb.Journal
     public class MongoDbJournal : AsyncWriteJournal
     {
         private static readonly BsonTimestamp ZeroTimestamp = new(0);
+        private static readonly ClientSessionOptions EmptySessionOptions = new();
 
         private readonly MongoDbJournalSettings _settings;
-        private Lazy<IMongoDatabase> _mongoDatabase;
-        private Lazy<IMongoCollection<JournalEntry>> _journalCollection;
-        private Lazy<IMongoCollection<MetadataEntry>> _metadataCollection;
-
-        private ImmutableDictionary<string, IImmutableSet<IActorRef>> _persistenceIdSubscribers =
-            ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
-
-        private ImmutableDictionary<string, IImmutableSet<IActorRef>> _tagSubscribers =
-            ImmutableDictionary.Create<string, IImmutableSet<IActorRef>>();
-
-        private readonly HashSet<IActorRef> _newEventsSubscriber = new();
+        // ReSharper disable InconsistentNaming
+        private IMongoDatabase? _mongoDatabase_DoNotUseDirectly;
+        private IMongoCollection<JournalEntry>? _journalCollection_DoNotUseDirectly;
+        private IMongoCollection<MetadataEntry>? _metadataCollection_DoNotUseDirectly;
+        // ReSharper enable InconsistentNaming
 
         /// <summary>
         /// Used to cancel all outstanding commands when the actor is stopped.
@@ -64,104 +60,133 @@ namespace Akka.Persistence.MongoDb.Journal
             _serialization = Context.System.Serialization;
         }
 
-        protected override void PreStart()
+        private IMongoDatabase GetMongoDb()
         {
-            base.PreStart();
-
-            _mongoDatabase = new Lazy<IMongoDatabase>(() =>
+            if (_mongoDatabase_DoNotUseDirectly is not null)
+                return _mongoDatabase_DoNotUseDirectly;
+            
+            MongoClient client;
+            var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
+            if (setupOption.HasValue && setupOption.Value.JournalConnectionSettings != null)
             {
-                MongoClient client;
-                var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
-                if (setupOption.HasValue && setupOption.Value.JournalConnectionSettings != null)
-                {
-                    client = new MongoClient(setupOption.Value.JournalConnectionSettings);
-                    return client.GetDatabase(setupOption.Value.JournalDatabaseName);
-                }
+                client = new MongoClient(setupOption.Value.JournalConnectionSettings);
+                _mongoDatabase_DoNotUseDirectly = client.GetDatabase(setupOption.Value.JournalDatabaseName);
+                return _mongoDatabase_DoNotUseDirectly;
+            }
 
-                //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
-                var connectionString = new MongoUrl(_settings.ConnectionString);
-                var clientSettings = MongoClientSettings.FromUrl(connectionString);
-                clientSettings.LinqProvider = LinqProvider.V2;
-                client = new MongoClient(clientSettings);
-                return client.GetDatabase(connectionString.DatabaseName);
-            });
-            _journalCollection = new Lazy<IMongoCollection<JournalEntry>>(() =>
-            {
-                var collection = _mongoDatabase.Value.GetCollection<JournalEntry>(_settings.Collection);
+            //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
+            var connectionString = new MongoUrl(_settings.ConnectionString);
+            var clientSettings = MongoClientSettings.FromUrl(connectionString);
+            clientSettings.LinqProvider = LinqProvider.V2;
+            
+            client = new MongoClient(clientSettings);
+            _mongoDatabase_DoNotUseDirectly = client.GetDatabase(connectionString.DatabaseName);
+            return _mongoDatabase_DoNotUseDirectly;
+        }
+        
+        private async Task<IMongoCollection<JournalEntry>> GetJournalCollection(CancellationToken token)
+        {
+            if (_journalCollection_DoNotUseDirectly is not null)
+                return _journalCollection_DoNotUseDirectly;
+            
+            _journalCollection_DoNotUseDirectly = GetMongoDb().GetCollection<JournalEntry>(_settings.Collection);
+            
+            if (!_settings.AutoInitialize) 
+                return _journalCollection_DoNotUseDirectly;
+                
+            var modelForEntryAndSequenceNr = new CreateIndexModel<JournalEntry>(Builders<JournalEntry>
+                .IndexKeys
+                .Ascending(entry => entry.PersistenceId)
+                .Descending(entry => entry.SequenceNr));
 
-                if (_settings.AutoInitialize)
-                {
-                    using var unitedCts = CreatePerCallCts();
-                    {
-                        var modelForEntryAndSequenceNr = new CreateIndexModel<JournalEntry>(Builders<JournalEntry>
-                            .IndexKeys
-                            .Ascending(entry => entry.PersistenceId)
-                            .Descending(entry => entry.SequenceNr));
+            await _journalCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken: token);
 
-                        collection.Indexes
-                            .CreateOneAsync(modelForEntryAndSequenceNr, cancellationToken: unitedCts.Token)
-                            .Wait();
+            var modelWithOrdering = new CreateIndexModel<JournalEntry>(
+                Builders<JournalEntry>
+                    .IndexKeys
+                    .Ascending(entry => entry.Ordering));
 
-                        var modelWithOrdering = new CreateIndexModel<JournalEntry>(
-                            Builders<JournalEntry>
-                                .IndexKeys
-                                .Ascending(entry => entry.Ordering));
+            await _journalCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(modelWithOrdering, cancellationToken: token);
 
-                        collection.Indexes
-                            .CreateOneAsync(modelWithOrdering, cancellationToken: unitedCts.Token)
-                            .Wait();
+            await _journalCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(modelWithOrdering, cancellationToken: token);
 
-                        collection.Indexes
-                            .CreateOne(modelWithOrdering);
+            var tagsWithOrdering = new CreateIndexModel<JournalEntry>(
+                Builders<JournalEntry>
+                    .IndexKeys
+                    .Ascending(entry => entry.Tags)
+                    .Ascending(entry => entry.Ordering));
 
-                        var tagsWithOrdering = new CreateIndexModel<JournalEntry>(
-                            Builders<JournalEntry>
-                                .IndexKeys
-                                .Ascending(entry => entry.Tags)
-                                .Ascending(entry => entry.Ordering));
+            await _journalCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(tagsWithOrdering, cancellationToken:token);
 
-                        collection.Indexes
-                            .CreateOneAsync(tagsWithOrdering, cancellationToken:unitedCts.Token)
-                            .Wait();
-                    }
-                }
-
-                return collection;
-            });
-
-            _metadataCollection = new Lazy<IMongoCollection<MetadataEntry>>(() =>
-            {
-                using var unitedCts = CreatePerCallCts();
-                {
-                    var collection = _mongoDatabase.Value.GetCollection<MetadataEntry>(_settings.MetadataCollection);
-
-                    if (_settings.AutoInitialize)
-                    {
-                        var modelWithAscendingPersistenceId = new CreateIndexModel<MetadataEntry>(
-                            Builders<MetadataEntry>
-                                .IndexKeys
-                                .Ascending(entry => entry.PersistenceId));
-
-                        collection.Indexes
-                            .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken: unitedCts.Token)
-                            .Wait();
-                    }
-
-                    return collection;
-                }
-            });
+            return _journalCollection_DoNotUseDirectly;
         }
 
+        private async Task<IMongoCollection<MetadataEntry>> GetMetadataCollection(CancellationToken token)
+        {
+            if (_metadataCollection_DoNotUseDirectly is not null)
+                return _metadataCollection_DoNotUseDirectly;
+            
+            _metadataCollection_DoNotUseDirectly = GetMongoDb()
+                .GetCollection<MetadataEntry>(_settings.MetadataCollection);
+            
+            if (!_settings.AutoInitialize) 
+                return _metadataCollection_DoNotUseDirectly;
+                
+            var modelWithAscendingPersistenceId = new CreateIndexModel<MetadataEntry>(
+                Builders<MetadataEntry>
+                    .IndexKeys
+                    .Ascending(entry => entry.PersistenceId));
+
+            await _metadataCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(modelWithAscendingPersistenceId, cancellationToken: token);
+                
+            return _metadataCollection_DoNotUseDirectly;
+        }
+        
         private CancellationTokenSource CreatePerCallCts()
         {
-            var unitedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+            var unitedCts = CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
             unitedCts.CancelAfter(_settings.CallTimeout);
             return unitedCts;
         }
 
-        public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr,
-            long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
+        private async Task MaybeWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
+        {
+            if (!_settings.Transaction)
+            {
+                await act(null, token);
+                return;
+            }
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            await session.WithTransactionAsync(
+                async (s, ct) =>
+                {
+                    await act(s, ct);
+                    return Task.FromResult(NotUsed.Instance);
+                }, cancellationToken:token);
+        }
+        
+        private async Task<T> MaybeWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        {
+            if (!_settings.Transaction) 
+                return await act(null, token);
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            return await session.WithTransactionAsync(act, cancellationToken:token);
+        }
+
+        public override async Task ReplayMessagesAsync(
+            IActorContext context,
+            string persistenceId,
+            long fromSequenceNr,
+            long toSequenceNr,
+            long max,
+            Action<IPersistentRepresentation> recoveryCallback)
         {
             // Limit allows only integer
             var limitValue = max >= int.MaxValue ? int.MaxValue : (int)max;
@@ -169,26 +194,18 @@ namespace Akka.Persistence.MongoDb.Journal
             // Do not replay messages if limit equal zero
             if (limitValue == 0)
                 return;
-
-            var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-            if (fromSequenceNr > 0)
-                filter &= builder.Gte(x => x.SequenceNr, fromSequenceNr);
-            if (toSequenceNr != long.MaxValue)
-                filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
-
-            var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
-
+            
             using var unitedCts = CreatePerCallCts();
-            {
-                var collections = await _journalCollection.Value
-                    .Find(filter)
-                    .Sort(sort)
-                    .Limit(limitValue)
-                    .ToListAsync(unitedCts.Token);
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
 
-                collections.ForEach(doc => { recoveryCallback(ToPersistenceRepresentation(doc, context.Sender)); });
-            }
+            await MaybeWithTransaction(async (session, ct) =>
+            {
+                var collections = await journalCollection
+                    .ReplayMessagesQuery(session, persistenceId, fromSequenceNr, toSequenceNr, limitValue)
+                    .ToListAsync(ct);
+                
+                collections.ForEach(doc => recoveryCallback(ToPersistenceRepresentation(doc, context.Sender)));
+            }, unitedCts.Token);
         }
 
         /// <summary>
@@ -198,63 +215,43 @@ namespace Akka.Persistence.MongoDb.Journal
         /// <returns>TBD</returns>
         private async Task<long> ReplayTaggedMessagesAsync(ReplayTaggedMessages replay)
         {
-            /*
-             *  NOTE: limit is used like a pagination value, not a cap on the amount
-             * of data returned by a query. This was at the root of https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
-             */
-            // Limit allows only integer;
-            var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
-
-            var fromSequenceNr = replay.FromOffset;
-            var toSequenceNr = replay.ToOffset;
-            var tag = replay.Tag;
-
-            var builder = Builders<JournalEntry>.Filter;
-            var seqNoFilter = builder.AnyEq(x => x.Tags, tag);
-            if (fromSequenceNr > 0)
-                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
-            if (toSequenceNr != long.MaxValue)
-                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
-
-
-            // Need to know what the highest seqNo of this query will be
-            // and return that as part of the RecoverySuccess message
-
             using var unitedCts = CreatePerCallCts();
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+
+            return await MaybeWithTransaction(async (s, ct) =>
             {
-                var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
-                    .SortByDescending(x => x.Ordering)
-                    .Limit(1)
-                    .SingleOrDefaultAsync(unitedCts.Token);
+                /*
+                 *  NOTE: limit is used like a pagination value, not a cap on the amount
+                 * of data returned by a query. This was at the root of https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/80
+                 */
+                // Limit allows only integer;
+                var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
+
+                var fromSequenceNr = replay.FromOffset;
+                var toSequenceNr = replay.ToOffset;
+                var tag = replay.Tag;
+
+                // Need to know what the highest seqNo of this query will be
+                // and return that as part of the RecoverySuccess message
+                var maxSeqNoEntry = await journalCollection.MaxOrderingIdQuery(s, fromSequenceNr, toSequenceNr, tag)
+                    .SingleOrDefaultAsync(ct);
 
                 if (maxSeqNoEntry == null)
                     return 0L; // recovered nothing
 
-                var maxOrderingId = maxSeqNoEntry.Ordering.Value;
-                var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
+                var maxOrderingId = maxSeqNoEntry.Value;
 
-                var readFilter = builder.AnyEq(x => x.Tags, tag);
-                if (fromSequenceNr > 0)
-                    readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
-                if (toSequenceNr != long.MaxValue)
-                    readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
-                var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
-
-
-                await _journalCollection.Value
-                    .Find(readFilter)
-                    .Sort(sort)
-                    .Limit(limitValue)
+                await journalCollection.MessagesQuery(s, fromSequenceNr, toSequenceNr, maxOrderingId, tag, limitValue)
                     .ForEachAsync(entry =>
                     {
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                         foreach (var adapted in AdaptFromJournal(persistent))
                             replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value),
                                 ActorRefs.NoSender);
-                    }, unitedCts.Token);
-
+                    }, ct);
+                
                 return maxOrderingId;
-            }
+            }, unitedCts.Token);
         }
 
         /// <summary>
@@ -265,172 +262,106 @@ namespace Akka.Persistence.MongoDb.Journal
         /// <returns>long</returns>
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
-            var builder = Builders<MetadataEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-
             using var unitedCts = CreatePerCallCts();
-            {
-                var metadataHighestSequenceNrTask = _metadataCollection.Value.Find(filter).Project(x => x.SequenceNr)
-                    .FirstOrDefaultAsync(unitedCts.Token);
+            var token = unitedCts.Token;
 
-                var journalHighestSequenceNrTask = _journalCollection.Value.Find(Builders<JournalEntry>
-                        .Filter.Eq(x => x.PersistenceId, persistenceId))
-                    .SortByDescending(x => x.SequenceNr)
-                    .Project(x => x.SequenceNr)
-                    .FirstOrDefaultAsync(unitedCts.Token);
-
-                // journal data is usually good enough, except in cases when it's been deleted.
-                await Task.WhenAll(metadataHighestSequenceNrTask, journalHighestSequenceNrTask);
-
-                return Math.Max(journalHighestSequenceNrTask.Result, metadataHighestSequenceNrTask.Result);
-            }
+            return await MaybeWithTransaction(
+                async (s, ct) => await ReadHighestSequenceNrOperation(s, persistenceId, ct), 
+                token);
         }
 
-        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        private async Task<long> ReadHighestSequenceNrOperation(
+            IClientSessionHandle? session,
+            string persistenceId,
+            CancellationToken token)
         {
-            var allTags = ImmutableHashSet<string>.Empty;
-            var persistentIds = new HashSet<string>();
-            var messageList = messages.ToList();
+            var journalCollection = await GetJournalCollection(token);
+            var metadataCollection = await GetMetadataCollection(token);
+            
+            var metadataHighestSequenceNrTask = metadataCollection
+                .MaxSequenceNrQuery(session, persistenceId)
+                .FirstOrDefaultAsync(token);
 
-            var writeTasks = messageList.Select(async message =>
+            var journalHighestSequenceNrTask = journalCollection
+                .MaxSequenceNrQuery(session, persistenceId)
+                .FirstOrDefaultAsync(token);
+
+            // journal data is usually good enough, except in cases when it's been deleted.
+            await Task.WhenAll(metadataHighestSequenceNrTask, journalHighestSequenceNrTask);
+
+            return Math.Max(journalHighestSequenceNrTask.Result, metadataHighestSequenceNrTask.Result);
+        }
+        
+        protected override async Task<IImmutableList<Exception?>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        {
+            using var unitedCts = CreatePerCallCts();
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+            
+            var writeTasks = messages.Select(async message =>
             {
-                var persistentMessages = ((IImmutableList<IPersistentRepresentation>)message.Payload);
-
-                if (HasTagSubscribers)
-                {
-                    foreach (var p in persistentMessages)
-                    {
-                        if (p.Payload is Tagged t)
-                        {
-                            allTags = allTags.Union(t.Tags);
-                        }
-                    }
-                }
+                var persistentMessages = (IImmutableList<IPersistentRepresentation>)message.Payload;
 
                 var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await InsertEntries(journalEntries);
+                await InsertEntries(journalCollection, journalEntries, unitedCts.Token);
+            }).ToArray();
 
-                if (HasPersistenceIdSubscribers)
-                    persistentIds.Add(message.PersistenceId);
-            });
-
-            var result = await Task<IImmutableList<Exception>>
+            var result = await Task<IImmutableList<Exception?>>
                 .Factory
-                .ContinueWhenAll(writeTasks.ToArray(),
-                    tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList());
-
-            if (HasPersistenceIdSubscribers)
-            {
-                foreach (var id in persistentIds)
-                {
-                    NotifyPersistenceIdChange(id);
-                }
-            }
-
-            if (HasTagSubscribers && allTags.Count != 0)
-            {
-                foreach (var tag in allTags)
-                {
-                    NotifyTagChange(tag);
-                }
-            }
-
-            if (HasNewEventSubscribers)
-                NotifyNewEventAppended();
+                .ContinueWhenAll(
+                    tasks: writeTasks.ToArray(),
+                    continuationFunction: tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList(), 
+                    cancellationToken: unitedCts.Token);
+            
             return result;
         }
 
-        private async ValueTask InsertEntries(IEnumerable<JournalEntry> entries)
+        private async ValueTask InsertEntries(IMongoCollection<JournalEntry> collection, IEnumerable<JournalEntry> entries, CancellationToken token)
         {
-            using var unitedCts = CreatePerCallCts();
+            await MaybeWithTransaction(async (session, ct) =>
             {
-                if (_settings.Transaction)
-                {
-                    var sessionOptions = new ClientSessionOptions { };
-                    using var session =
-                        await _journalCollection.Value.Database.Client.StartSessionAsync(
-                            sessionOptions, unitedCts.Token);
-                    // Begin transaction
-                    session.StartTransaction();
-                    try
-                    {
-                        //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
-                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
-                        //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
-                        //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
-                        //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
-                        await _journalCollection.Value.InsertManyAsync(session, entries,
-                            new InsertManyOptions { IsOrdered = true }, cancellationToken: unitedCts.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        using var cancelCts = CreatePerCallCts();
-                        await session.AbortTransactionAsync(cancelCts.Token);
-                        throw;
-                    }
-
-                    //All good , lets commit the transaction 
-                    await session.CommitTransactionAsync(unitedCts.Token);
-                }
+                //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
+                //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
+                //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
+                //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
+                //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
+                if(session is not null)
+                    await collection
+                        .InsertManyAsync(session, entries, new InsertManyOptions { IsOrdered = true }, cancellationToken: ct);
                 else
-                    await _journalCollection.Value.InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true },
-                        unitedCts.Token);
-            }
-        }
-
-        private void NotifyNewEventAppended()
-        {
-            if (HasNewEventSubscribers)
-            {
-                foreach (var subscriber in _newEventsSubscriber)
-                {
-                    subscriber.Tell(NewEventAppended.Instance);
-                }
-            }
+                    await collection
+                        .InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true }, cancellationToken: ct);
+            }, token);
         }
 
         protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
-            var builder = Builders<JournalEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-
-            // read highest sequence number before we start
-            var highestSeqNo = await ReadHighestSequenceNrAsync(persistenceId, 0L);
-
-            if (toSequenceNr != long.MaxValue)
-                filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
-
-            // only update the sequence number of the top of the journal
-            // is about to be deleted.
-            if (highestSeqNo <= toSequenceNr)
-            {
-                await SetHighSequenceId(persistenceId, highestSeqNo);
-            }
-
             using var unitedCts = CreatePerCallCts();
-            if (_settings.Transaction)
-            {
-                var sessionOptions = new ClientSessionOptions { };
-                using var session =
-                    await _journalCollection.Value.Database.Client.StartSessionAsync(
-                        sessionOptions, unitedCts.Token);
-                // Begin transaction
-                session.StartTransaction();
-                try
-                {
-                    await _journalCollection.Value.DeleteManyAsync(session, filter, cancellationToken: unitedCts.Token);
-                }
-                catch (Exception ex)
-                {
-                    using var cancelCts = CreatePerCallCts();
-                    await session.AbortTransactionAsync(cancelCts.Token);
-                    throw ex;
-                }
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+            var metadataCollection = await GetMetadataCollection(unitedCts.Token);
 
-                await session.CommitTransactionAsync(unitedCts.Token);
-            }
-            else
-                await _journalCollection.Value.DeleteManyAsync(filter, unitedCts.Token);
+            await MaybeWithTransaction(async (session, token) =>
+            {
+                var builder = Builders<JournalEntry>.Filter;
+                var filter = builder.Eq(x => x.PersistenceId, persistenceId);
+
+                // read highest sequence number before we start
+                var highestSeqNo = await ReadHighestSequenceNrOperation(session, persistenceId, token);
+                
+                if (toSequenceNr != long.MaxValue)
+                    filter &= builder.Lte(x => x.SequenceNr, toSequenceNr);
+                
+                // only update the sequence number of the top of the journal
+                // is about to be deleted.
+                if (highestSeqNo <= toSequenceNr)
+                {
+                    await metadataCollection.SetHighSequenceIdQuery(session, persistenceId, highestSeqNo, token);
+                }
+                
+                if(session is not null)
+                    await journalCollection.DeleteManyAsync(session, filter, cancellationToken: token);
+                else
+                    await journalCollection.DeleteManyAsync(filter, cancellationToken: token);
+            }, unitedCts.Token);
         }
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
@@ -482,7 +413,7 @@ namespace Akka.Persistence.MongoDb.Journal
             };
         }
 
-        private static long ToTicks(BsonTimestamp bson)
+        private static long ToTicks(BsonTimestamp? bson)
         {
             // BSON Timestamps are stored natively as Unix epoch seconds + an ordinal value
 
@@ -492,7 +423,7 @@ namespace Akka.Persistence.MongoDb.Journal
             // which is used entirely for end-user purposes.
             //
             // See https://docs.mongodb.com/manual/reference/bson-types/#timestamps
-            bson = bson ?? ZeroTimestamp;
+            bson ??= ZeroTimestamp;
             return DateTimeOffset.FromUnixTimeSeconds(bson.Timestamp).Ticks;
         }
 
@@ -531,7 +462,7 @@ namespace Akka.Persistence.MongoDb.Journal
             }
 
             int? serializerId = null;
-            Type type = null;
+            Type? type = null;
 
             // legacy serialization
             if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))
@@ -541,7 +472,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
             if (entry.Payload is byte[] bytes)
             {
-                object deserialized = null;
+                object? deserialized;
                 if (serializerId.HasValue)
                 {
                     deserialized = _serialization.Deserialize(bytes, serializerId.Value, entry.Manifest);
@@ -558,53 +489,10 @@ namespace Akka.Persistence.MongoDb.Journal
                 return new Persistent(deserialized, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
                     entry.IsDeleted, sender, timestamp: ToTicks(entry.Ordering));
             }
-            else // backwards compat for object serialization - Payload was already deserialized by BSON
-            {
-                return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
-                    entry.IsDeleted, sender, timestamp: ToTicks(entry.Ordering));
-            }
-        }
 
-        private async Task SetHighSequenceId(string persistenceId, long maxSeqNo)
-        {
-            var builder = Builders<MetadataEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, persistenceId);
-
-            var metadataEntry = new MetadataEntry
-            {
-                Id = persistenceId,
-                PersistenceId = persistenceId,
-                SequenceNr = maxSeqNo
-            };
-
-            using var unitedCts = CreatePerCallCts();
-            {
-                if (_settings.Transaction)
-                {
-                    var sessionOptions = new ClientSessionOptions { };
-                    using var session =
-                        await _journalCollection.Value.Database.Client.StartSessionAsync(
-                            sessionOptions, unitedCts.Token);
-                    // Begin transaction
-                    session.StartTransaction();
-                    try
-                    {
-                        await _metadataCollection.Value.ReplaceOneAsync(session, filter, metadataEntry,
-                            new ReplaceOptions() { IsUpsert = true }, unitedCts.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        using var cancellationCts = CreatePerCallCts();
-                        await session.AbortTransactionAsync(cancellationCts.Token);
-                        throw;
-                    }
-
-                    await session.CommitTransactionAsync(unitedCts.Token);
-                }
-                else
-                    await _metadataCollection.Value.ReplaceOneAsync(filter, metadataEntry,
-                        new ReplaceOptions() { IsUpsert = true }, unitedCts.Token);
-            }
+            // backwards compat for object serialization - Payload was already deserialized by BSON
+            return new Persistent(entry.Payload, entry.SequenceNr, entry.PersistenceId, entry.Manifest,
+                entry.IsDeleted, sender, timestamp: ToTicks(entry.Ordering));
         }
 
         protected override bool ReceivePluginInternal(object message)
@@ -621,84 +509,53 @@ namespace Akka.Persistence.MongoDb.Journal
                         .PipeTo(replay.ReplyTo, success: h => new EventReplaySuccess(h),
                             failure: e => new EventReplayFailure(e));
                     return true;
-                case SubscribePersistenceId subscribe:
-                    AddPersistenceIdSubscriber(Sender, subscribe.PersistenceId);
-                    Context.Watch(Sender);
-                    return true;
                 case SelectCurrentPersistenceIds request:
                     SelectAllPersistenceIdsAsync(request.Offset)
                         .PipeTo(request.ReplyTo,
                             success: result => new CurrentPersistenceIds(result.Ids, request.Offset));
-                    return true;
-                case SubscribeTag subscribe:
-                    AddTagSubscriber(Sender, subscribe.Tag);
-                    Context.Watch(Sender);
-                    return true;
-                case SubscribeNewEvents _:
-                    AddNewEventsSubscriber(Sender);
-                    Context.Watch(Sender);
-                    return true;
-                case Terminated terminated:
-                    RemoveSubscriber(terminated.ActorRef);
                     return true;
                 default:
                     return false;
             }
         }
 
-        private void AddNewEventsSubscriber(IActorRef subscriber)
-        {
-            _newEventsSubscriber.Add(subscriber);
-        }
-
         protected virtual async Task<(IEnumerable<string> Ids, long LastOrdering)> SelectAllPersistenceIdsAsync(
             long offset)
         {
-            var ids = await GetAllPersistenceIds(offset);
-            var lastOrdering = await GetHighestOrdering();
-            return (ids, lastOrdering);
+            using var unitedCts = CreatePerCallCts();
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+
+            return await MaybeWithTransaction(async (session, token) =>
+            {
+                var ids = await journalCollection.AllPersistenceIdsQuery(session, offset, token);
+                var lastOrdering = await journalCollection.HighestOrderingQuery(session, token);
+                return (ids, lastOrdering);
+            }, unitedCts.Token);
         }
 
         protected virtual async Task<long> ReplayAllEventsAsync(ReplayAllEvents replay)
         {
-            var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
-
-            var fromSequenceNr = replay.FromOffset;
-            var toSequenceNr = replay.ToOffset;
-            var builder = Builders<JournalEntry>.Filter;
-
-            var seqNoFilter = builder.Empty;
-            if (fromSequenceNr > 0)
-                seqNoFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
-            if (toSequenceNr != long.MaxValue)
-                seqNoFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSequenceNr));
-
-
-            // Need to know what the highest seqNo of this query will be
-            // and return that as part of the RecoverySuccess message
             using var unitedCts = CreatePerCallCts();
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+
+            return await MaybeWithTransaction(async (session, token) =>
             {
-                var maxSeqNoEntry = await _journalCollection.Value.Find(seqNoFilter)
-                    .SortByDescending(x => x.Ordering)
-                    .Limit(1)
-                    .SingleOrDefaultAsync(unitedCts.Token);
+                var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
+
+                var fromSequenceNr = replay.FromOffset;
+                var toSequenceNr = replay.ToOffset;
+
+                // Need to know what the highest seqNo of this query will be
+                // and return that as part of the RecoverySuccess message
+                var maxSeqNoEntry = await journalCollection.MaxOrderingIdQuery(session, fromSequenceNr, toSequenceNr, null)
+                    .SingleOrDefaultAsync(token);
 
                 if (maxSeqNoEntry == null)
                     return 0L; // recovered nothing
+                        
+                var maxOrderingId = maxSeqNoEntry.Value;
 
-                var maxOrderingId = maxSeqNoEntry.Ordering.Value;
-                var toSeqNo = Math.Min(toSequenceNr, maxOrderingId);
-
-                var readFilter = builder.Empty;
-                if (fromSequenceNr > 0)
-                    readFilter &= builder.Gt(x => x.Ordering, new BsonTimestamp(fromSequenceNr));
-                if (toSequenceNr != long.MaxValue)
-                    readFilter &= builder.Lte(x => x.Ordering, new BsonTimestamp(toSeqNo));
-                var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
-
-                await _journalCollection.Value.Find(readFilter)
-                    .Sort(sort)
-                    .Limit(limitValue)
+                await journalCollection.MessagesQuery(session, fromSequenceNr, toSequenceNr, maxOrderingId, null, limitValue)
                     .ForEachAsync(entry =>
                     {
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
@@ -706,121 +563,17 @@ namespace Akka.Persistence.MongoDb.Journal
                         {
                             replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
                         }
-                    }, unitedCts.Token);
+                    }, token);
+                        
                 return maxOrderingId;
-            }
-        }
-
-        private void AddTagSubscriber(IActorRef subscriber, string tag)
-        {
-            if (!_tagSubscribers.TryGetValue(tag, out var subscriptions))
-            {
-                _tagSubscribers = _tagSubscribers.Add(tag, ImmutableHashSet.Create(subscriber));
-            }
-            else
-            {
-                _tagSubscribers = _tagSubscribers.SetItem(tag, subscriptions.Add(subscriber));
-            }
-        }
-
-        private async Task<IEnumerable<string>> GetAllPersistenceIds(long offset)
-        {
-            using var unitedCts = CreatePerCallCts();
-            {
-                var ids = await _journalCollection.Value
-                    .DistinctAsync(x => x.PersistenceId, entry => entry.Ordering > new BsonTimestamp(offset),
-                        cancellationToken: unitedCts.Token);
-
-                var hashset = new List<string>();
-                while (await ids.MoveNextAsync(unitedCts.Token))
-                {
-                    hashset.AddRange(ids.Current);
-                }
-
-                return hashset;
-            }
-        }
-
-        private async Task<long> GetHighestOrdering()
-        {
-            using var unitedCts = CreatePerCallCts();
-            {
-                var max = await _journalCollection.Value.AsQueryable()
-                    .Select(je => je.Ordering)
-                    .MaxAsync(unitedCts.Token);
-
-
-                return max.Value;
-            }
-        }
-
-        private void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
-        {
-            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
-            {
-                _persistenceIdSubscribers =
-                    _persistenceIdSubscribers.Add(persistenceId, ImmutableHashSet.Create(subscriber));
-            }
-            else
-            {
-                _persistenceIdSubscribers =
-                    _persistenceIdSubscribers.SetItem(persistenceId, subscriptions.Add(subscriber));
-            }
-        }
-
-        private void RemoveSubscriber(IActorRef subscriber)
-        {
-            _persistenceIdSubscribers = _persistenceIdSubscribers.SetItems(_persistenceIdSubscribers
-                .Where(kv => kv.Value.Contains(subscriber))
-                .Select(kv => new KeyValuePair<string, IImmutableSet<IActorRef>>(kv.Key, kv.Value.Remove(subscriber))));
-
-            _tagSubscribers = _tagSubscribers.SetItems(_tagSubscribers
-                .Where(kv => kv.Value.Contains(subscriber))
-                .Select(kv => new KeyValuePair<string, IImmutableSet<IActorRef>>(kv.Key, kv.Value.Remove(subscriber))));
-
-            _newEventsSubscriber.Remove(subscriber);
-        }
-
-        /// <summary>
-        /// TBD
-        /// </summary>
-        protected bool HasTagSubscribers => _tagSubscribers.Count != 0;
-
-        /// <summary>
-        /// TBD
-        /// </summary>
-        protected bool HasNewEventSubscribers => _newEventsSubscriber.Count != 0;
-
-        /// <summary>
-        /// TBD
-        /// </summary>
-        protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
-
-
-        private void NotifyPersistenceIdChange(string persistenceId)
-        {
-            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers))
-            {
-                var changed = new EventAppended(persistenceId);
-                foreach (var subscriber in subscribers)
-                    subscriber.Tell(changed);
-            }
-        }
-
-        private void NotifyTagChange(string tag)
-        {
-            if (_tagSubscribers.TryGetValue(tag, out var subscribers))
-            {
-                var changed = new TaggedEventAppended(tag);
-                foreach (var subscriber in subscribers)
-                    subscriber.Tell(changed);
-            }
+            }, unitedCts.Token);
         }
 
         protected override void PostStop()
         {
             // cancel any / all pending operations
             _pendingCommandsCancellation.Cancel();
+            _pendingCommandsCancellation.Dispose();
             base.PostStop();
         }
     }
