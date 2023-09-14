@@ -12,29 +12,47 @@ using Akka.Configuration;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbTransactionSnapshotStoreSpec : MongoDbSnapshotStoreSpecBase
     {
-        public MongoDbSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbSnapshotStoreSpec")
+        public MongoDbTransactionSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(databaseFixture, true)
+        {
+        }
+    }
+    
+    [Collection("MongoDbSpec")]
+    public class MongoDbSnapshotStoreSpec : MongoDbSnapshotStoreSpecBase
+    {
+        public MongoDbSnapshotStoreSpec(DatabaseFixture databaseFixture) : base(databaseFixture, false)
+        {
+        }
+    }
+    
+    public abstract class MongoDbSnapshotStoreSpecBase : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
+    {
+        protected MongoDbSnapshotStoreSpecBase(DatabaseFixture databaseFixture, bool transaction) 
+            : base(CreateSpecConfig(databaseFixture, transaction), "MongoDbSnapshotStoreSpec")
         {
             Initialize();
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, bool transaction)
         {
-            var specString = @"
-                akka.test.single-expect-default = 3s
-                akka.persistence {
-                    publish-plugin-commands = on
-                    snapshot-store {
-                        plugin = ""akka.persistence.snapshot-store.mongodb""
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
-                            auto-initialize = on
-                            collection = ""SnapshotStore""
-                        }
-                    }
-                }";
+            var specString = $$"""
+akka.test.single-expect-default = 3s
+akka.persistence {
+   publish-plugin-commands = on
+   snapshot-store {
+       plugin = "akka.persistence.snapshot-store.mongodb"
+       mongodb {
+           class = "Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb"
+           connection-string = "{{databaseFixture.ConnectionString}}"
+           use-write-transaction = {{(transaction ? "on" : "off")}}
+           auto-initialize = on
+           collection = "SnapshotStore"
+       }
+   }
+}
+""";
 
             return ConfigurationFactory.ParseString(specString);
         }
