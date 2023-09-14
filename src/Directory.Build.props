@@ -24,7 +24,7 @@
     <AkkaHostingVersion>1.5.12</AkkaHostingVersion>
     <XunitVersion>2.5.0</XunitVersion>
     <TestSdkVersion>17.6.3</TestSdkVersion>
-    <FluentAssertionsVersion>6.11.0</FluentAssertionsVersion>
+    <FluentAssertionsVersion>5.10.3</FluentAssertionsVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
