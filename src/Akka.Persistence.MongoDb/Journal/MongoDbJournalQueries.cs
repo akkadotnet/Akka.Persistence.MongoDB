@@ -17,6 +17,11 @@ namespace Akka.Persistence.MongoDb.Journal;
 
 internal static class MongoDbJournalQueries
 {
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static IFindFluent<JournalEntry, JournalEntry> ReplayMessagesQuery(
         this IMongoCollection<JournalEntry> collection,
         IClientSessionHandle? session,
@@ -39,6 +44,11 @@ internal static class MongoDbJournalQueries
             .Limit(limit);
     }
 
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static IFindFluent<JournalEntry, BsonTimestamp> MaxOrderingIdQuery(
         this IMongoCollection<JournalEntry> collection,
         IClientSessionHandle? session,
@@ -62,6 +72,11 @@ internal static class MongoDbJournalQueries
             .Project(e => e.Ordering);
     }
 
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static IFindFluent<JournalEntry, JournalEntry> MessagesQuery(
             this IMongoCollection<JournalEntry> collection,
             IClientSessionHandle? session,
@@ -90,6 +105,11 @@ internal static class MongoDbJournalQueries
             .Limit(limit);
     }
 
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static IFindFluent<MetadataEntry, long> MaxSequenceNrQuery(
         this IMongoCollection<MetadataEntry> collection,
         IClientSessionHandle? session,
@@ -101,6 +121,11 @@ internal static class MongoDbJournalQueries
             .Project(x => x.SequenceNr);
     }
     
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static IFindFluent<JournalEntry, long> MaxSequenceNrQuery(
         this IMongoCollection<JournalEntry> collection,
         IClientSessionHandle? session,
@@ -113,6 +138,11 @@ internal static class MongoDbJournalQueries
             .Project(x => x.SequenceNr);
     }
 
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static async Task<IEnumerable<string>> AllPersistenceIdsQuery(this IMongoCollection<JournalEntry> collection, IClientSessionHandle? session, long offset, CancellationToken token)
     {
         IAsyncCursor<string> idCursor;
@@ -142,6 +172,11 @@ internal static class MongoDbJournalQueries
         return hashset;
     }
 
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static async Task<long> HighestOrderingQuery(this IMongoCollection<JournalEntry> collection, IClientSessionHandle? session, CancellationToken token)
     {
         var max = await (session is not null ? collection.AsQueryable(session) : collection.AsQueryable())
@@ -151,6 +186,11 @@ internal static class MongoDbJournalQueries
         return max.Value;
     }
     
+    /// <summary>
+    /// NOTE: This query is meant to be a part of a persistence operation
+    /// The session parameter signals if this query is being called as part of a transaction block or not
+    /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+    /// </summary>
     public static async Task SetHighSequenceIdQuery(this IMongoCollection<MetadataEntry> collection, IClientSessionHandle? session, string persistenceId, long maxSeqNo, CancellationToken token)
     {
         var builder = Builders<MetadataEntry>.Filter;

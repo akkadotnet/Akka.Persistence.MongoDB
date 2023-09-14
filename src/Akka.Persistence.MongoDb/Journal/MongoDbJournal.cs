@@ -270,6 +270,11 @@ namespace Akka.Persistence.MongoDb.Journal
                 token);
         }
 
+        /// <summary>
+        /// NOTE: This method is meant to be a part of a persistence operation
+        /// The session parameter signals if this query is being called as part of a transaction block or not
+        /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
+        /// </summary>
         private async Task<long> ReadHighestSequenceNrOperation(
             IClientSessionHandle? session,
             string persistenceId,
