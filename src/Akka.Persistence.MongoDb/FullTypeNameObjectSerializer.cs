@@ -24,7 +24,7 @@ namespace Akka.Persistence.MongoDb
         /// <summary>
         /// Initializes a new instance of the <see cref="FullTypeNameObjectSerializer"/> class.
         /// </summary>
-        public FullTypeNameObjectSerializer() : base(FullTypeNameDiscriminatorConvention.Instance, AllAllowedTypes) { }
+        public FullTypeNameObjectSerializer() : base(FullTypeNameDiscriminatorConvention.Instance) { }
 
         /// <summary>
         /// Deserializes a value.
