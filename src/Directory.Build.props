@@ -21,7 +21,7 @@
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
     <AkkaVersion>1.5.12</AkkaVersion>
-    <AkkaHostingVersion>1.5.12</AkkaHostingVersion>
+    <AkkaHostingVersion>1.5.12.1</AkkaHostingVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
