@@ -7,7 +7,7 @@
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />
-    <PackageVersion Include="MongoDB.Driver" Version="2.20.0" />
+    <PackageVersion Include="MongoDB.Driver" Version="2.21.0" />
   </ItemGroup>
   <!-- Test dependencies -->
   <ItemGroup>
