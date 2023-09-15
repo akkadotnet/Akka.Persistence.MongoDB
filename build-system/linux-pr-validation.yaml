@@ -24,8 +24,8 @@ jobs:
 
   - template: azure-pipeline.template.yaml
     parameters:
-      name: 'net_6_tests_linux'
-      displayName: '.NET 6 Unit Tests (Linux)'
+      name: 'net_7_tests_linux'
+      displayName: '.NET 7 Unit Tests (Linux)'
       vmImage: 'ubuntu-latest'
       scriptFileName: ./build.sh
       scriptArgs: runTestsNet

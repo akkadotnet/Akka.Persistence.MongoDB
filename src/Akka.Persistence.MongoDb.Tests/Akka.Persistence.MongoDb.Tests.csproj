@@ -3,6 +3,10 @@
     <TargetFrameworks>$(NetFrameworkTestVersion);$(NetTestVersion);$(NetCoreTestVersion)</TargetFrameworks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DefineConstants Condition="'$(TEST_ENVIRONMENT)' == 'CICD'" >$(DefineConstants);CICD</DefineConstants>
+  </PropertyGroup>
+  
   <ItemGroup>
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

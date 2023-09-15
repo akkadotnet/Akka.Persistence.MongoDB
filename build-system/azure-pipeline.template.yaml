@@ -33,6 +33,8 @@ jobs:
           filePath: ${{ parameters.scriptFileName }}
           arguments: ${{ parameters.scriptArgs }}
         continueOnError: true
+        env:
+          TEST_ENVIRONMENT: "CICD"
         condition: in( variables['Agent.OS'], 'Linux', 'Darwin' )
       # Windows
       - task: BatchScript@1
@@ -41,6 +43,8 @@ jobs:
           filename: ${{ parameters.scriptFileName }}
           arguments: ${{ parameters.scriptArgs }}
         continueOnError: true
+        env:
+          TEST_ENVIRONMENT: "CICD"
         condition: eq( variables['Agent.OS'], 'Windows_NT' )
       - task: PublishTestResults@2
         inputs:
