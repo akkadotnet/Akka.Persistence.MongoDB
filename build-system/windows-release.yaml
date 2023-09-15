@@ -28,6 +28,8 @@ steps:
     version: 7.0.x
 - task: BatchScript@1
   displayName: 'FAKE Build'
+  env:
+    TEST_ENVIRONMENT: "CICD"
   inputs:
     filename: build.cmd
     arguments: 'nuget nugetpublishurl=https://www.nuget.org/api/v2/package nugetkey=$(nugetKey)'

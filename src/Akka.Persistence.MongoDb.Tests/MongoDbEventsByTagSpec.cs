@@ -18,13 +18,28 @@ using Akka.Actor;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbEventsByTagSpec : Akka.Persistence.TCK.Query.EventsByTagSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbTransactionEventsByTagSpec : MongoDbEventsByTagSpecBase
     {
-        public static readonly AtomicCounter Counter = new AtomicCounter(0);
+        public MongoDbTransactionEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(output, databaseFixture, true)
+        {
+        }
+    }
+    
+    [Collection("MongoDbSpec")]
+    public class MongoDbEventsByTagSpec : MongoDbEventsByTagSpecBase
+    {
+        public MongoDbEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture) : base(output, databaseFixture, false)
+        {
+        }
+    }
+    
+    public abstract class MongoDbEventsByTagSpecBase : Akka.Persistence.TCK.Query.EventsByTagSpec, IClassFixture<DatabaseFixture>
+    {
+        private static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;
 
-        public MongoDbEventsByTagSpec(ITestOutputHelper output, DatabaseFixture databaseFixture)
-            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement()), "MongoDbCurrentEventsByTagSpec", output)
+        protected MongoDbEventsByTagSpecBase(ITestOutputHelper output, DatabaseFixture databaseFixture, bool transaction)
+            : base(CreateSpecConfig(databaseFixture, Counter.GetAndIncrement(), transaction), "MongoDbCurrentEventsByTagSpec", output)
         {
             _output = output;
             output.WriteLine(databaseFixture.MongoDbConnectionString(Counter.Current));
@@ -35,41 +50,46 @@ namespace Akka.Persistence.MongoDb.Tests
             ExpectMsg("warm-up-done", TimeSpan.FromSeconds(10));
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id)
+        protected override bool SupportsTagsInEventEnvelope => true;
+
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id, bool transaction)
         {
-            var specString = @"
-                akka.test.single-expect-default = 10s
-                akka.persistence {
-                    publish-plugin-commands = on
-                    journal {
-                        plugin = ""akka.persistence.journal.mongodb""
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
-                            auto-initialize = on
-                            collection = ""EventJournal""
-                            event-adapters {
-                                color-tagger  = ""Akka.Persistence.TCK.Query.ColorFruitTagger, Akka.Persistence.TCK""
-                            }
-                            event-adapter-bindings = {
-                                ""System.String"" = color-tagger
-                            }
-                        }
-                    }
-                    snapshot-store {
-                        plugin = ""akka.persistence.snapshot-store.mongodb""
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.MongoDbConnectionString(id) + @"""
-                        }
-                    }
-                    query {
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Query.MongoDbReadJournalProvider, Akka.Persistence.MongoDb""
-                            refresh-interval = 1s
-                        }
-                    }
-                }";
+            var specString = $$"""
+akka.test.single-expect-default = 10s
+akka.persistence {
+   publish-plugin-commands = on
+   journal {
+       plugin = "akka.persistence.journal.mongodb"
+       mongodb {
+           class = "Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb"
+           connection-string = "{{databaseFixture.MongoDbConnectionString(id)}}"
+           use-write-transaction = {{(transaction ? "on" : "off")}}
+           auto-initialize = on
+           collection = "EventJournal"
+           event-adapters {
+               color-tagger  = "Akka.Persistence.TCK.Query.ColorFruitTagger, Akka.Persistence.TCK"
+           }
+           event-adapter-bindings = {
+               "System.String" = color-tagger
+           }
+       }
+   }
+   snapshot-store {
+       plugin = "akka.persistence.snapshot-store.mongodb"
+       mongodb {
+           class = "Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb"
+           connection-string = "{{databaseFixture.MongoDbConnectionString(id)}}"
+           use-write-transaction = {{(transaction ? "on" : "off")}}
+       }
+   }
+   query {
+       mongodb {
+           class = "Akka.Persistence.MongoDb.Query.MongoDbReadJournalProvider, Akka.Persistence.MongoDb"
+           refresh-interval = 1s
+       }
+   }
+}
+""";
 
             return ConfigurationFactory.ParseString(specString);
         }
@@ -114,6 +134,4 @@ namespace Akka.Persistence.MongoDb.Tests
             }
         }
     }
-
-
 }

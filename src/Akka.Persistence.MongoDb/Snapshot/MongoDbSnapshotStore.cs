@@ -14,6 +14,7 @@ using Akka.Util;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 
+#nullable enable
 namespace Akka.Persistence.MongoDb.Snapshot
 {
     /// <summary>
@@ -21,8 +22,13 @@ namespace Akka.Persistence.MongoDb.Snapshot
     /// </summary>
     public class MongoDbSnapshotStore : SnapshotStore
     {
+        private static readonly ClientSessionOptions EmptySessionOptions = new();
+        
         private readonly MongoDbSnapshotSettings _settings;
-        private Lazy<IMongoCollection<SnapshotEntry>> _snapshotCollection;
+        // ReSharper disable InconsistentNaming
+        private IMongoDatabase? _mongoDatabase_DoNotUseDirectly;
+        private IMongoCollection<SnapshotEntry>? _snapshotCollection_DoNotUseDirectly;
+        // ReSharper enable InconsistentNaming
 
         /// <summary>
         /// Used to cancel all outstanding commands when the actor is stopped.
@@ -53,136 +59,162 @@ namespace Akka.Persistence.MongoDb.Snapshot
             return unitedCts;
         }
 
-        protected override void PreStart()
+        private async Task MaybeWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
         {
-            base.PreStart();
-            _snapshotCollection = new Lazy<IMongoCollection<SnapshotEntry>>(() =>
+            if (!_settings.Transaction)
             {
-                MongoClient client;
-                IMongoDatabase snapshot;
-                var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
-                if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
+                await act(null, token);
+                return;
+            }
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            await session.WithTransactionAsync(
+                async (s, ct) =>
                 {
-                    //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
-                    var connectionString = new MongoUrl(_settings.ConnectionString);
-                    var clientSettings = MongoClientSettings.FromUrl(connectionString);
-                    clientSettings.LinqProvider = LinqProvider.V2;
-                    client = new MongoClient(clientSettings);
-                    snapshot = client.GetDatabase(connectionString.DatabaseName);
-                }
-                else
-                {
-                    client = new MongoClient(setupOption.Value.SnapshotConnectionSettings);
-                    snapshot = client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
-                }
+                    await act(s, ct);
+                    return Task.FromResult(NotUsed.Instance);
+                }, cancellationToken:token);
+        }
+        
+        private async Task<T> MaybeWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        {
+            if (!_settings.Transaction) 
+                return await act(null, token);
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            return await session.WithTransactionAsync(act, cancellationToken:token);
+        }
+        
+        private IMongoDatabase GetMongoDb()
+        {
+            if (_mongoDatabase_DoNotUseDirectly is not null)
+                return _mongoDatabase_DoNotUseDirectly;
+            
+            MongoClient client;
+            var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
+            if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
+            {
+                //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
+                var connectionString = new MongoUrl(_settings.ConnectionString);
+                var clientSettings = MongoClientSettings.FromUrl(connectionString);
+                clientSettings.LinqProvider = LinqProvider.V2;
+                client = new MongoClient(clientSettings);
+                _mongoDatabase_DoNotUseDirectly = client.GetDatabase(connectionString.DatabaseName);
+                return _mongoDatabase_DoNotUseDirectly;
+            }
 
-                var collection = snapshot.GetCollection<SnapshotEntry>(_settings.Collection);
-                if (_settings.AutoInitialize)
-                {
-                    using var unitedCts = CreatePerCallCts();
-                    {
-                        var modelWithAscendingPersistenceIdAndDescendingSequenceNr =
-                            new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
-                                .Ascending(entry => entry.PersistenceId)
-                                .Descending(entry => entry.SequenceNr));
-
-                        collection.Indexes
-                            .CreateOneAsync(modelWithAscendingPersistenceIdAndDescendingSequenceNr,
-                                cancellationToken: unitedCts.Token)
-                            .Wait();
-                    }
-                }
-
-                return collection;
-            });
+            client = new MongoClient(setupOption.Value.SnapshotConnectionSettings);
+            _mongoDatabase_DoNotUseDirectly = client.GetDatabase(setupOption.Value.SnapshotDatabaseName);
+            return _mongoDatabase_DoNotUseDirectly;
         }
 
+        private async Task<IMongoCollection<SnapshotEntry>> GetSnapshotCollection(CancellationToken token)
+        {
+            _snapshotCollection_DoNotUseDirectly = GetMongoDb().GetCollection<SnapshotEntry>(_settings.Collection);
+
+            if (!_settings.AutoInitialize) 
+                return _snapshotCollection_DoNotUseDirectly;
+            
+            var modelWithAscendingPersistenceIdAndDescendingSequenceNr =
+                new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
+                    .Ascending(entry => entry.PersistenceId)
+                    .Descending(entry => entry.SequenceNr));
+
+            await _snapshotCollection_DoNotUseDirectly.Indexes
+                .CreateOneAsync(modelWithAscendingPersistenceIdAndDescendingSequenceNr,
+                    cancellationToken: token);
+
+            return _snapshotCollection_DoNotUseDirectly;
+        }
+        
         protected override void PostStop()
         {
             // cancel any pending database commands during shutdown
             _pendingCommandsCancellation.Cancel();
+            _pendingCommandsCancellation.Dispose();
             base.PostStop();
         }
 
-        protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            var filter = CreateRangeFilter(persistenceId, criteria);
-
             using var unitedCts = CreatePerCallCts();
-            {
+            var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
-                return
-                    _snapshotCollection.Value
-                        .Find(filter)
-                        .SortByDescending(x => x.SequenceNr)
-                        .Limit(1)
-                        .Project(x => ToSelectedSnapshot(x))
-                        .FirstOrDefaultAsync(unitedCts.Token);
-            }
+            return await MaybeWithTransaction(async (session, token) =>
+            {
+                var filter = CreateRangeFilter(persistenceId, criteria);
+                return await (session is not null ? snapshotCollection.Find(session, filter) : snapshotCollection.Find(filter)) 
+                    .SortByDescending(x => x.SequenceNr)
+                    .Limit(1)
+                    .Project(x => ToSelectedSnapshot(x))
+                    .FirstOrDefaultAsync(token);
+            }, unitedCts.Token);
         }
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
             using var unitedCts = CreatePerCallCts();
+            var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
+            
+            var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
+            await MaybeWithTransaction(async (session, token) =>
             {
-                var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
-                if (_settings.Transaction)
+                if (session is not null)
                 {
-                    var sessionOptions = new ClientSessionOptions { };
-
-                    using var session =
-                        await _snapshotCollection.Value.Database.Client.StartSessionAsync(
-                            sessionOptions, unitedCts.Token);
-                    // Begin transaction
-                    session.StartTransaction();
-                    try
-                    {
-                        await _snapshotCollection.Value.ReplaceOneAsync(
-                            session,
-                            CreateSnapshotIdFilter(snapshotEntry.Id),
-                            snapshotEntry,
-                            new ReplaceOptions { IsUpsert = true }, unitedCts.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        using var cancelCts = CreatePerCallCts();
-                        await session.AbortTransactionAsync(cancelCts.Token);
-                        throw;
-                    }
-
-                    await session.CommitTransactionAsync(unitedCts.Token);
+                    await snapshotCollection.ReplaceOneAsync(
+                        session: session,
+                        filter: CreateSnapshotIdFilter(snapshotEntry.Id),
+                        replacement: snapshotEntry,
+                        options: new ReplaceOptions { IsUpsert = true }, 
+                        cancellationToken: token);
                 }
                 else
-                    await _snapshotCollection.Value.ReplaceOneAsync(
-                        CreateSnapshotIdFilter(snapshotEntry.Id),
-                        snapshotEntry,
-                        new ReplaceOptions { IsUpsert = true }, unitedCts.Token);
-            }
+                {
+                    await snapshotCollection.ReplaceOneAsync(
+                        filter: CreateSnapshotIdFilter(snapshotEntry.Id),
+                        replacement: snapshotEntry,
+                        options: new ReplaceOptions { IsUpsert = true }, 
+                        cancellationToken: token);
+                }
+            }, unitedCts.Token);
         }
 
-        protected override Task DeleteAsync(SnapshotMetadata metadata)
+        protected override async Task DeleteAsync(SnapshotMetadata metadata)
         {
-            var builder = Builders<SnapshotEntry>.Filter;
-            var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
-
-            if (metadata.SequenceNr > 0 && metadata.SequenceNr < long.MaxValue)
-                filter &= builder.Eq(x => x.SequenceNr, metadata.SequenceNr);
-
-            if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
-                filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
-
             using var unitedCts = CreatePerCallCts();
+            var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
+
+            await MaybeWithTransaction(async (session, token) =>
             {
-                return _snapshotCollection.Value.FindOneAndDeleteAsync(filter, cancellationToken:unitedCts.Token);
-            }
+                var builder = Builders<SnapshotEntry>.Filter;
+                var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
+
+                if (metadata.SequenceNr is > 0 and < long.MaxValue)
+                    filter &= builder.Eq(x => x.SequenceNr, metadata.SequenceNr);
+
+                if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
+                    filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
+
+                if(session is not null)
+                    await snapshotCollection.FindOneAndDeleteAsync(session, filter, cancellationToken: token);
+                else
+                    await snapshotCollection.FindOneAndDeleteAsync(filter, cancellationToken: token);
+            }, unitedCts.Token);
         }
 
-        protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            var filter = CreateRangeFilter(persistenceId, criteria);
-
             using var unitedCts = CreatePerCallCts();
-            return _snapshotCollection.Value.DeleteManyAsync(filter, unitedCts.Token);
+            var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
+
+            await MaybeWithTransaction(async (session, token) =>
+            {
+                var filter = CreateRangeFilter(persistenceId, criteria);
+                if(session is not null)
+                    await snapshotCollection.DeleteManyAsync(session, filter, cancellationToken: token);
+                else
+                    await snapshotCollection.DeleteManyAsync(filter, token);
+            }, unitedCts.Token);
         }
 
         private static FilterDefinition<SnapshotEntry> CreateSnapshotIdFilter(string snapshotId)
@@ -200,7 +232,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var builder = Builders<SnapshotEntry>.Filter;
             var filter = builder.Eq(x => x.PersistenceId, persistenceId);
 
-            if (criteria.MaxSequenceNr > 0 && criteria.MaxSequenceNr < long.MaxValue)
+            if (criteria.MaxSequenceNr is > 0 and < long.MaxValue)
                 filter &= builder.Lte(x => x.SequenceNr, criteria.MaxSequenceNr);
 
             if (criteria.MaxTimeStamp != DateTime.MinValue && criteria.MaxTimeStamp != DateTime.MaxValue)
@@ -266,7 +298,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             }
 
             int? serializerId = null;
-            Type type = null;
+            Type? type = null;
 
             // legacy serialization
             if (!entry.SerializerId.HasValue && !string.IsNullOrEmpty(entry.Manifest))

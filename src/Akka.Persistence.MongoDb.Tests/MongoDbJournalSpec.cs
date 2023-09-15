@@ -12,31 +12,49 @@ using Akka.Configuration;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbJournalSpec : JournalSpec, IClassFixture<DatabaseFixture>
+    public class MongoDbTransactionJournalSpec : MongoDbJournalSpecBase
     {
-        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;        
+        public MongoDbTransactionJournalSpec(DatabaseFixture databaseFixture) : base(databaseFixture, true)
+        {
+        }
+    }
+    
+    [Collection("MongoDbSpec")]
+    public class MongoDbJournalSpec : MongoDbJournalSpecBase
+    {
+        public MongoDbJournalSpec(DatabaseFixture databaseFixture) : base(databaseFixture, false)
+        {
+        }
+    }
+    
+    public abstract class MongoDbJournalSpecBase : JournalSpec, IClassFixture<DatabaseFixture>
+    {
+        protected override bool SupportsRejectingNonSerializableObjects { get; } = false;
 
-        public MongoDbJournalSpec(DatabaseFixture databaseFixture) : base(CreateSpecConfig(databaseFixture), "MongoDbJournalSpec")
+        protected MongoDbJournalSpecBase(DatabaseFixture databaseFixture, bool transaction) 
+            : base(CreateSpecConfig(databaseFixture, transaction), "MongoDbJournalSpec")
         {
             Initialize();
         }
 
-        private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
+        private static Config CreateSpecConfig(DatabaseFixture databaseFixture, bool transaction)
         {
-            var specString = @"
-                akka.test.single-expect-default = 3s
-                akka.persistence {
-                    publish-plugin-commands = on
-                    journal {
-                        plugin = ""akka.persistence.journal.mongodb""
-                        mongodb {
-                            class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                            connection-string = """ + databaseFixture.ConnectionString + @"""
-                            auto-initialize = on
-                            collection = ""EventJournal""
-                        }
-                    }
-                }";
+            var specString = $$"""
+akka.test.single-expect-default = 3s
+akka.persistence {
+   publish-plugin-commands = on
+   journal {
+       plugin = "akka.persistence.journal.mongodb"
+       mongodb {
+           class = "Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb"
+           connection-string = "{{databaseFixture.ConnectionString}}"
+           use-write-transaction = {{(transaction ? "on" : "off")}}
+           auto-initialize = on
+           collection = "EventJournal"
+       }
+   }
+}
+""";
 
             return ConfigurationFactory.ParseString(specString)
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());

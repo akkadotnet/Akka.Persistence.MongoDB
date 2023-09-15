@@ -1,4 +1,5 @@
-﻿using Akka.Configuration;
+﻿#if !CICD
+using Akka.Configuration;
 using Akka.Persistence.TestKit.Performance;
 using Akka.Util.Internal;
 using System;
@@ -41,3 +42,4 @@ namespace Akka.Persistence.MongoDb.Tests
         }
     }
 }
+#endif

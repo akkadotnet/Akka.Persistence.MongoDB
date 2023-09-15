@@ -78,7 +78,6 @@ namespace Akka.Persistence.MongoDb.Query
             switch (message)
             {
                 case AllEventsPublisher.Continue _:
-                case NewEventAppended _:
                     if (IsTimeForReplay) Replay();
                     return true;
                 case Request _:
@@ -114,7 +113,8 @@ namespace Akka.Persistence.MongoDb.Query
                         persistenceId: replayed.Persistent.PersistenceId,
                         sequenceNr: replayed.Persistent.SequenceNr,
                         timestamp: replayed.Persistent.Timestamp,
-                        @event: replayed.Persistent.Payload));
+                        @event: replayed.Persistent.Payload,
+                        tags: Array.Empty<string>()));
 
                     CurrentOffset = replayed.Offset;
                     Buffer.DeliverBuffer(TotalDemand);
@@ -135,7 +135,6 @@ namespace Akka.Persistence.MongoDb.Query
                     Context.Stop(Self);
                     return true;
                 case AllEventsPublisher.Continue _:
-                case NewEventAppended _:
                     return true;
                 default:
                     return false;
@@ -163,7 +162,6 @@ namespace Akka.Persistence.MongoDb.Query
 
         protected override void ReceiveInitialRequest()
         {
-            JournalRef.Tell(SubscribeNewEvents.Instance);
             Replay();
         }
 
