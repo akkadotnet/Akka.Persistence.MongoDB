@@ -1,3 +1,33 @@
+#### 1.5.12.1 September 15 2023 ####
+
+* [Bump Akka.Persistence.Hosting to 1.5.12.1](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.12.1)
+* [Bump MongoDB.Driver to 2.21.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/339)
+* [Remove byte rot code that might have caused issue #313](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/347)
+* [Implement transaction on both read and write operation](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/347)
+* [Make transaction defaults to enabled](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/348)
+
+**Breaking Behavior Change**
+
+In this version, we're turning transaction on by default. If you're more concerned with database write and read performance compared to data consistency and correctness, you can move back to the old behavior by setting this flag in the HOCON configuration:
+
+```hocon
+akka.persistence.journal.mongodb.use-write-transaction = off
+akka.persistence.snapshot-store.mongodb.use-write-transaction = off
+```
+
+Or by setting them inside the hosting options:
+
+```csharp
+var journalOptions = new MongoDbJournalOptions(true) 
+    {
+        UseWriteTransaction = false
+    };
+var snapshotOptions = new MongoDbSnapshotOptions(true)
+    {
+        UseWriteTransaction = false
+    };
+```
+
 #### 1.5.12 August 10 2023 ####
 
 * [Bump Akka.Persistence.Hosting from 1.5.8.1 to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/337)
