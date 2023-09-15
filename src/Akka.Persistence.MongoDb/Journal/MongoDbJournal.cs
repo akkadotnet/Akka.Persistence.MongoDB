@@ -283,18 +283,16 @@ namespace Akka.Persistence.MongoDb.Journal
             var journalCollection = await GetJournalCollection(token);
             var metadataCollection = await GetMetadataCollection(token);
             
-            var metadataHighestSequenceNrTask = metadataCollection
+            var metadataHighestSequenceNr = await metadataCollection
                 .MaxSequenceNrQuery(session, persistenceId)
                 .FirstOrDefaultAsync(token);
 
-            var journalHighestSequenceNrTask = journalCollection
+            var journalHighestSequenceNr = await journalCollection
                 .MaxSequenceNrQuery(session, persistenceId)
                 .FirstOrDefaultAsync(token);
 
             // journal data is usually good enough, except in cases when it's been deleted.
-            await Task.WhenAll(metadataHighestSequenceNrTask, journalHighestSequenceNrTask);
-
-            return Math.Max(journalHighestSequenceNrTask.Result, metadataHighestSequenceNrTask.Result);
+            return Math.Max(journalHighestSequenceNr, metadataHighestSequenceNr);
         }
         
         protected override async Task<IImmutableList<Exception?>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
