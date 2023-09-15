@@ -1,9 +1,9 @@
 #### 1.5.0.1 September 15 2023 ####
 
-* [Bump Akka.Persistence.Hosting from 1.5.8.1 to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/337)
-* [Bump AkkaVersion from 1.5.11 to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/336)
+* [Bump Akka.Persistence.Hosting to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/337)
+* [Bump AkkaVersion to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/336)
 * [Separate Akka.Hosting and core Akka version](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/335)
-* [Bump XunitVersion from 2.4.2 to 2.5.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/332)
+* [Bump XunitVersion to 2.5.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/332)
 * [Move to using Build Props file and central package management.](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/333)
 * [Adding Hosting Extensions for Akka.Persistence.MongoDB](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/331)
 * [Add indexed tags support](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/318)
