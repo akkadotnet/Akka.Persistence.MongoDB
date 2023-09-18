@@ -7,13 +7,13 @@
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />
-    <PackageVersion Include="MongoDB.Driver" Version="2.20.0" />
+    <PackageVersion Include="MongoDB.Driver" Version="2.21.0" />
   </ItemGroup>
   <!-- Test dependencies -->
   <ItemGroup>
     <PackageVersion Include="FluentAssertions" Version="5.10.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5">
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageVersion>
