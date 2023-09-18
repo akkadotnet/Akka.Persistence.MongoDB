@@ -131,8 +131,7 @@ namespace Akka.Persistence.MongoDb.Query
                             persistenceId: PersistenceId,
                             sequenceNr: seqNr,
                             timestamp: replayed.Persistent.Timestamp,
-                            @event: replayed.Persistent.Payload,
-                            tags: Array.Empty<string>()));
+                            @event: replayed.Persistent.Payload));
                         CurrentSequenceNr = seqNr + 1;
                         Buffer.DeliverBuffer(TotalDemand);
                         break;

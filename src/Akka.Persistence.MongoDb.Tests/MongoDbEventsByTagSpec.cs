@@ -50,8 +50,6 @@ namespace Akka.Persistence.MongoDb.Tests
             ExpectMsg("warm-up-done", TimeSpan.FromSeconds(10));
         }
 
-        protected override bool SupportsTagsInEventEnvelope => true;
-
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id, bool transaction)
         {
             var specString = $$"""
