@@ -1,18 +1,8 @@
-#### 1.5.0.1 September 15 2023 ####
+#### 1.5.0.2 September 18 2023 ####
 
-* [Bump Akka.Persistence.Hosting to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/337)
-* [Bump AkkaVersion to 1.5.12](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/336)
-* [Separate Akka.Hosting and core Akka version](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/335)
-* [Bump XunitVersion to 2.5.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/332)
-* [Move to using Build Props file and central package management.](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/333)
-* [Adding Hosting Extensions for Akka.Persistence.MongoDB](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/331)
-* [Add indexed tags support](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/318)
-* [Add CancellationToken suppport to all driver calls](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/328)
-* [All writes are now performed via MongoDb transactions](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/301)
-* [Bump Akka.Persistence.Hosting to 1.5.12.1](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.12.1)
-* [Remove byte rot code that might have caused issue #313](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/347)
-* [Implement transaction on both read and write operation](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/347)
-* [Make transaction defaults to enabled](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/348)
+* [Downgrade Akka.Persistence.Hosting to 1.5.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/355)
+* [Downgrade AkkaVersion to 1.5.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/355)
+* [Remove tag in EventEnvelope support](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/355)
 
 **Breaking Behavior Change**
 
