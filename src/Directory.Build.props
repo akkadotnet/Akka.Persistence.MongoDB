@@ -20,7 +20,7 @@
     <NetFrameworkTestVersion>net471</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.0</NetStandardLibVersion>
 
-    <AkkaVersion>1.5.13</AkkaVersion>
+    <AkkaVersion>1.5.14</AkkaVersion>
     <AkkaHostingVersion>1.5.13</AkkaHostingVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
