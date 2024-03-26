@@ -225,7 +225,7 @@ namespace Akka.Persistence.MongoDb.Query
         protected override void ReceiveRecoverySuccess(long highestSequenceNr)
         {
             Buffer.DeliverBuffer(TotalDemand);
-            if (highestSequenceNr < ToOffset)
+            if (highestSequenceNr > 0 && highestSequenceNr < ToOffset)
                 _toOffset = highestSequenceNr;
 
             if (Buffer.IsEmpty && CurrentOffset > ToOffset)
