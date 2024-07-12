@@ -128,7 +128,7 @@ namespace Akka.Persistence.MongoDb.Query
                             @event: replayed.Persistent.Payload,
                             tags: new [] { replayed.Tag }));
 
-                        CurrentOffset = replayed.Offset;
+                        CurrentOffset = replayed.Offset + 1;
                         Buffer.DeliverBuffer(TotalDemand);
                         break;
                     case RecoverySuccess success:
