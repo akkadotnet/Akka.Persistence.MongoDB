@@ -216,7 +216,7 @@ namespace Akka.Persistence.MongoDb.Query
         protected override void ReceiveIdleRequest()
         {
             Buffer.DeliverBuffer(TotalDemand);
-            if (Buffer.IsEmpty && CurrentOffset > ToOffset)
+            if (Buffer.IsEmpty && CurrentOffset >= ToOffset)
                 OnCompleteThenStop();
             else
                 Self.Tell(EventsByTagPublisher.Continue.Instance);
@@ -228,7 +228,7 @@ namespace Akka.Persistence.MongoDb.Query
             if (highestSequenceNr > 0 && highestSequenceNr < ToOffset)
                 _toOffset = highestSequenceNr;
 
-            if (Buffer.IsEmpty && CurrentOffset > ToOffset)
+            if (Buffer.IsEmpty && (CurrentOffset >= ToOffset || CurrentOffset == FromOffset))
                 OnCompleteThenStop();
             else
                 Self.Tell(EventsByTagPublisher.Continue.Instance);
