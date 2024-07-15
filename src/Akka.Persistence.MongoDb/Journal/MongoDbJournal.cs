@@ -379,7 +379,7 @@ namespace Akka.Persistence.MongoDb.Journal
             }
             else
             {
-                tags = [];
+                tags = new List<string>();
             }
 
             // per https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/107
