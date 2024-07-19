@@ -27,8 +27,7 @@ namespace Akka.Persistence.MongoDb.Snapshot;
 /// A large snapshot SnapshotStore implementation for writing snapshots to MongoDB.
 /// Implements MongoDB GridFS storage mechanisms to support snapshots larger than 16 megabytes
 /// </summary>
-// ReSharper disable once InconsistentNaming
-public class MongoDbGridFSSnapshotStore : SnapshotStore
+public class MongoDbGridFsSnapshotStore : SnapshotStore
 {
     private const string PersistenceIdKey = "_pid";
     private const string SequenceNrKey = "_snr";
@@ -51,15 +50,15 @@ public class MongoDbGridFSSnapshotStore : SnapshotStore
     private readonly Akka.Serialization.Serialization _serialization;
     private readonly ILoggingAdapter _log;
 
-    public MongoDbGridFSSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
+    public MongoDbGridFsSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
     {
     }
 
-    public MongoDbGridFSSnapshotStore(Config config) : this(new MongoDbSnapshotSettings(config))
+    public MongoDbGridFsSnapshotStore(Config config) : this(new MongoDbSnapshotSettings(config))
     {
     }
 
-    public MongoDbGridFSSnapshotStore(MongoDbSnapshotSettings settings)
+    public MongoDbGridFsSnapshotStore(MongoDbSnapshotSettings settings)
     {
         _settings = settings;
         _serialization = Context.System.Serialization;
