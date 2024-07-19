@@ -6,8 +6,10 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Akka.Configuration;
+using Akka.Event;
 using Akka.Persistence.TCK.Snapshot;
 using FluentAssertions;
 using Xunit;
@@ -40,7 +42,7 @@ public abstract class MongoDbGridFsSnapshotStoreSpecBase : SnapshotStoreSpec, IC
         Initialize();
     }
 
-    protected override int SnapshotByteSizeLimit => 18 * 1024 * 1024;
+    protected override int SnapshotByteSizeLimit => 20 * 1024 * 1024;
 
     private static Config CreateSpecConfig(DatabaseFixture databaseFixture, bool transaction)
     {
@@ -74,10 +76,14 @@ public abstract class MongoDbGridFsSnapshotStoreSpecBase : SnapshotStoreSpec, IC
         SnapshotStore.Tell(new SaveSnapshot(metadata, bigSnapshot), senderProbe.Ref);
         var saved = await senderProbe.ExpectMsgAsync<SaveSnapshotSuccess>();
 
+        var stopwatch = Stopwatch.StartNew();
         SnapshotStore.Tell(
             new LoadSnapshot(Pid, new SnapshotSelectionCriteria(saved.Metadata.SequenceNr), long.MaxValue), 
             senderProbe.Ref);
         var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>();
+        stopwatch.Stop();
+        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.TotalSeconds} seconds");
+
         ((byte[])loaded.Snapshot.Snapshot).Should().BeEquivalentTo(bigSnapshot, opt => opt.WithStrictOrdering());
     }
 }

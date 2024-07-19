@@ -5,8 +5,13 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Akka.Configuration;
+using Akka.Event;
 using Akka.Persistence.TCK.Snapshot;
+using FluentAssertions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -46,5 +51,26 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
 
         return ConfigurationFactory.ParseString(specString)
             .WithFallback(MongoDbPersistence.DefaultConfiguration());
+    }
+    
+    [Fact]
+    public async Task SnapshotStore_should_save_bigger_size_snapshot_consistently()
+    {
+        var metadata = new SnapshotMetadata(Pid, 100);
+        var bigSnapshot = new byte[SnapshotByteSizeLimit];
+        new Random().NextBytes(bigSnapshot);
+        var senderProbe = CreateTestProbe();
+        SnapshotStore.Tell(new SaveSnapshot(metadata, bigSnapshot), senderProbe.Ref);
+        var saved = await senderProbe.ExpectMsgAsync<SaveSnapshotSuccess>();
+
+        var stopwatch = Stopwatch.StartNew();
+        SnapshotStore.Tell(
+            new LoadSnapshot(Pid, new SnapshotSelectionCriteria(saved.Metadata.SequenceNr), long.MaxValue), 
+            senderProbe.Ref);
+        var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>();
+        stopwatch.Stop();
+        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.TotalSeconds} seconds");
+        
+        ((byte[])loaded.Snapshot.Snapshot).Should().BeEquivalentTo(bigSnapshot, opt => opt.WithStrictOrdering());
     }
 }
