@@ -10,5 +10,6 @@
     <PackageReference Include="Akka.Persistence.Query" />
     <PackageReference Include="Akka.Streams" />
     <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="MongoDB.Driver.GridFS" />
   </ItemGroup>
 </Project>
