@@ -35,7 +35,7 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
                     snapshot-store {
                         plugin = ""akka.persistence.snapshot-store.mongodb""
                         mongodb {
-                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbGridFSSnapshotStore, Akka.Persistence.MongoDb""
+                            class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbGridFsSnapshotStore, Akka.Persistence.MongoDb""
                             connection-string = """ + databaseFixture.ConnectionString + @"""
                             auto-initialize = on
                             collection = ""SnapshotStore""
