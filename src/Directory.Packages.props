@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <MongoDbVersion>2.21.0</MongoDbVersion>
+    <MongoDbVersion>2.27.0</MongoDbVersion>
     <AkkaVersion>1.5.26</AkkaVersion>
     <AkkaHostingVersion>1.5.25</AkkaHostingVersion>
   </PropertyGroup>
@@ -28,6 +28,6 @@
   </ItemGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1 " />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0 " />
   </ItemGroup>
 </Project>
