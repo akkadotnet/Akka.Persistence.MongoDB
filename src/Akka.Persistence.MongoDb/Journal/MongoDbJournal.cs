@@ -369,17 +369,17 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private JournalEntry ToJournalEntry(IPersistentRepresentation message)
         {
-            List<string> tags; 
+            string[] tags; 
             var payload = message.Payload;
             if (message.Payload is Tagged tagged)
             {
                 payload = tagged.Payload;
                 message = message.WithPayload(payload); // need to update the internal payload when working with tags
-                tags = tagged.Tags.ToList();
+                tags = tagged.Tags.ToArray();
             }
             else
             {
-                tags = new List<string>();
+                tags = Array.Empty<string>();
             }
 
             // per https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/107
