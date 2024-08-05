@@ -19,6 +19,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{BE1178E1
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.Persistence.MongoDb.Hosting", "src\Akka.Persistence.MongoDb.Hosting\Akka.Persistence.MongoDb.Hosting.csproj", "{72B8C165-FE00-465F-A2E9-60B4B79F81AF}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{57AE52C4-1E22-42B9-9214-4FEE4F5DFC70}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LargeSnapshot", "src\examples\LargeSnapshot\LargeSnapshot.csproj", "{8FA9D3B5-C67E-49A6-8449-74E060458F25}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,11 +41,18 @@ Global
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{72B8C165-FE00-465F-A2E9-60B4B79F81AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8FA9D3B5-C67E-49A6-8449-74E060458F25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8FA9D3B5-C67E-49A6-8449-74E060458F25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FA9D3B5-C67E-49A6-8449-74E060458F25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8FA9D3B5-C67E-49A6-8449-74E060458F25}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D4F3F966-EB9C-443A-8158-419703A68B92}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8FA9D3B5-C67E-49A6-8449-74E060458F25} = {57AE52C4-1E22-42B9-9214-4FEE4F5DFC70}
 	EndGlobalSection
 EndGlobal

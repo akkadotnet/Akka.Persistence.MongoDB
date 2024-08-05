@@ -1,0 +1,1 @@
+docker run --name mongo --rm -p 27017:27017 -e MONGO_INITDB_DATABASE=akka-db mongo:latest

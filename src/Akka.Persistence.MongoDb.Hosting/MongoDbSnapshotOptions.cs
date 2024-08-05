@@ -3,6 +3,7 @@ using System.Text;
 using Akka.Configuration;
 using Akka.Hosting;
 using Akka.Persistence.Hosting;
+using Akka.Persistence.MongoDb.Snapshot;
 
 #nullable enable
 namespace Akka.Persistence.MongoDb.Hosting;
@@ -22,6 +23,8 @@ public class MongoDbSnapshotOptions : SnapshotOptions
         AutoInitialize = true;
     }
 
+    public virtual Type Type { get; } = typeof(MongoDbSnapshotStore);
+    
     /// <summary>
     /// Connection string used to access the MongoDb, also specifies the database.
     /// </summary>
@@ -55,6 +58,8 @@ public class MongoDbSnapshotOptions : SnapshotOptions
 
     protected override StringBuilder Build(StringBuilder sb)
     {
+        sb.AppendLine($"class = {Type.AssemblyQualifiedName.ToHocon()}");
+        
         sb.AppendLine($"connection-string = {ConnectionString.ToHocon()}");
         
         if(UseWriteTransaction is not null)
