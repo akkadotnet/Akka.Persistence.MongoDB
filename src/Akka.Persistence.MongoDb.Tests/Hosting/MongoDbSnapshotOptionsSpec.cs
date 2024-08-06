@@ -37,7 +37,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             config.Should().NotBeNull();
             baseConfig.Should().NotBeNull();
 
-            config.GetString("class").Should().Be(baseConfig.GetString("class"));
+            Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
             config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
             config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
             config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
@@ -62,7 +62,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             config.Should().NotBeNull();
             baseConfig.Should().NotBeNull();
 
-            config.GetString("class").Should().Be(baseConfig.GetString("class"));
+            Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
             config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
             config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
             config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
