@@ -7,6 +7,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Akka.Configuration;
 using Akka.Event;
@@ -19,32 +20,17 @@ using Xunit.Abstractions;
 namespace Akka.Persistence.MongoDb.Tests.GridFS;
 
 [Collection("MongoDbSpec")]
-public class MongoDbGridFsTransactionSnapshotStoreSpec : MongoDbGridFsSnapshotStoreSpecBase
+public class MongoDbGridFsSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
 {
-    public MongoDbGridFsTransactionSnapshotStoreSpec(DatabaseFixture databaseFixture, ITestOutputHelper output) : base(databaseFixture, true, output)
-    {
-    }
-}
-
-[Collection("MongoDbSpec")]
-public class MongoDbGridFsSnapshotStoreSpec : MongoDbGridFsSnapshotStoreSpecBase
-{
-    public MongoDbGridFsSnapshotStoreSpec(DatabaseFixture databaseFixture, ITestOutputHelper output) : base(databaseFixture, false, output)
-    {
-    }
-}
-
-public abstract class MongoDbGridFsSnapshotStoreSpecBase : SnapshotStoreSpec, IClassFixture<DatabaseFixture>
-{
-    protected MongoDbGridFsSnapshotStoreSpecBase(DatabaseFixture databaseFixture, bool transaction, ITestOutputHelper output) 
-        : base(CreateSpecConfig(databaseFixture, transaction), nameof(MongoDbGridFsSnapshotStoreSpecBase), output)
+    public MongoDbGridFsSnapshotStoreSpec(DatabaseFixture databaseFixture, ITestOutputHelper output) 
+        : base(CreateSpecConfig(databaseFixture), nameof(MongoDbGridFsSnapshotStoreSpec), output)
     {
         Initialize();
     }
 
-    protected override int SnapshotByteSizeLimit => 20 * 1024 * 1024;
+    protected override int SnapshotByteSizeLimit => 128 * 1024 * 1024;
 
-    private static Config CreateSpecConfig(DatabaseFixture databaseFixture, bool transaction)
+    private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
     {
         var specString = $$"""
                            akka.test.single-expect-default = 3s
@@ -55,7 +41,7 @@ public abstract class MongoDbGridFsSnapshotStoreSpecBase : SnapshotStoreSpec, IC
                                   mongodb {
                                       class = "Akka.Persistence.MongoDb.Snapshot.MongoDbGridFsSnapshotStore, Akka.Persistence.MongoDb"
                                       connection-string = "{{databaseFixture.ConnectionString}}"
-                                      use-write-transaction = {{(transaction ? "on" : "off")}}
+                                      use-write-transaction = off
                                       auto-initialize = on
                                       collection = "SnapshotStore"
                                   }
@@ -82,8 +68,9 @@ public abstract class MongoDbGridFsSnapshotStoreSpecBase : SnapshotStoreSpec, IC
             senderProbe.Ref);
         var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>();
         stopwatch.Stop();
-        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.TotalSeconds} seconds");
+        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.Milliseconds} milliseconds");
 
-        ((byte[])loaded.Snapshot.Snapshot).Should().BeEquivalentTo(bigSnapshot, opt => opt.WithStrictOrdering());
+        MD5.Create().ComputeHash((byte[])loaded.Snapshot.Snapshot).Should()
+            .BeEquivalentTo(MD5.Create().ComputeHash(bigSnapshot));
     }
 }

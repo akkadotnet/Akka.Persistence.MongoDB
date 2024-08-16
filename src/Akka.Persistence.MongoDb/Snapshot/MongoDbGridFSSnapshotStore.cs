@@ -7,12 +7,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Configuration;
-using Akka.Event;
 using Akka.Persistence.Snapshot;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -33,13 +31,10 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     private const string SequenceNrKey = "_snr";
     private const string TimestampKey = "_ts";
     
-    private static readonly ClientSessionOptions EmptySessionOptions = new();
-        
     private readonly MongoDbSnapshotSettings _settings;
     private readonly GridFSBucketOptions _bucketOptions;
     // ReSharper disable InconsistentNaming
     private IMongoDatabase? _mongoDatabase_DoNotUseDirectly;
-    private GridFSBucket? _snapshotGridFSBucket_DoNotUseDirectly;
     // ReSharper enable InconsistentNaming
 
     /// <summary>
@@ -48,7 +43,6 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     private readonly CancellationTokenSource _pendingCommandsCancellation = new();
 
     private readonly Akka.Serialization.Serialization _serialization;
-    private readonly ILoggingAdapter _log;
 
     public MongoDbGridFsSnapshotStore() : this(MongoDbPersistence.Get(Context.System).SnapshotStoreSettings)
     {
@@ -64,48 +58,17 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         _serialization = Context.System.Serialization;
         _bucketOptions = new GridFSBucketOptions
         {
-            //ReadConcern = settings.Transaction ? ReadConcern.Snapshot : ReadConcern.Default,
-            //WriteConcern = WriteConcern.WMajority, 
             BucketName = settings.Collection, 
-            // ChunkSizeBytes = 1024 * 1024
         };
-        _log = Context.GetLogger();
     }
 
     private CancellationTokenSource CreatePerCallCts()
     {
-        var unitedCts =
-            CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+        var unitedCts = CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
         unitedCts.CancelAfter(_settings.CallTimeout);
         return unitedCts;
     }
 
-    private async Task MaybeWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
-    {
-        if (!_settings.Transaction)
-        {
-            await act(null, token);
-            return;
-        }
-            
-        using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
-        await session.WithTransactionAsync(
-            async (s, ct) =>
-            {
-                await act(s, ct);
-                return Task.FromResult(NotUsed.Instance);
-            }, cancellationToken:token);
-    }
-        
-    private async Task<T?> MaybeWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T?>> act, CancellationToken token)
-    {
-        if (!_settings.Transaction) 
-            return await act(null, token);
-            
-        using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
-        return await session.WithTransactionAsync(act, cancellationToken:token);
-    }
-        
     private IMongoDatabase GetMongoDb()
     {
         if (_mongoDatabase_DoNotUseDirectly is not null)
@@ -131,10 +94,7 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
 
     private GridFSBucket GetGridFSBucket()
     {
-        var db = GetMongoDb();
-        _snapshotGridFSBucket_DoNotUseDirectly = new GridFSBucket(db, _bucketOptions);
-
-        return _snapshotGridFSBucket_DoNotUseDirectly;
+        return new GridFSBucket(GetMongoDb(), _bucketOptions);
     }
 
     private IMongoCollection<GridFSFileInfo> GetFilesCollection()
@@ -142,11 +102,6 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         return GetMongoDb().GetCollection<GridFSFileInfo>(_settings.Collection + ".files");
     }
 
-    private IMongoCollection<BsonDocument> GetChunksCollection()
-    {
-        return GetMongoDb().GetCollection<BsonDocument>(_settings.Collection + ".chunks");
-    }
-    
     protected override void PostStop()
     {
         // cancel any pending database commands during shutdown
@@ -158,66 +113,46 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
     {
         using var unitedCts = CreatePerCallCts();
-        var filesCollection = GetFilesCollection();
-        var chunksCollection = GetChunksCollection();
+        var token = unitedCts.Token;
         
         var filter = CreateRangeFilter(persistenceId, criteria);
+        var filesCollection = GetFilesCollection();
 
-        return await MaybeWithTransaction<SelectedSnapshot?>(async (session, token) =>
-        {
-            var info = await (session is not null 
-                    ? filesCollection.Find(session, filter) 
-                    : filesCollection.Find(filter)) 
-                .SortByDescending(x => x.Metadata[SequenceNrKey])
-                .Limit(1)
-                .FirstOrDefaultAsync(token);
+        var info = await filesCollection.Find(filter)
+            .SortByDescending(x => x.Metadata[SequenceNrKey])
+            .Limit(1)
+            .FirstOrDefaultAsync(token);
             
-            if (info is null)
-                return null;
-            
-            var chunkFilter = Builders<BsonDocument>.Filter.Eq(doc => doc["files_id"], info.Id);
-            var chunkCursor = await (session is not null
-                    ? chunksCollection.Find(session, chunkFilter)
-                    : chunksCollection.Find(chunkFilter))
-                .SortBy(x => x["n"])
-                .ToCursorAsync(token);
+        if (info is null)
+            return null;
 
-            using var memoryStream = new MemoryStream();
-            while (await chunkCursor.MoveNextAsync(token))
-            {
-                var chunks = chunkCursor.Current;
-                foreach (var doc in chunks)
-                {
-                    var data = doc["data"].AsByteArray;
-                    await memoryStream.WriteAsync(data, 0, data.Length, token);
-                }
-            }
-            
-            return ToSelectedSnapshot(info.Metadata, memoryStream.ToArray());
-        }, unitedCts.Token);
+        var bucket = GetGridFSBucket();
+        var data = await bucket.DownloadAsBytesAsync(info.Id, cancellationToken: token);
+        return ToSelectedSnapshot(info.Metadata, data);
     }
 
     protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
     {
         using var unitedCts = CreatePerCallCts();
-        var bucket = GetGridFSBucket();
-        var filesCollection = GetFilesCollection();
+        var token = unitedCts.Token;
         
         var (fileName, option, bytes) = ToSnapshotFileMetadata(metadata, snapshot);
 
-        await MaybeWithTransaction(async (session, token) =>
-        {
-            var filter = Builders<GridFSFileInfo>.Filter.Eq(i => i.Filename, fileName);
-            await DeleteFileAsync(filter, filesCollection, session, token);
-            await bucket.UploadFromBytesAsync(fileName, bytes, option, unitedCts.Token);
-        }, unitedCts.Token);
+        var filter = Builders<GridFSFileInfo>.Filter.Eq(doc => doc.Filename, fileName);
+        var filesCollection = GetFilesCollection();
+        var info = await filesCollection.Find(filter)
+            .Limit(1)
+            .FirstOrDefaultAsync(cancellationToken: token);
         
+        var bucket = GetGridFSBucket();
+        if (info is not null)
+            await bucket.DeleteAsync(info.Id, token);
+        
+        await bucket.UploadFromBytesAsync(fileName, bytes, option, token);
     }
 
     protected override async Task DeleteAsync(SnapshotMetadata metadata)
     {
-        using var unitedCts = CreatePerCallCts();
-
         var builder = Builders<GridFSFileInfo>.Filter;
         var filters = new List<FilterDefinition<GridFSFileInfo>>
         {
@@ -232,60 +167,40 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
 
         var filter = builder.And(filters);
 
-        await MaybeWithTransaction(async (session, token) =>
-        {
-            await DeleteFileAsync(filter, GetFilesCollection(), session, token);
-        }, unitedCts.Token);
+        using var unitedCts = CreatePerCallCts();
+        await DeleteFileAsync(filter, GetFilesCollection(), GetGridFSBucket(), unitedCts.Token);
     }
 
     protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
     {
         using var unitedCts = CreatePerCallCts();
-        var filesCollection = GetFilesCollection();
+        var token = unitedCts.Token;
+        
         var filter = CreateRangeFilter(persistenceId, criteria);
-
-        await MaybeWithTransaction(async (session, token) =>
+        var filesCollection = GetFilesCollection();
+        var infos = await filesCollection
+            .Find(filter)
+            .ToListAsync(cancellationToken: token);
+        var tasks = infos.Select(async info =>
         {
-            var infoCursor = await (session is not null
-                ? filesCollection.Find(session, filter)
-                : filesCollection.Find(filter)).ToCursorAsync(token);
-            
-            while (await infoCursor.MoveNextAsync(token))
-            {
-                await Task.WhenAll(infoCursor.Current.Select(info => DeleteFileAsync(info, filesCollection, session, token)));
-            }
-        }, unitedCts.Token);
+            var filesFilter = Builders<GridFSFileInfo>.Filter.Eq(i => i.Filename, info.Filename);
+            await DeleteFileAsync(filesFilter, filesCollection, GetGridFSBucket(), token);
+        });
+        await Task.WhenAll(tasks);
     }
 
-    private async Task DeleteFileAsync(
-        GridFSFileInfo info,
-        IMongoCollection<GridFSFileInfo> filesCollection,
-        IClientSessionHandle? session,
-        CancellationToken token)
-    {
-        var filesFilter = Builders<GridFSFileInfo>.Filter.Eq(i => i.Filename, info.Filename);
-        await DeleteFileAsync(filesFilter, filesCollection, session, token);
-    }
-
-    private async Task DeleteFileAsync(
+    private static async Task DeleteFileAsync(
         FilterDefinition<GridFSFileInfo> filesFilter,
-        IMongoCollection<GridFSFileInfo> filesCollection, 
-        IClientSessionHandle? session,
+        IMongoCollection<GridFSFileInfo> filesCollection,
+        GridFSBucket bucket,
         CancellationToken token)
     {
-        var info = session is not null
-            ? await filesCollection.FindOneAndDeleteAsync(session, filesFilter, cancellationToken: token)
-            : await filesCollection.FindOneAndDeleteAsync(filesFilter, cancellationToken: token);
+        var info = await filesCollection.Find(filesFilter).Limit(1).FirstOrDefaultAsync(token);
         
         if(info is null)
             return;
-        
-        var chunkFilter = Builders<BsonDocument>.Filter.Eq(doc => doc["files_id"], info.Id);
-        var chunkCollection = GetChunksCollection();
-        var result = session is not null 
-            ? await chunkCollection.DeleteManyAsync(session, chunkFilter, cancellationToken: token)
-            : await chunkCollection.DeleteManyAsync(chunkFilter, token);
-        _log.Info($"Chunks deleted: {result.DeletedCount}");
+
+        await bucket.DeleteAsync(info.Id, token);
     }
 
     private static FilterDefinition<GridFSFileInfo> CreateRangeFilter(string persistenceId, SnapshotSelectionCriteria criteria)

@@ -7,6 +7,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Akka.Configuration;
 using Akka.Event;
@@ -29,7 +30,7 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
         Initialize();
     }
 
-    protected override int SnapshotByteSizeLimit => 20 * 1024 * 1024;
+    protected override int SnapshotByteSizeLimit => 128 * 1024 * 1024;
 
     private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
     {
@@ -69,8 +70,9 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
             senderProbe.Ref);
         var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>();
         stopwatch.Stop();
-        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.TotalSeconds} seconds");
+        Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.Milliseconds} milliseconds");
         
-        ((byte[])loaded.Snapshot.Snapshot).Should().BeEquivalentTo(bigSnapshot, opt => opt.WithStrictOrdering());
+        MD5.Create().ComputeHash((byte[])loaded.Snapshot.Snapshot).Should()
+            .BeEquivalentTo(MD5.Create().ComputeHash(bigSnapshot));
     }
 }
