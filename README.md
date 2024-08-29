@@ -2,7 +2,11 @@
 
 Akka Persistence journal and snapshot store backed by MongoDB database.
 
-### Setup
+> [!NOTE]
+> 
+> The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher than Int32.MaxValue, Int32.MaxValue is used. So if you have stored more than 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
+
+## Setup
 
 To activate the journal plugin, add the following lines to actor system configuration file:
 
@@ -22,9 +26,9 @@ akka.persistence.snapshot-store.mongodb.collection = "<snapshot-store collection
 
 Remember that connection string must be provided separately to Journal and Snapshot Store. To finish setup simply initialize plugin using: `MongoDbPersistence.Get(actorSystem);`
 
-### Configuration
+## Configuration
 
-Both journal and snapshot store share the same configuration keys (however they resides in separate scopes, so they are definied distinctly for either journal or snapshot store):
+Both journal and snapshot store share the same configuration keys (however they reside in separate scopes, so they are defined distinctly for either journal or snapshot store):
 
 ```hocon
 akka.persistence {
@@ -127,9 +131,9 @@ akka.persistence {
 }
 ```
 
-### Programmatic configuration
+## Programmatic configuration
 
-You can programmatically overrides the connection string setting in the HOCON configuration by adding a `MongoDbPersistenceSetup` to the 
+You can programmatically override the connection string setting in the HOCON configuration by adding a `MongoDbPersistenceSetup` to the 
 `ActorSystemSetup` during `ActorSystem` creation. The `MongoDbPersistenceSetup` takes `MongoClientSettings` instances to be used to configure
 MongoDB client connection to the server. The `connection-string` settings in the HOCON configuration will be ignored if any of these `MongoClientSettings`
 exists inside the Setup object.
@@ -178,7 +182,8 @@ var setup = BootstrapSetup.Create()
 var actorSystem = ActorSystem.Create("actorSystem", setup);
 ```
 
-### Serialization
+## Serialization
+
 [Going from v1.4.0 onwards, all events and snapshots are saved as byte arrays using the standard Akka.Persistence format](https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/72).
 
 However, in the event that you have one of the following use cases:
@@ -205,5 +210,20 @@ Setting `legacy-serialization = on` will allow you to save objects in a BSON for
 
 **WARNING**: However, `legacy-serialization = on` will break Akka.NET serialization. `IActorRef`s, Akka.Cluster.Sharding, `AtLeastOnceDelivery` actors, and other built-in Akka.NET use cases can't be properly supported using this format. Use it at your own risk.
 
-### Notice
-- The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher then Int32.MaxValue, Int32.MaxValue is used. So if you have stored more then 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
+# Large Snapshot Store Support
+
+MongoDb limits the size of documents it can store to 16 megabytes. If you know you will need to store snapshots larger than 16 megabytes, you can use the `Akka.Persistence.MongoDb.Snapshot.MongoDbGridFSSnapshotStore` snapshot store plugin.
+
+> [!NOTE]
+> 
+> `MongoDbGridFSSnapshotStore` is not designed for normal snapshot store plugin, it does not support transaction and read/write operations are slower on this plugin. Only use this plugin if you are having 16 megabyte limit problem.
+ 
+Note that `MongoDbGridFSSnapshotStore` is considered as advanced optional plugin and it will not get an `Akka.Hosting` support. You will need to use HOCON configuration to use this plugin.
+
+## Configuring `MongoDbGridFSSnapshotStore`
+
+You will need to override the `class` property of the snapshot store `mongodb` HOCON settings to use this plugin. If you're using a custom snapshot-store plugin identifier, then you will need to change that instead. Note that the `use-write-transaction` setting is ignored on this plugin.
+
+```
+akka.persistence.snapshot-store.mongodb.class = "Akka.Persistence.MongoDb.Snapshot.MongoDbGridFSSnapshotStore, Akka.Persistence.MongoDb"
+```
