@@ -1,9 +1,18 @@
-﻿# Akka.Persistence.MongoDB
+﻿- [Akka.Persistence.MongoDB](#akkapersistencemongodb)
+    * [Setup](#setup)
+    * [Configuration](#configuration)
+    * [Programmatic configuration](#programmatic-configuration)
+    * [Serialization](#serialization)
+- [Large Snapshot Store Support](#large-snapshot-store-support)
+    * [Configuring `MongoDbGridFSSnapshotStore`](#configuring-mongodbgridfssnapshotstore)
+- [Performance Benchmarks](#performance-benchmarks)
+
+# Akka.Persistence.MongoDB
 
 Akka Persistence journal and snapshot store backed by MongoDB database.
 
 > [!NOTE]
-> 
+>
 > The MongoDB operator to limit the number of documents in a query only accepts an integer while akka provides a long as maximum for the loading of events during the replay. Internally the long value is cast to an integer and if the value is higher than Int32.MaxValue, Int32.MaxValue is used. So if you have stored more than 2,147,483,647 events for a single PersistenceId, you may have a problem :wink:
 
 ## Setup
@@ -133,12 +142,12 @@ akka.persistence {
 
 ## Programmatic configuration
 
-You can programmatically override the connection string setting in the HOCON configuration by adding a `MongoDbPersistenceSetup` to the 
+You can programmatically override the connection string setting in the HOCON configuration by adding a `MongoDbPersistenceSetup` to the
 `ActorSystemSetup` during `ActorSystem` creation. The `MongoDbPersistenceSetup` takes `MongoClientSettings` instances to be used to configure
 MongoDB client connection to the server. The `connection-string` settings in the HOCON configuration will be ignored if any of these `MongoClientSettings`
 exists inside the Setup object.
 
-> [!NOTE] 
+> [!NOTE]
 > The HOCON configuration is still needed for this to work, only the `connection-string` setting in the configuration will be overriden.
 
 Setting connection override for both snapshot store and journal:
@@ -215,9 +224,9 @@ Setting `legacy-serialization = on` will allow you to save objects in a BSON for
 MongoDb limits the size of documents it can store to 16 megabytes. If you know you will need to store snapshots larger than 16 megabytes, you can use the `Akka.Persistence.MongoDb.Snapshot.MongoDbGridFSSnapshotStore` snapshot store plugin.
 
 > [!NOTE]
-> 
+>
 > `MongoDbGridFSSnapshotStore` is not designed for normal snapshot store plugin, it does not support transaction and read/write operations are slower on this plugin. Only use this plugin if you are having 16 megabyte limit problem.
- 
+
 Note that `MongoDbGridFSSnapshotStore` is considered as advanced optional plugin and it will not get an `Akka.Hosting` support. You will need to use HOCON configuration to use this plugin.
 
 ## Configuring `MongoDbGridFSSnapshotStore`
@@ -227,3 +236,34 @@ You will need to override the `class` property of the snapshot store `mongodb` H
 ```
 akka.persistence.snapshot-store.mongodb.class = "Akka.Persistence.MongoDb.Snapshot.MongoDbGridFSSnapshotStore, Akka.Persistence.MongoDb"
 ```
+
+# Performance Benchmarks
+
+```
+Windows 10 (10.0.19045.4780/22H2/2022Update)
+AMD Ryzen 9 3900X, 1 CPU, 24 logical and 12 physical cores, 64 GB RAM
+.NET SDK 8.0.304
+  [Host]     : .NET 8.0.8 (8.0.824.36612), X64 RyuJIT AVX2
+  DefaultJob : .NET 8.0.8 (8.0.824.36612), X64 RyuJIT AVX2
+```
+
+Databases running on Docker for Desktop with WSL2 integration with 10 virtual CPU and 8 GB RAM
+
+All numbers are in msg/sec.
+
+| **Test**        | **MongoDB** |
+|:----------------|------------:|
+| Persist         |         257 |
+| PersistAsync    |        4587 |
+| PersistAll      |        7322 |
+| PersistAllAsync |       30435 |
+| PersistGroup10  |        1239 |
+| PersistGroup25  |        2290 |
+| PersistGroup50  |        3367 |
+| PersistGroup100 |        4108 |
+| PersistGroup200 |        4404 |
+| PersistGroup400 |        3777 |
+| Recovering      |       30370 |
+| RecoveringTwo   |       26693 |
+| RecoveringFour  |       35551 |
+| Recovering8     |       44192 |
