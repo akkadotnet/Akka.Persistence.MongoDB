@@ -2,8 +2,8 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <MongoDbVersion>2.27.0</MongoDbVersion>
-    <AkkaVersion>1.5.26</AkkaVersion>
-    <AkkaHostingVersion>1.5.25</AkkaHostingVersion>
+    <AkkaVersion>1.5.28</AkkaVersion>
+    <AkkaHostingVersion>1.5.28</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
