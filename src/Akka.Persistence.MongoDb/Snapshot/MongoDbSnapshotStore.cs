@@ -294,7 +294,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             {
                 var ser = _serialization.FindSerializerForType(typeof(Serialization.Snapshot));
                 var snapshot = ser.FromBinary<Serialization.Snapshot>((byte[])entry.Snapshot);
-                return new SelectedSnapshot(new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr), snapshot.Data);
+                return new SelectedSnapshot(new SnapshotMetadata(entry.PersistenceId, entry.SequenceNr, new DateTime(entry.Timestamp)), snapshot.Data);
             }
 
             int? serializerId = null;

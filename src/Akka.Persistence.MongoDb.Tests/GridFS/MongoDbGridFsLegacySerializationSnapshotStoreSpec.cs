@@ -57,7 +57,7 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
     [Fact]
     public async Task SnapshotStore_should_save_bigger_size_snapshot_consistently()
     {
-        var metadata = new SnapshotMetadata(Pid, 100);
+        var metadata = new SnapshotMetadata(Pid, 100, DateTime.MinValue);
         var bigSnapshot = new byte[SnapshotByteSizeLimit];
         new Random().NextBytes(bigSnapshot);
         var senderProbe = CreateTestProbe();
