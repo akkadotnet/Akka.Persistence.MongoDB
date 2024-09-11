@@ -1,3 +1,22 @@
+#### 1.5.28 September 11th 2024 ####
+
+* [Bump Akka.NET to 1.5.28](https://github.com/akkadotnet/akka.net/releases/tag/1.5.28)
+* [Bump Akka.Persistence.Hosting to 1.5.28](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.28)
+* [Bump MongoDB.Driver to 2.27.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/380)
+* [Add large snapshot support](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/383)
+
+**Support For Large (Greater Than 16 Megabytes) Snapshot Store**
+
+> [!NOTE]
+> 
+> GridFS is considered as an advanced feature, it will not be supported by Akka.Hosting.
+
+We added a new SnapshotStore that supports GridFS. To use it, you will need to set it through manual HOCON setting.
+
+```text
+akka.persistence.snapshot-store.mongodb.class = "Akka.Persistence.MongoDb.Snapshot.MongoDbGridFsSnapshotStore, Akka.Persistence.MongoDb"
+```
+
 #### 1.5.26 July 15th 2024 ####
 
 * [Bump Akka.NET to 1.5.26](https://github.com/akkadotnet/akka.net/releases/tag/1.5.26)
