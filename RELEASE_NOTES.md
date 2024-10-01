@@ -1,3 +1,13 @@
+#### 1.5.29 October 1st 2024 ####
+
+* [Bump Akka.NET to 1.5.29](https://github.com/akkadotnet/akka.net/releases/tag/1.5.29)
+* [Bump Akka.Persistence.Hosting to 1.5.29](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.29)
+* [Bump MongoDB.Driver to 2.28.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/388)
+
+**Breaking Change Notice**
+
+The MongoDb driver 2.28.0 is [now strongly-named](https://github.com/mongodb/mongo-csharp-driver/pull/1393) which may affect your project(s). You can read more about this decision [here](https://www.mongodb.com/community/forums/t/net-c-driver-strong-naming/291649).
+
 #### 1.5.28 September 11th 2024 ####
 
 * [Bump Akka.NET to 1.5.28](https://github.com/akkadotnet/akka.net/releases/tag/1.5.28)
