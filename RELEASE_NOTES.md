@@ -1,4 +1,4 @@
-#### 1.5.30 October 1st 2024 ####
+#### 1.5.30 October 3rd 2024 ####
 
 * [Bump Akka.NET to 1.5.30](https://github.com/akkadotnet/akka.net/releases/tag/1.5.30)
 * [Bump Akka.Persistence.Hosting to 1.5.30](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.30)
