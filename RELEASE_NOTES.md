@@ -1,3 +1,18 @@
+#### 1.5.31 December 4th 2024 ####
+
+* [Bump Akka.NET to 1.5.31](https://github.com/akkadotnet/akka.net/releases/tag/1.5.31)
+* [Bump Akka.Persistence.Hosting to 1.5.31.1](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.31.1)
+* [Bump MongoDB.Driver to 2.30.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/392)
+
+**Version Notice**
+
+Due to breaking changes in MongoDb.Driver v3.0.0, This release will be the last Akka.Persistence.MongoDb that will support:
+* MongoDb server v3.6 and earlier
+* Projects that targets .NET Core 2.x and lower
+* Projects that targets .NET Framework 2.7.1 and lower
+* LINQ2 provider
+* TLS 1.0 and 1.1
+
 #### 1.5.30 October 3rd 2024 ####
 
 * [Bump Akka.NET to 1.5.30](https://github.com/akkadotnet/akka.net/releases/tag/1.5.30)
