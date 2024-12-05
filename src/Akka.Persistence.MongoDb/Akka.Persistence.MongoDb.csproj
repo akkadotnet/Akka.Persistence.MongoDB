@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>$(NetStandardLibVersion)</TargetFrameworks>
+    <TargetFrameworks>$(NetStandardLibVersion);$(NetFrameworkLibVersion)</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,6 +10,5 @@
     <PackageReference Include="Akka.Persistence.Query" />
     <PackageReference Include="Akka.Streams" />
     <PackageReference Include="MongoDB.Driver" />
-    <PackageReference Include="MongoDB.Driver.GridFS" />
   </ItemGroup>
 </Project>
