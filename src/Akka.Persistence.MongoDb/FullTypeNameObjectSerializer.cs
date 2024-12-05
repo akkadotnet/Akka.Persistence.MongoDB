@@ -17,9 +17,9 @@ namespace Akka.Persistence.MongoDb
     /// <summary>
     /// Represents a serializer for objects.
     /// </summary>
-    class FullTypeNameObjectSerializer : ClassSerializerBase<object>, IHasDiscriminatorConvention
+    internal class FullTypeNameObjectSerializer : ClassSerializerBase<object>, IHasDiscriminatorConvention
     {
-        private ObjectSerializer _serializer;
+        private readonly ObjectSerializer _serializer;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="FullTypeNameObjectSerializer"/> class.
