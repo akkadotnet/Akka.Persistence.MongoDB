@@ -2,14 +2,15 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <MongoDbVersion>2.30.0</MongoDbVersion>
-    <AkkaVersion>1.5.31</AkkaVersion>
-    <AkkaHostingVersion>1.5.31.1</AkkaHostingVersion>
+    <AkkaVersion>1.5.32</AkkaVersion>
+    <AkkaHostingVersion>1.5.32</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageVersion Include="MongoDB.Driver" Version="$(MongoDbVersion)" />
     <PackageVersion Include="MongoDB.Driver.GridFS" Version="$(MongoDbVersion)" />
   </ItemGroup>
