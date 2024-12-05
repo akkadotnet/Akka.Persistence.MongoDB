@@ -94,6 +94,7 @@ Target "BuildNet" (fun _ ->
                   -- "./src/examples/**/*.csproj"
         | _ -> !! "./src/**/*.csproj" // if you need to filter specs for Linux vs. Windows, do it here
                -- "./src/**/*.Tests.csproj"
+               -- "./src/examples/**/*.csproj"
 
     let tests =
         match (isWindows) with 
