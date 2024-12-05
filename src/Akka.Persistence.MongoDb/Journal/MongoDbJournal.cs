@@ -74,11 +74,8 @@ namespace Akka.Persistence.MongoDb.Journal
                 return _mongoDatabase_DoNotUseDirectly;
             }
 
-            //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
             var connectionString = new MongoUrl(_settings.ConnectionString);
             var clientSettings = MongoClientSettings.FromUrl(connectionString);
-            clientSettings.LinqProvider = LinqProvider.V2;
-            
             client = new MongoClient(clientSettings);
             _mongoDatabase_DoNotUseDirectly = client.GetDatabase(connectionString.DatabaseName);
             return _mongoDatabase_DoNotUseDirectly;

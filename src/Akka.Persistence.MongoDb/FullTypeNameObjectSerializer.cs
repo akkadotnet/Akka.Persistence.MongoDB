@@ -17,15 +17,20 @@ namespace Akka.Persistence.MongoDb
     /// <summary>
     /// Represents a serializer for objects.
     /// </summary>
-    class FullTypeNameObjectSerializer : ObjectSerializer
+    internal class FullTypeNameObjectSerializer : ClassSerializerBase<object>, IHasDiscriminatorConvention
     {
-        protected readonly IDiscriminatorConvention DiscriminatorConvention = FullTypeNameDiscriminatorConvention.Instance;
-
+        private readonly ObjectSerializer _serializer;
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="FullTypeNameObjectSerializer"/> class.
         /// </summary>
-        public FullTypeNameObjectSerializer() : base(FullTypeNameDiscriminatorConvention.Instance, AllAllowedTypes) { }
+        public FullTypeNameObjectSerializer()
+        {
+            _serializer = new ObjectSerializer(DiscriminatorConvention, ObjectSerializer.AllAllowedTypes);
+        }
 
+        public IDiscriminatorConvention DiscriminatorConvention => FullTypeNameDiscriminatorConvention.Instance;
+        
         /// <summary>
         /// Deserializes a value.
         /// </summary>
@@ -38,7 +43,7 @@ namespace Akka.Persistence.MongoDb
                 RegisterNewTypesToDiscriminator(DiscriminatorConvention.GetActualType(bsonReader, typeof(object)));
             }
 
-            return base.Deserialize(context, args);
+            return _serializer.Deserialize(context, args);
         }
 
         /// <summary>
@@ -52,14 +57,14 @@ namespace Akka.Persistence.MongoDb
                 RegisterNewTypesToDiscriminator(value.GetType());
             }
 
-            base.Serialize(context, args, value);
+            _serializer.Serialize(context, args, value);
         }
 
         /// <summary>
         /// If the type is not registered, attach it to our discriminator
         /// </summary>
         /// <param name="actualType">the type to examine</param>
-        protected void RegisterNewTypesToDiscriminator(Type actualType)
+        private void RegisterNewTypesToDiscriminator(Type actualType)
         {
             // we've detected a new concrete type that isn't registered in MongoDB's serializer
             if (actualType != typeof(object) && !actualType.GetTypeInfo().IsInterface && !BsonSerializer.IsTypeDiscriminated(actualType))

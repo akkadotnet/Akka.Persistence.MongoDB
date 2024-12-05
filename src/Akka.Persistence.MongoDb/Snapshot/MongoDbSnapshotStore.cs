@@ -12,7 +12,6 @@ using Akka.Configuration;
 using Akka.Persistence.Snapshot;
 using Akka.Util;
 using MongoDB.Driver;
-using MongoDB.Driver.Linq;
 
 #nullable enable
 namespace Akka.Persistence.MongoDb.Snapshot
@@ -94,10 +93,8 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
             if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
             {
-                //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
                 var connectionString = new MongoUrl(_settings.ConnectionString);
                 var clientSettings = MongoClientSettings.FromUrl(connectionString);
-                clientSettings.LinqProvider = LinqProvider.V2;
                 client = new MongoClient(clientSettings);
                 _mongoDatabase_DoNotUseDirectly = client.GetDatabase(connectionString.DatabaseName);
                 return _mongoDatabase_DoNotUseDirectly;
@@ -135,7 +132,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             base.PostStop();
         }
 
-        protected override async Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             using var unitedCts = CreatePerCallCts();
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
@@ -143,11 +140,12 @@ namespace Akka.Persistence.MongoDb.Snapshot
             return await MaybeWithTransaction(async (session, token) =>
             {
                 var filter = CreateRangeFilter(persistenceId, criteria);
-                return await (session is not null ? snapshotCollection.Find(session, filter) : snapshotCollection.Find(filter)) 
+                var entry = await (session is not null ? snapshotCollection.Find(session, filter) : snapshotCollection.Find(filter)) 
                     .SortByDescending(x => x.SequenceNr)
                     .Limit(1)
-                    .Project(x => ToSelectedSnapshot(x))
                     .FirstOrDefaultAsync(token);
+                
+                return ToSelectedSnapshot(entry);
             }, unitedCts.Token);
         }
 
@@ -272,12 +270,15 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 Snapshot = binary,
                 Timestamp = metadata.Timestamp.Ticks,
                 Manifest = binaryManifest,
-                SerializerId = serializer?.Identifier
+                SerializerId = serializer.Identifier
             };
         }
 
-        private SelectedSnapshot ToSelectedSnapshot(SnapshotEntry entry)
+        private SelectedSnapshot? ToSelectedSnapshot(SnapshotEntry? entry)
         {
+            if (entry is null)
+                return null;
+            
             if (_settings.LegacySerialization)
             {
                 return new SelectedSnapshot(

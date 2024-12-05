@@ -1,10 +1,8 @@
 ﻿using Akka.Actor;
 using Akka.Actor.Setup;
 using Akka.Configuration;
-using Akka.Persistence.TCK.Journal;
 using Akka.Persistence.TCK.Snapshot;
 using MongoDB.Driver;
-using MongoDB.Driver.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -25,10 +23,8 @@ namespace Akka.Persistence.MongoDb.Tests
 
         private static ActorSystemSetup CreateBootstrapSetup(DatabaseFixture fixture)
         {
-            //Default LinqProvider has been changed to LINQ3.LinqProvider can be changed back to LINQ2 in the following way:
             var connectionString = new MongoUrl(fixture.ConnectionString);
             var clientSettings = MongoClientSettings.FromUrl(connectionString);
-            clientSettings.LinqProvider = LinqProvider.V2;
             var client = new MongoClient(clientSettings);
             var databaseName = connectionString.DatabaseName;
             var settings = client.Settings;
