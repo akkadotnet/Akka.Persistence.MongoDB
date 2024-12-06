@@ -6,12 +6,12 @@
 
 **Breaking Change Notice** 
 
-Due to breaking changes in MongoDb.Driver v3.0.0, This beta release will not support:
- * MongoDb server v3.6 and earlier
- * Projects that targets .NET Core 2.x and lower
- * Projects that targets .NET Framework 2.7.1 and lower
- * LINQ2 provider
- * TLS 1.0 and 1.1
+Due to breaking changes in MongoDb.Driver v3.0.0, from this point forward, Akka.Persistence.MongoDb releases **WILL NOT** support:
+* MongoDb server v3.6 and earlier
+* Projects that targets .NET Core 2.x and lower
+* Projects that targets .NET Framework 2.7.1 and lower
+* LINQ2 provider
+* TLS 1.0 and 1.1
 
 MongoDb.Driver 3.0.0 release note: https://github.com/mongodb/mongo-csharp-driver/releases/tag/v3.0.0
  
