@@ -1,3 +1,34 @@
+#### 1.5.32 December 23rd 2024 ####
+
+* [Bump Akka.NET to 1.5.32](https://github.com/akkadotnet/akka.net/releases/tag/1.5.32)
+* [Bump Akka.Persistence.Hosting to 1.5.32](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.32)
+* [Bump MongoDB.Driver to 3.0.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/395)
+
+**Breaking Change Notice**
+
+Due to breaking changes in MongoDb.Driver v3.0.0, from this point forward, Akka.Persistence.MongoDb releases **WILL NOT** support:
+* MongoDb server v3.6 and earlier
+* Projects that targets .NET Core 2.x and lower
+* Projects that targets .NET Framework 2.7.1 and lower
+* LINQ2 provider
+* TLS 1.0 and 1.1
+
+**Driver Behavior Change And Workaround**
+
+There is a behavior change in `MongoDb.Driver` v3.0.0 where it would use the DNS resolved server host address when it actually tries to connect to the server. This is problematic if your application lives inside a container and hard code your MongoDb server address inside the connection string.
+
+Example:
+* Server address used in connection string: "host.docker.internal:27017"
+* Actual server address being used in MongoDb connection: "127.0.0.1:27017"
+
+The workaround is to add "directConnection=true" in your connection string.
+
+**`MongoDb.Driver` Upgrade Advisories**
+
+`MongoDb.Driver` 3.0.0 release note: https://github.com/mongodb/mongo-csharp-driver/releases/tag/v3.0.0
+
+`MongoDb.Driver` 3.0.0 Upgrade advisory: https://www.mongodb.com/docs/drivers/csharp/v3.0/upgrade/v3/
+
 #### 1.5.32-beta1 December 5th 2024 ####
 
 * [Bump Akka.NET to 1.5.32](https://github.com/akkadotnet/akka.net/releases/tag/1.5.32)
