@@ -1,3 +1,8 @@
+#### 1.5.37 January 24th 2025 ####
+
+* [Bump Akka.NET to 1.5.37](https://github.com/akkadotnet/akka.net/releases/tag/1.5.37)
+* [Bump Akka.Persistence.Hosting to 1.5.37](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.37)
+
 #### 1.5.32 December 23rd 2024 ####
 
 * [Bump Akka.NET to 1.5.32](https://github.com/akkadotnet/akka.net/releases/tag/1.5.32)
