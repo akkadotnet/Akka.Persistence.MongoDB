@@ -1,11 +1,9 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <AkkaVersion>1.5.31</AkkaVersion>
-    <AkkaHostingVersion>1.5.31.1</AkkaHostingVersion>
     <MongoDbVersion>3.0.0</MongoDbVersion>
-    <AkkaVersion>1.5.32</AkkaVersion>
-    <AkkaHostingVersion>1.5.32</AkkaHostingVersion>
+    <AkkaVersion>1.5.37</AkkaVersion>
+    <AkkaHostingVersion>1.5.37</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
