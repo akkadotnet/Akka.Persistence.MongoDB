@@ -107,19 +107,22 @@ namespace Akka.Persistence.MongoDb.Snapshot
 
         private async Task<IMongoCollection<SnapshotEntry>> GetSnapshotCollection(CancellationToken token)
         {
-            _snapshotCollection_DoNotUseDirectly = GetMongoDb().GetCollection<SnapshotEntry>(_settings.Collection);
-
-            if (!_settings.AutoInitialize) 
+            if (_snapshotCollection_DoNotUseDirectly is not null) 
                 return _snapshotCollection_DoNotUseDirectly;
             
-            var modelWithAscendingPersistenceIdAndDescendingSequenceNr =
-                new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
-                    .Ascending(entry => entry.PersistenceId)
-                    .Descending(entry => entry.SequenceNr));
+            _snapshotCollection_DoNotUseDirectly = GetMongoDb().GetCollection<SnapshotEntry>(_settings.Collection);
 
-            await _snapshotCollection_DoNotUseDirectly.Indexes
-                .CreateOneAsync(modelWithAscendingPersistenceIdAndDescendingSequenceNr,
-                    cancellationToken: token);
+            if (_settings.AutoInitialize)
+            {
+                var modelWithAscendingPersistenceIdAndDescendingSequenceNr =
+                    new CreateIndexModel<SnapshotEntry>(Builders<SnapshotEntry>.IndexKeys
+                        .Ascending(entry => entry.PersistenceId)
+                        .Descending(entry => entry.SequenceNr));
+
+                await _snapshotCollection_DoNotUseDirectly.Indexes
+                    .CreateOneAsync(modelWithAscendingPersistenceIdAndDescendingSequenceNr,
+                        cancellationToken: token);
+            }
 
             return _snapshotCollection_DoNotUseDirectly;
         }
