@@ -36,9 +36,14 @@ public class MongoDbSnapshotOptions : SnapshotOptions
     public string? Collection { get; set; }
 
     /// <summary>
-    /// Transaction
+    /// Write Transaction
     /// </summary>
     public bool? UseWriteTransaction { get; set; }
+
+    /// <summary>
+    /// Read Transaction
+    /// </summary>
+    public bool? UseReadTransaction { get; set; }
 
     /// <summary>
     /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
@@ -64,6 +69,9 @@ public class MongoDbSnapshotOptions : SnapshotOptions
         
         if(UseWriteTransaction is not null)
             sb.AppendLine($"use-write-transaction = {UseWriteTransaction.ToHocon()}");
+        
+        if(UseReadTransaction is not null)
+            sb.AppendLine($"use-read-transaction = {UseReadTransaction.ToHocon()}");
         
         if(Collection is not null)
             sb.AppendLine($"collection = {Collection.ToHocon()}");

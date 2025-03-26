@@ -151,7 +151,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return unitedCts;
         }
 
-        private async Task MaybeWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
+        private async Task MaybeWriteWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
         {
             if (!_settings.Transaction)
             {
@@ -168,9 +168,26 @@ namespace Akka.Persistence.MongoDb.Journal
                 }, cancellationToken:token);
         }
         
-        private async Task<T> MaybeWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        private async Task MaybeReadWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
         {
-            if (!_settings.Transaction) 
+            if (!_settings.ReadTransaction)
+            {
+                await act(null, token);
+                return;
+            }
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            await session.WithTransactionAsync(
+                async (s, ct) =>
+                {
+                    await act(s, ct);
+                    return Task.FromResult(NotUsed.Instance);
+                }, cancellationToken:token);
+        }
+        
+        private async Task<T> MaybeReadWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        {
+            if (!_settings.ReadTransaction) 
                 return await act(null, token);
             
             using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
@@ -195,7 +212,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
-            await MaybeWithTransaction(async (session, ct) =>
+            await MaybeReadWithTransaction(async (session, ct) =>
             {
                 var collections = await journalCollection
                     .ReplayMessagesQuery(session, persistenceId, fromSequenceNr, toSequenceNr, limitValue)
@@ -215,7 +232,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
-            return await MaybeWithTransaction(async (s, ct) =>
+            return await MaybeReadWithTransaction(async (s, ct) =>
             {
                 /*
                  *  NOTE: limit is used like a pagination value, not a cap on the amount
@@ -262,7 +279,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             var token = unitedCts.Token;
 
-            return await MaybeWithTransaction(
+            return await MaybeReadWithTransaction(
                 async (s, ct) => await ReadHighestSequenceNrOperation(s, persistenceId, ct), 
                 token);
         }
@@ -317,7 +334,7 @@ namespace Akka.Persistence.MongoDb.Journal
 
         private async ValueTask InsertEntries(IMongoCollection<JournalEntry> collection, IEnumerable<JournalEntry> entries, CancellationToken token)
         {
-            await MaybeWithTransaction(async (session, ct) =>
+            await MaybeWriteWithTransaction(async (session, ct) =>
             {
                 //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
                 //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
@@ -339,7 +356,7 @@ namespace Akka.Persistence.MongoDb.Journal
             var journalCollection = await GetJournalCollection(unitedCts.Token);
             var metadataCollection = await GetMetadataCollection(unitedCts.Token);
 
-            await MaybeWithTransaction(async (session, token) =>
+            await MaybeWriteWithTransaction(async (session, token) =>
             {
                 var builder = Builders<JournalEntry>.Filter;
                 var filter = builder.Eq(x => x.PersistenceId, persistenceId);
@@ -531,7 +548,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
-            return await MaybeWithTransaction(async (session, token) =>
+            return await MaybeReadWithTransaction(async (session, token) =>
             {
                 var ids = await journalCollection.AllPersistenceIdsQuery(session, offset, token);
                 var lastOrdering = await journalCollection.HighestOrderingQuery(session, token);
@@ -544,7 +561,7 @@ namespace Akka.Persistence.MongoDb.Journal
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
-            return await MaybeWithTransaction(async (session, token) =>
+            return await MaybeReadWithTransaction(async (session, token) =>
             {
                 var limitValue = replay.Max >= int.MaxValue ? int.MaxValue : (int)replay.Max;
 

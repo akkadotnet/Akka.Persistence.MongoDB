@@ -40,6 +40,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
             config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
             config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
+            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
             config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
             config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
             config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
@@ -65,6 +66,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
             config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
             config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
+            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
             config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
             config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
             config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
@@ -82,6 +84,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
                 ConnectionString = "testConnection",
                 Collection = "testCollection",
                 UseWriteTransaction = true,
+                UseReadTransaction = true,
                 LegacySerialization = true,
                 CallTimeout = TimeSpan.FromHours(2)
             };
@@ -97,6 +100,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             config.GetBoolean("auto-initialize").Should().Be(options.AutoInitialize);
             config.GetString("collection").Should().Be(options.Collection);
             config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction.Value);
+            config.GetBoolean("use-read-transaction").Should().Be(options.UseReadTransaction.Value);
             config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization.Value);
             config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout.Value);
         }
@@ -116,6 +120,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
                 ""SnapshotOptions"": {
                   ""ConnectionString"": ""mongodb://localhost:27017"",
                   ""UseWriteTransaction"": ""true"",
+                  ""UseReadTransaction"": ""true"",
                   ""Identifier"": ""custommongodb"",
                   ""AutoInitialize"": true,
                   ""IsDefaultPlugin"": false,
@@ -133,6 +138,7 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var options = jsonConfig.GetSection("Akka:SnapshotOptions").Get<MongoDbSnapshotOptions>();
             options.ConnectionString.Should().Be("mongodb://localhost:27017");
             options.UseWriteTransaction.Should().BeTrue();
+            options.UseReadTransaction.Should().BeTrue();
             options.Identifier.Should().Be("custommongodb");
             options.AutoInitialize.Should().BeTrue();
             options.IsDefaultPlugin.Should().BeFalse();
