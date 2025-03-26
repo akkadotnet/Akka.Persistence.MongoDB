@@ -46,6 +46,14 @@ public class MongoDbJournalOptions : JournalOptions
     /// Read Transaction
     /// </summary>
     public bool? UseReadTransaction { get; set; }
+    
+    /// <summary>
+    /// Set the batch size for read operations.
+    /// If not set (null), this will use the default MongoDb behavior where all queries
+    /// will have a batch size of 101 on the first page read and then will try to read
+    /// as many documents as possible that fits the 16 MeBi limit.
+    /// </summary>
+    public int? ReadBatchSize { get; set; }
 
     /// <summary>
     /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
@@ -82,6 +90,8 @@ public class MongoDbJournalOptions : JournalOptions
         if(UseReadTransaction is not null)
             sb.AppendLine($"use-read-transaction = {UseReadTransaction.ToHocon()}");
         
+        sb.AppendLine($"read-batch-size = {(ReadBatchSize is not null ? ReadBatchSize.ToHocon() : "off")}");
+
         if(LegacySerialization is not null)
             sb.AppendLine($"legacy-serialization = {LegacySerialization.ToHocon()}");
 
