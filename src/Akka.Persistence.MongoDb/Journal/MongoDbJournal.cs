@@ -192,7 +192,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if (limitValue == 0)
                 return;
 
-            var sender = Sender;
+            var sender = context.Sender;
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
