@@ -58,7 +58,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             return unitedCts;
         }
 
-        private async Task MaybeWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
+        private async Task MaybeWriteWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
         {
             if (!_settings.Transaction)
             {
@@ -75,9 +75,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 }, cancellationToken:token);
         }
         
-        private async Task<T> MaybeWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        private async Task<T> MaybeReadWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
         {
-            if (!_settings.Transaction) 
+            if (!_settings.ReadTransaction) 
                 return await act(null, token);
             
             using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
@@ -140,7 +140,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             using var unitedCts = CreatePerCallCts();
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
-            return await MaybeWithTransaction(async (session, token) =>
+            return await MaybeReadWithTransaction(async (session, token) =>
             {
                 var filter = CreateRangeFilter(persistenceId, criteria);
                 var entry = await (session is not null ? snapshotCollection.Find(session, filter) : snapshotCollection.Find(filter)) 
@@ -158,7 +158,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
             
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
-            await MaybeWithTransaction(async (session, token) =>
+            await MaybeWriteWithTransaction(async (session, token) =>
             {
                 if (session is not null)
                 {
@@ -185,7 +185,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             using var unitedCts = CreatePerCallCts();
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
-            await MaybeWithTransaction(async (session, token) =>
+            await MaybeWriteWithTransaction(async (session, token) =>
             {
                 var builder = Builders<SnapshotEntry>.Filter;
                 var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
@@ -208,7 +208,7 @@ namespace Akka.Persistence.MongoDb.Snapshot
             using var unitedCts = CreatePerCallCts();
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
-            await MaybeWithTransaction(async (session, token) =>
+            await MaybeWriteWithTransaction(async (session, token) =>
             {
                 var filter = CreateRangeFilter(persistenceId, criteria);
                 if(session is not null)

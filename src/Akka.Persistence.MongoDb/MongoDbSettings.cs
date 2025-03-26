@@ -18,22 +18,27 @@ namespace Akka.Persistence.MongoDb
         /// <summary>
         /// Connection string used to access the MongoDb, also specifies the database.
         /// </summary>
-        public string ConnectionString { get; private set; }
+        public string ConnectionString { get; }
               
         /// <summary>
-        /// Flag determining in in case of event journal or metadata table missing, they should be automatically initialized.
+        /// Flag determining in case of event journal or metadata table missing, they should be automatically initialized.
         /// </summary>
-        public bool AutoInitialize { get; private set; }
+        public bool AutoInitialize { get; }
 
         /// <summary>
         /// Name of the collection for the event journal or snapshots
         /// </summary>
-        public string Collection { get; private set; }
+        public string Collection { get; }
 
         /// <summary>
         /// Transaction
         /// </summary>
-        public bool Transaction { get; private set; }
+        public bool Transaction { get; }
+        
+        /// <summary>
+        /// Transaction
+        /// </summary>
+        public bool ReadTransaction { get; }
 
         /// <summary>
         /// When true, enables BSON serialization (which breaks features like Akka.Cluster.Sharding, AtLeastOnceDelivery, and so on.)
@@ -52,6 +57,7 @@ namespace Akka.Persistence.MongoDb
         {
             ConnectionString = config.GetString("connection-string");
             Transaction = config.GetBoolean("use-write-transaction");
+            ReadTransaction = config.GetBoolean("use-read-transaction");
             Collection = config.GetString("collection");
             AutoInitialize = config.GetBoolean("auto-initialize");
             LegacySerialization = config.GetBoolean("legacy-serialization");
