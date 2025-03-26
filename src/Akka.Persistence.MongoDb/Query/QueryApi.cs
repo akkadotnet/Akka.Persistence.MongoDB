@@ -238,16 +238,19 @@ namespace Akka.Persistence.MongoDb.Query
         /// </summary>
         public readonly long Offset;
 
+        public readonly string[] Tags;
+
         /// <summary>
         /// TBD
         /// </summary>
         /// <param name="persistent">TBD</param>
-        /// <param name="tag">TBD</param>
+        /// <param name="tags">TBD</param>
         /// <param name="offset">TBD</param>
-        public ReplayedEvent(IPersistentRepresentation persistent, long offset)
+        public ReplayedEvent(IPersistentRepresentation persistent, long offset, string[] tags)
         {
             Persistent = persistent;
             Offset = offset;
+            Tags = tags;
         }
     }
 

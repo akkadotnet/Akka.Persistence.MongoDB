@@ -433,7 +433,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return DateTimeOffset.FromUnixTimeSeconds(bson.Timestamp).Ticks;
         }
 
-        private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef sender)
+        private Persistent ToPersistenceRepresentation(JournalEntry entry, IActorRef? sender)
         {
             if (_settings.LegacySerialization)
             {
@@ -567,7 +567,7 @@ namespace Akka.Persistence.MongoDb.Journal
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                         foreach (var adapted in AdaptFromJournal(persistent))
                         {
-                            replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value), ActorRefs.NoSender);
+                            replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value, entry.Tags.ToArray()), ActorRefs.NoSender);
                         }
                     }, token);
                         
