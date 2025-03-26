@@ -191,7 +191,8 @@ namespace Akka.Persistence.MongoDb.Journal
             // Do not replay messages if limit equal zero
             if (limitValue == 0)
                 return;
-            
+
+            var sender = Sender;
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
@@ -201,7 +202,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     .ReplayMessagesQuery(session, persistenceId, fromSequenceNr, toSequenceNr, limitValue)
                     .ToListAsync(ct);
                 
-                collections.ForEach(doc => recoveryCallback(ToPersistenceRepresentation(doc, context.Sender)));
+                collections.ForEach(doc => recoveryCallback(ToPersistenceRepresentation(doc, sender)));
             }, unitedCts.Token);
         }
 
