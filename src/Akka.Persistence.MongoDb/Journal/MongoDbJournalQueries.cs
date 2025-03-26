@@ -29,7 +29,8 @@ internal static class MongoDbJournalQueries
         string persistenceId,
         long fromSequenceNr,
         long toSequenceNr,
-        int limit)
+        int limit,
+        FindOptions? findOptions)
     {
         var builder = Builders<JournalEntry>.Filter;
         var filter = builder.Eq(x => x.PersistenceId, persistenceId);
@@ -40,7 +41,7 @@ internal static class MongoDbJournalQueries
 
         var sort = Builders<JournalEntry>.Sort.Ascending(x => x.SequenceNr);
             
-        return (session is not null ? collection.Find(session, filter) : collection.Find(filter))
+        return (session is not null ? collection.Find(session, filter, findOptions) : collection.Find(filter, findOptions))
             .Sort(sort)
             .Limit(limit);
     }
@@ -85,7 +86,8 @@ internal static class MongoDbJournalQueries
             long toSequenceNr,
             long maxOrderingId,
             string? tag,
-            int limit
+            int limit,
+            FindOptions? findOptions
         )
     {
         var builder = Builders<JournalEntry>.Filter;
@@ -101,7 +103,7 @@ internal static class MongoDbJournalQueries
         
         var sort = Builders<JournalEntry>.Sort.Ascending(x => x.Ordering);
 
-        return (session is not null ? collection.Find(session, filter) : collection.Find(filter))
+        return (session is not null ? collection.Find(session, filter, findOptions) : collection.Find(filter, findOptions))
             .Sort(sort)
             .Limit(limit);
     }
