@@ -1,3 +1,12 @@
+#### 1.5.40 March 27th 2025 ####
+
+* [Bump Akka.NET to 1.5.40](https://github.com/akkadotnet/akka.net/releases/tag/1.5.40)
+* [Bump Akka.Persistence.Hosting to 1.5.40](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.40)
+* [Fix snapshot store recreating MongoDb collection on each DB operation](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/402)
+* [Add tags support to AllEvents query](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/407)
+* [Separate transaction feature flag to enable separate read and write transaction](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/408)
+* [Refactor bulk journal reads during actor recovery and event query to use the more memory efficient `AsCursorAsync()` MongoDb API](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/409)
+
 #### 1.5.37 January 24th 2025 ####
 
 * [Bump Akka.NET to 1.5.37](https://github.com/akkadotnet/akka.net/releases/tag/1.5.37)
