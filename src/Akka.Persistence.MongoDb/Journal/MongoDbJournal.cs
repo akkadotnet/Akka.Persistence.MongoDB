@@ -43,6 +43,8 @@ namespace Akka.Persistence.MongoDb.Journal
         private readonly CancellationTokenSource _pendingCommandsCancellation = new();
 
         private readonly Akka.Serialization.Serialization _serialization;
+        
+        private readonly FindOptions? _findOptions;
 
         public MongoDbJournal() : this(MongoDbPersistence.Get(Context.System).JournalSettings)
         {
@@ -57,6 +59,11 @@ namespace Akka.Persistence.MongoDb.Journal
         {
             _settings = settings;
             _serialization = Context.System.Serialization;
+            if (_settings.ReadBatchSize is not null)
+                _findOptions = new FindOptions
+                {
+                    BatchSize = settings.ReadBatchSize,
+                };
         }
 
         private IMongoDatabase GetMongoDb()
@@ -226,11 +233,11 @@ namespace Akka.Persistence.MongoDb.Journal
 
             await MaybeReadWithTransaction(async (session, ct) =>
             {
-                var collections = await journalCollection
-                    .ReplayMessagesQuery(session, persistenceId, fromSequenceNr, toSequenceNr, limitValue)
-                    .ToListAsync(ct);
+                var cursor = await journalCollection
+                    .ReplayMessagesQuery(session, persistenceId, fromSequenceNr, toSequenceNr, limitValue, _findOptions)
+                    .ToCursorAsync(ct);
                 
-                collections.ForEach(doc => recoveryCallback(ToPersistenceRepresentation(doc, sender)));
+                await cursor.ForEachAsync(doc => recoveryCallback(ToPersistenceRepresentation(doc, sender)), ct);
             }, unitedCts.Token);
         }
 
@@ -267,8 +274,11 @@ namespace Akka.Persistence.MongoDb.Journal
 
                 var maxOrderingId = maxSeqNoEntry.Value;
 
-                await journalCollection.MessagesQuery(s, fromSequenceNr, toSequenceNr, maxOrderingId, tag, limitValue)
-                    .ForEachAsync(entry =>
+                var cursor = await journalCollection
+                    .MessagesQuery(s, fromSequenceNr, toSequenceNr, maxOrderingId, tag, limitValue, _findOptions)
+                    .ToCursorAsync(ct);
+                
+                await cursor.ForEachAsync(entry =>
                     {
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                         foreach (var adapted in AdaptFromJournal(persistent))
@@ -601,8 +611,11 @@ namespace Akka.Persistence.MongoDb.Journal
                         
                 var maxOrderingId = maxSeqNoEntry.Value;
 
-                await journalCollection.MessagesQuery(session, fromSequenceNr, toSequenceNr, maxOrderingId, null, limitValue)
-                    .ForEachAsync(entry =>
+                var cursor = await journalCollection
+                    .MessagesQuery(session, fromSequenceNr, toSequenceNr, maxOrderingId, null, limitValue, _findOptions)
+                    .ToCursorAsync(token);
+                
+                await cursor.ForEachAsync(entry =>
                     {
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                         foreach (var adapted in AdaptFromJournal(persistent))

@@ -72,7 +72,9 @@ namespace Akka.Persistence.MongoDb
     {
         public const string JournalConfigPath = "akka.persistence.journal.mongodb";
 
-        public string MetadataCollection { get; private set; }
+        public string MetadataCollection { get; }
+        
+        public int? ReadBatchSize { get; }
 
         public MongoDbJournalSettings(Config config) : base(config)
         {
@@ -81,6 +83,9 @@ namespace Akka.Persistence.MongoDb
                     "MongoDb journal settings cannot be initialized, because required HOCON section couldn't been found");
 
             MetadataCollection = config.GetString("metadata-collection");
+            var readBatchSize = config.GetString("read-batch-size")?.ToLowerInvariant();
+            if(!string.IsNullOrWhiteSpace(readBatchSize) && readBatchSize != "off" && readBatchSize != "false")
+                ReadBatchSize = int.Parse(readBatchSize);
         }
     }
 
