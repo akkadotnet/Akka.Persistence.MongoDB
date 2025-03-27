@@ -370,31 +370,29 @@ namespace Akka.Persistence.MongoDb.Journal
                 //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
                 //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
                 var exceptions = new Exception?[writeMessages.Length];
-                for (var i = 0; i < exceptions.Length; i++)
+                var writeTasks = writeMessages.Select(journalEntries =>
+                    {
+                        if (session is not null)
+                        {
+                            return journalEntries.Length == 1 
+                                ? journalCollection.InsertOneAsync(session, journalEntries[0], insertOneOptions, ct)
+                                    .ContinueWith(t => t.Exception, ct)
+                                : journalCollection.InsertManyAsync(session, journalEntries, insertManyOptions, ct)
+                                    .ContinueWith(t => t.Exception, ct);
+                        }
+                        return journalEntries.Length == 1 
+                            ? journalCollection.InsertOneAsync(journalEntries[0], insertOneOptions, ct)
+                                .ContinueWith(t => t.Exception, ct)
+                            : journalCollection.InsertManyAsync(journalEntries, insertManyOptions, ct)
+                                .ContinueWith(t => t.Exception, ct);
+                    });
+                
+                var index = 0;
+                foreach (var task in writeTasks)
                 {
-                    try
-                    {
-                        var journalEntries = writeMessages[i];
-                        if (journalEntries.Length == 1)
-                        {
-                            if(session is not null)
-                                await journalCollection.InsertOneAsync(session, journalEntries[0], insertOneOptions, ct);
-                            else
-                                await journalCollection.InsertOneAsync(journalEntries[0], insertOneOptions, ct);
-                        }
-                        else
-                        {
-                            if (session is not null)
-                                await journalCollection.InsertManyAsync(session, journalEntries, insertManyOptions, ct);
-                            else
-                                await journalCollection.InsertManyAsync(journalEntries, insertManyOptions, ct);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        exceptions[i] = e;
-                    }
+                    exceptions[index++] = await task;
                 }
+                
                 return exceptions.ToImmutableArray();
             }, unitedCts.Token);
         }
