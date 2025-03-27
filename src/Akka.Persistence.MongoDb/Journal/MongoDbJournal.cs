@@ -11,7 +11,6 @@ using Akka.Persistence.MongoDb.Query;
 using Akka.Util;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.Linq;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -151,6 +150,18 @@ namespace Akka.Persistence.MongoDb.Journal
             return unitedCts;
         }
 
+        private async Task<T> MaybeWriteWithTransaction<T>(Func<IClientSessionHandle?, CancellationToken, Task<T>> act, CancellationToken token)
+        {
+            if (!_settings.Transaction)
+            {
+                return await act(null, token);
+            }
+            
+            using var session = await GetMongoDb().Client.StartSessionAsync(EmptySessionOptions, token);
+            return await session.WithTransactionAsync(
+                async (s, ct) => await act(s, ct), cancellationToken:token);
+        }
+        
         private async Task MaybeWriteWithTransaction(Func<IClientSessionHandle?, CancellationToken, Task> act, CancellationToken token)
         {
             if (!_settings.Transaction)
@@ -164,7 +175,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 async (s, ct) =>
                 {
                     await act(s, ct);
-                    return Task.FromResult(NotUsed.Instance);
+                    return NotUsed.Instance;
                 }, cancellationToken:token);
         }
         
@@ -181,7 +192,7 @@ namespace Akka.Persistence.MongoDb.Journal
                 async (s, ct) =>
                 {
                     await act(s, ct);
-                    return Task.FromResult(NotUsed.Instance);
+                    return NotUsed.Instance;
                 }, cancellationToken:token);
         }
         
@@ -312,43 +323,54 @@ namespace Akka.Persistence.MongoDb.Journal
         
         protected override async Task<IImmutableList<Exception?>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
+            var writeMessages = messages.Select(message => ((IImmutableList<IPersistentRepresentation>)message.Payload)
+                .Select(ToJournalEntry).ToArray()
+            ).ToArray();
+            
+            // Nothing to write, return immediately
+            if(writeMessages.Length == 0)
+                return ImmutableList<Exception?>.Empty;
+
             using var unitedCts = CreatePerCallCts();
             var journalCollection = await GetJournalCollection(unitedCts.Token);
-            
-            var writeTasks = messages.Select(async message =>
+
+            if (writeMessages.Length == 1 && writeMessages[0].Length == 1)
             {
-                var persistentMessages = (IImmutableList<IPersistentRepresentation>)message.Payload;
-
-                var journalEntries = persistentMessages.Select(ToJournalEntry);
-                await InsertEntries(journalCollection, journalEntries, unitedCts.Token);
-            }).ToArray();
-
-            var result = await Task<IImmutableList<Exception?>>
-                .Factory
-                .ContinueWhenAll(
-                    tasks: writeTasks.ToArray(),
-                    continuationFunction: tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList(), 
-                    cancellationToken: unitedCts.Token);
+                // Optimization, we don't need to use any transactions if there is only one message to be persisted. 
+                // https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions
+                try
+                {
+                    await journalCollection.InsertOneAsync(writeMessages[0][0], new InsertOneOptions(), unitedCts.Token);
+                }
+                catch (Exception e)
+                {
+                    return ImmutableList.Create<Exception?>([e]);
+                }
+                return ImmutableList.Create<Exception?>([null]);
+            }
             
-            return result;
-        }
-
-        private async ValueTask InsertEntries(IMongoCollection<JournalEntry> collection, IEnumerable<JournalEntry> entries, CancellationToken token)
-        {
-            await MaybeWriteWithTransaction(async (session, ct) =>
+            return await MaybeWriteWithTransaction(async (session, ct) =>
             {
+                var insertOptions = new InsertManyOptions { IsOrdered = true };
+
                 //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
                 //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
                 //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
                 //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
                 //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
-                if(session is not null)
-                    await collection
-                        .InsertManyAsync(session, entries, new InsertManyOptions { IsOrdered = true }, cancellationToken: ct);
-                else
-                    await collection
-                        .InsertManyAsync(entries, new InsertManyOptions { IsOrdered = true }, cancellationToken: ct);
-            }, token);
+                var writeTasks = writeMessages.Select(journalEntries => 
+                        session is not null 
+                            ? journalCollection.InsertManyAsync(session, journalEntries, insertOptions, ct) 
+                            : journalCollection.InsertManyAsync(journalEntries, insertOptions, ct))
+                    .ToArray();
+                
+                return await Task<IImmutableList<Exception?>>
+                    .Factory
+                    .ContinueWhenAll(
+                        tasks: writeTasks,
+                        continuationFunction: tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList(), 
+                        cancellationToken: ct);
+            }, unitedCts.Token);
         }
 
         protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
@@ -394,7 +416,7 @@ namespace Akka.Persistence.MongoDb.Journal
             }
             else
             {
-                tags = Array.Empty<string>();
+                tags = [];
             }
 
             // per https://github.com/akkadotnet/Akka.Persistence.MongoDB/issues/107

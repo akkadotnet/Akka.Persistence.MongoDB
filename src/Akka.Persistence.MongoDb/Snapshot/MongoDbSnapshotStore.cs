@@ -158,26 +158,16 @@ namespace Akka.Persistence.MongoDb.Snapshot
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
             
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
-            await MaybeWriteWithTransaction(async (session, token) =>
-            {
-                if (session is not null)
-                {
-                    await snapshotCollection.ReplaceOneAsync(
-                        session: session,
-                        filter: CreateSnapshotIdFilter(snapshotEntry.Id),
-                        replacement: snapshotEntry,
-                        options: new ReplaceOptions { IsUpsert = true }, 
-                        cancellationToken: token);
-                }
-                else
-                {
-                    await snapshotCollection.ReplaceOneAsync(
-                        filter: CreateSnapshotIdFilter(snapshotEntry.Id),
-                        replacement: snapshotEntry,
-                        options: new ReplaceOptions { IsUpsert = true }, 
-                        cancellationToken: token);
-                }
-            }, unitedCts.Token);
+            
+            // According to
+            // https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions
+            // A MongoDb write or update to a single document is guaranteed to be atomic, we don't need to
+            // enforce transactions for these.
+            await snapshotCollection.ReplaceOneAsync(
+                filter: CreateSnapshotIdFilter(snapshotEntry.Id),
+                replacement: snapshotEntry,
+                options: new ReplaceOptions { IsUpsert = true }, 
+                cancellationToken: unitedCts.Token);
         }
 
         protected override async Task DeleteAsync(SnapshotMetadata metadata)
@@ -185,22 +175,20 @@ namespace Akka.Persistence.MongoDb.Snapshot
             using var unitedCts = CreatePerCallCts();
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
-            await MaybeWriteWithTransaction(async (session, token) =>
-            {
-                var builder = Builders<SnapshotEntry>.Filter;
-                var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
+            var builder = Builders<SnapshotEntry>.Filter;
+            var filter = builder.Eq(x => x.PersistenceId, metadata.PersistenceId);
 
-                if (metadata.SequenceNr is > 0 and < long.MaxValue)
-                    filter &= builder.Eq(x => x.SequenceNr, metadata.SequenceNr);
+            if (metadata.SequenceNr is > 0 and < long.MaxValue)
+                filter &= builder.Eq(x => x.SequenceNr, metadata.SequenceNr);
 
-                if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
-                    filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
+            if (metadata.Timestamp != DateTime.MinValue && metadata.Timestamp != DateTime.MaxValue)
+                filter &= builder.Eq(x => x.Timestamp, metadata.Timestamp.Ticks);
 
-                if(session is not null)
-                    await snapshotCollection.FindOneAndDeleteAsync(session, filter, cancellationToken: token);
-                else
-                    await snapshotCollection.FindOneAndDeleteAsync(filter, cancellationToken: token);
-            }, unitedCts.Token);
+            // According to
+            // https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions
+            // A MongoDb write or update to a single document is guaranteed to be atomic, we don't need to
+            // enforce transactions for these.
+            await snapshotCollection.FindOneAndDeleteAsync(filter, cancellationToken: unitedCts.Token);
         }
 
         protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
