@@ -361,25 +361,41 @@ namespace Akka.Persistence.MongoDb.Journal
             
             return await MaybeWriteWithTransaction(async (session, ct) =>
             {
-                var insertOptions = new InsertManyOptions { IsOrdered = true };
+                var insertManyOptions = new InsertManyOptions { IsOrdered = true };
+                var insertOneOptions = new InsertOneOptions();
 
                 //https://www.mongodb.com/community/forums/t/insertone-vs-insertmany-is-one-preferred-over-the-other/135982/2
                 //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#runtime-limit
                 //https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#oplog-size-limit
                 //https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limits-and-thresholds
                 //16MB: if is bigger than this that means you do it one by one. LET'S TALK ABOUT THIS
-                var writeTasks = writeMessages.Select(journalEntries => 
-                        session is not null 
-                            ? journalCollection.InsertManyAsync(session, journalEntries, insertOptions, ct) 
-                            : journalCollection.InsertManyAsync(journalEntries, insertOptions, ct))
-                    .ToArray();
-                
-                return await Task<IImmutableList<Exception?>>
-                    .Factory
-                    .ContinueWhenAll(
-                        tasks: writeTasks,
-                        continuationFunction: tasks => tasks.Select(t => t.IsFaulted ? TryUnwrapException(t.Exception) : null).ToImmutableList(), 
-                        cancellationToken: ct);
+                var exceptions = new Exception?[writeMessages.Length];
+                for (var i = 0; i < exceptions.Length; i++)
+                {
+                    try
+                    {
+                        var journalEntries = writeMessages[i];
+                        if (journalEntries.Length == 1)
+                        {
+                            if(session is not null)
+                                await journalCollection.InsertOneAsync(session, journalEntries[0], insertOneOptions, ct);
+                            else
+                                await journalCollection.InsertOneAsync(journalEntries[0], insertOneOptions, ct);
+                        }
+                        else
+                        {
+                            if (session is not null)
+                                await journalCollection.InsertManyAsync(session, journalEntries, insertManyOptions, ct);
+                            else
+                                await journalCollection.InsertManyAsync(journalEntries, insertManyOptions, ct);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        exceptions[i] = e;
+                    }
+                }
+                return exceptions.ToImmutableArray();
             }, unitedCts.Token);
         }
 
