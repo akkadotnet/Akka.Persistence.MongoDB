@@ -1,4 +1,4 @@
-#### 1.5.40.1-beta1 April 4th 2025 ####
+#### 1.5.41-beta1 April 4th 2025 ####
 
 * [Optimize write transaction usage](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/410)
 
