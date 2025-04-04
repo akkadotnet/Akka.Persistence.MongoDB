@@ -1,3 +1,9 @@
+#### 1.5.40.1-beta1 April 4th 2025 ####
+
+* [Optimize write transaction usage](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/410)
+
+We're optimizing how write transaction is being done. Following the [MongoDb documentation](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions) that all single document writes are atomic, we're not using transaction for single document writes anymore.
+
 #### 1.5.40 March 27th 2025 ####
 
 * [Bump Akka.NET to 1.5.40](https://github.com/akkadotnet/akka.net/releases/tag/1.5.40)
