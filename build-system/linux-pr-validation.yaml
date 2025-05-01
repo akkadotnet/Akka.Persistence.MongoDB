@@ -6,7 +6,7 @@ trigger:
       - dev
       - master
 
-name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+name: $(SourceBranchName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 
 pr:
   autoCancel: true # indicates whether additional pushes to a PR should cancel in-progress runs for the same PR. Defaults to true
@@ -19,5 +19,5 @@ jobs:
       name: 'net_7_tests_linux'
       displayName: '.NET 7 Unit Tests (Linux)'
       vmImage: 'ubuntu-latest'
-      scriptFileName: ./build.sh
-      scriptArgs: runTestsNet
+      outputDirectory: 'bin/nuget'
+      artifactName: 'nuget_pack-$(Build.BuildId)'
