@@ -15,7 +15,7 @@ We're optimizing how write transaction is being done. Following the [MongoDb doc
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <NetTestVersion>net8.0</NetTestVersion>
+    <NetTestVersion>net7.0</NetTestVersion>
     <NetFrameworkTestVersion>net472</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.1</NetStandardLibVersion>
     <NetFrameworkLibVersion>net472</NetFrameworkLibVersion>
