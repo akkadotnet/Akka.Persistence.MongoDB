@@ -54,6 +54,8 @@ jobs:
             dotnet test -c Release --no-build --logger:trx --collect:"XPlat Code Coverage" --results-directory TestResults --settings coverlet.runsettings $_.FullName `
           }
         displayName: 'Run tests'
+        env:
+          TEST_ENVIRONMENT: "CICD"
         continueOnError: true # Allow continuation even if tests fail
 
       - task: PublishTestResults@2
