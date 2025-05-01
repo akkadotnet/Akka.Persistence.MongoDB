@@ -44,7 +44,7 @@ jobs:
         displayName: 'dotnet build'
         continueOnError: false
 
-      - pwsh: |
+      - powershell: |
           Get-ChildItem `
             -Recurse `
             -File `
@@ -55,7 +55,7 @@ jobs:
           }
         displayName: 'Run tests'
         env:
-          TEST_ENVIRONMENT: "CICD"
+          TEST_ENVIRONMENT: CICD
         continueOnError: true # Allow continuation even if tests fail
 
       - task: PublishTestResults@2
