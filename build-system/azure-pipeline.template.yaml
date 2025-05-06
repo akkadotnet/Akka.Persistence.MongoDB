@@ -32,7 +32,8 @@ jobs:
           packageType: runtime
           version: 7.x
       
-      # install libcrypto.so.1.1 in linux
+      # install libcrypto.so.1.1 in linux,this is missing in the latest ubuntu release
+      # see https://github.com/Mongo2Go/Mongo2Go/?tab=readme-ov-file#mongo2go-410-january-30-2025
       - script: |
           echo "deb http://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
           sudo apt update
