@@ -16,26 +16,8 @@ name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 jobs:
   - template: azure-pipeline.template.yaml
     parameters:
-      name: 'netfx_tests_windows'
-      displayName: '.NET Framework Unit Tests (Windows)'
-      vmImage: 'windows-latest'
-      scriptFileName: build.cmd
-      scriptArgs: runTests
-
-  - template: azure-pipeline.template.yaml
-    parameters:
       name: 'net_7_tests_windows'
       displayName: '.NET 7 Unit Tests (Windows)'
       vmImage: 'windows-latest'
-      scriptFileName: build.cmd
-      scriptArgs: runTestsNet
-
-  - template: azure-pipeline.template.yaml
-    parameters:
-      name: 'nuget_pack'
-      displayName: 'NuGet Pack'
-      vmImage: 'windows-latest'
-      scriptFileName: build.cmd
-      scriptArgs: CreateNuget nugetprerelease=dev
       outputDirectory: 'bin/nuget'
       artifactName: 'nuget_pack-$(Build.BuildId)'

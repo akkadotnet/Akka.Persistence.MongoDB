@@ -1,6 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
     <TargetFrameworks>$(NetFrameworkTestVersion);$(NetTestVersion)</TargetFrameworks>
+  </PropertyGroup>
+
+  <!-- disable .NET Framework (Mono) on Linux-->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <TargetFramework>$(NetTestVersion)</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>

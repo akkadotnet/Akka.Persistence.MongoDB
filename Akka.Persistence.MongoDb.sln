@@ -9,14 +9,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.Persistence.MongoDb.Te
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{BE1178E1-2069-4762-82E5-43805913DCB8}"
 	ProjectSection(SolutionItems) = preProject
-		build.cmd = build.cmd
-		build.fsx = build.fsx
 		build.ps1 = build.ps1
-		build.sh = build.sh
-		src\Directory.Build.props = src\Directory.Build.props
-		src\Directory.Packages.props = src\Directory.Packages.props
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.Persistence.MongoDb.Hosting", "src\Akka.Persistence.MongoDb.Hosting\Akka.Persistence.MongoDb.Hosting.csproj", "{72B8C165-FE00-465F-A2E9-60B4B79F81AF}"
@@ -24,6 +21,14 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{57AE52C4-1E22-42B9-9214-4FEE4F5DFC70}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LargeSnapshot", "src\examples\LargeSnapshot\LargeSnapshot.csproj", "{8FA9D3B5-C67E-49A6-8449-74E060458F25}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build-system", "build-system", "{A57DA6C5-C818-499C-B0AF-F22490AE2015}"
+	ProjectSection(SolutionItems) = preProject
+		build-system\azure-pipeline.template.yaml = build-system\azure-pipeline.template.yaml
+		build-system\linux-pr-validation.yaml = build-system\linux-pr-validation.yaml
+		build-system\windows-pr-validation.yaml = build-system\windows-pr-validation.yaml
+		build-system\windows-release.yaml = build-system\windows-release.yaml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -56,5 +61,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{8FA9D3B5-C67E-49A6-8449-74E060458F25} = {57AE52C4-1E22-42B9-9214-4FEE4F5DFC70}
+		{A57DA6C5-C818-499C-B0AF-F22490AE2015} = {BE1178E1-2069-4762-82E5-43805913DCB8}
 	EndGlobalSection
 EndGlobal

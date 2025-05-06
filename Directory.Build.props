@@ -2,13 +2,13 @@
   <PropertyGroup>
     <Copyright>Copyright © 2013-2021 Akka.NET Project</Copyright>
     <Authors>Akka.NET Contrib</Authors>
-    <VersionPrefix>1.4.14</VersionPrefix>
+    <VersionPrefix>1.5.41-beta1</VersionPrefix>
     <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
     <PackageProjectUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>
-    <PackageReleaseNotes>
-      Bump Akka version to 1.5.0
-    </PackageReleaseNotes>
+    <PackageReleaseNotes>* [Optimize write transaction usage](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/410)
+
+We're optimizing how write transaction is being done. Following the [MongoDb documentation](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions) that all single document writes are atomic, we're not using transaction for single document writes anymore.</PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Akka Persistence journal and snapshot store backed by MongoDB database.</Description>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
