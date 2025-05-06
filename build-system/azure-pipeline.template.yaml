@@ -32,6 +32,14 @@ jobs:
           packageType: runtime
           version: 7.x
       
+      # install libcrypto.so.1.1 in linux
+      - script: |
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
+          sudo apt update
+          sudo apt install -y libssl1.1
+        displayName: 'Install libcrypto.so.1.1'
+        condition: eq( variables['Agent.OS'], 'Linux' )
+      
       - script: dotnet tool restore
         displayName: 'Restore dotnet tools'
 
