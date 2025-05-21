@@ -150,9 +150,11 @@ namespace Akka.Persistence.MongoDb.Journal
             return _metadataCollection_DoNotUseDirectly;
         }
         
-        private CancellationTokenSource CreatePerCallCts()
+        private CancellationTokenSource CreatePerCallCts(CancellationToken? token = null)
         {
-            var unitedCts = CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+            var unitedCts = token is null 
+                ? CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token)
+                : CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token, token.Value);
             unitedCts.CancelAfter(_settings.CallTimeout);
             return unitedCts;
         }
@@ -295,10 +297,11 @@ namespace Akka.Persistence.MongoDb.Journal
         /// </summary>
         /// <param name="persistenceId">TBD</param>
         /// <param name="fromSequenceNr">TBD</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>long</returns>
-        public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
+        public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var token = unitedCts.Token;
 
             return await MaybeReadWithTransaction(
@@ -331,7 +334,7 @@ namespace Akka.Persistence.MongoDb.Journal
             return Math.Max(journalHighestSequenceNr, metadataHighestSequenceNr);
         }
         
-        protected override async Task<IImmutableList<Exception?>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        protected override async Task<IImmutableList<Exception?>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages, CancellationToken cancellationToken)
         {
             var writeMessages = messages.Select(message => ((IImmutableList<IPersistentRepresentation>)message.Payload)
                 .Select(ToJournalEntry).ToArray()
@@ -341,7 +344,7 @@ namespace Akka.Persistence.MongoDb.Journal
             if(writeMessages.Length == 0)
                 return ImmutableList<Exception?>.Empty;
 
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var journalCollection = await GetJournalCollection(unitedCts.Token);
 
             if (writeMessages.Length == 1 && writeMessages[0].Length == 1)
@@ -397,9 +400,9 @@ namespace Akka.Persistence.MongoDb.Journal
             }, unitedCts.Token);
         }
 
-        protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
+        protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var journalCollection = await GetJournalCollection(unitedCts.Token);
             var metadataCollection = await GetMetadataCollection(unitedCts.Token);
 

@@ -62,9 +62,11 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         };
     }
 
-    private CancellationTokenSource CreatePerCallCts()
+    private CancellationTokenSource CreatePerCallCts(CancellationToken? token = null)
     {
-        var unitedCts = CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+        var unitedCts = token is null 
+            ? CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token)
+            : CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token, token.Value);
         unitedCts.CancelAfter(_settings.CallTimeout);
         return unitedCts;
     }
@@ -108,9 +110,9 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         base.PostStop();
     }
 
-    protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+    protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria, CancellationToken cancellationToken)
     {
-        using var unitedCts = CreatePerCallCts();
+        using var unitedCts = CreatePerCallCts(cancellationToken);
         var token = unitedCts.Token;
         
         var filter = CreateRangeFilter(persistenceId, criteria);
@@ -129,9 +131,9 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         return ToSelectedSnapshot(info.Metadata, data);
     }
 
-    protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
+    protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot, CancellationToken cancellationToken)
     {
-        using var unitedCts = CreatePerCallCts();
+        using var unitedCts = CreatePerCallCts(cancellationToken);
         var token = unitedCts.Token;
         
         var (fileName, option, bytes) = ToSnapshotFileMetadata(metadata, snapshot);
@@ -149,7 +151,7 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
         await bucket.UploadFromBytesAsync(fileName, bytes, option, token);
     }
 
-    protected override async Task DeleteAsync(SnapshotMetadata metadata)
+    protected override async Task DeleteAsync(SnapshotMetadata metadata, CancellationToken cancellationToken)
     {
         var builder = Builders<GridFSFileInfo>.Filter;
         var filters = new List<FilterDefinition<GridFSFileInfo>>
@@ -165,13 +167,13 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
 
         var filter = builder.And(filters);
 
-        using var unitedCts = CreatePerCallCts();
+        using var unitedCts = CreatePerCallCts(cancellationToken);
         await DeleteFileAsync(filter, GetFilesCollection(), GetGridFSBucket(), unitedCts.Token);
     }
 
-    protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+    protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria, CancellationToken cancellationToken)
     {
-        using var unitedCts = CreatePerCallCts();
+        using var unitedCts = CreatePerCallCts(cancellationToken);
         var token = unitedCts.Token;
         
         var filter = CreateRangeFilter(persistenceId, criteria);

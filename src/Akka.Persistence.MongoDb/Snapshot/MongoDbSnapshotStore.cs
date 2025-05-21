@@ -50,10 +50,11 @@ namespace Akka.Persistence.MongoDb.Snapshot
             _serialization = Context.System.Serialization;
         }
 
-        private CancellationTokenSource CreatePerCallCts()
+        private CancellationTokenSource CreatePerCallCts(CancellationToken? token = null)
         {
-            var unitedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token);
+            var unitedCts = token is null 
+                ? CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token)
+                : CancellationTokenSource.CreateLinkedTokenSource(_pendingCommandsCancellation.Token, token.Value);
             unitedCts.CancelAfter(_settings.CallTimeout);
             return unitedCts;
         }
@@ -135,9 +136,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
             base.PostStop();
         }
 
-        protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task<SelectedSnapshot?> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
             return await MaybeReadWithTransaction(async (session, token) =>
@@ -152,9 +153,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
             }, unitedCts.Token);
         }
 
-        protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
+        protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
             
             var snapshotEntry = ToSnapshotEntry(metadata, snapshot);
@@ -170,9 +171,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
                 cancellationToken: unitedCts.Token);
         }
 
-        protected override async Task DeleteAsync(SnapshotMetadata metadata)
+        protected override async Task DeleteAsync(SnapshotMetadata metadata, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
             var builder = Builders<SnapshotEntry>.Filter;
@@ -191,9 +192,9 @@ namespace Akka.Persistence.MongoDb.Snapshot
             await snapshotCollection.FindOneAndDeleteAsync(filter, cancellationToken: unitedCts.Token);
         }
 
-        protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria, CancellationToken cancellationToken)
         {
-            using var unitedCts = CreatePerCallCts();
+            using var unitedCts = CreatePerCallCts(cancellationToken);
             var snapshotCollection = await GetSnapshotCollection(unitedCts.Token);
 
             await MaybeWriteWithTransaction(async (session, token) =>
