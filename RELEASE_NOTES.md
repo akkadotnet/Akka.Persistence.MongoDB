@@ -1,3 +1,12 @@
+#### 1.5.42 May 22nd 2025 ####
+
+* [Bump Akka.NET to 1.5.42](https://github.com/akkadotnet/akka.net/releases/tag/1.5.42)
+* [Bump Akka.Persistence.Hosting to 1.5.42](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.42)
+* [Use the new Akka.Persistence cancellation token API](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/418)
+* [Optimize write transaction usage](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/410)
+
+We're optimizing how write transaction is being done. Following the [MongoDb documentation](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/#atomicity-and-transactions) that all single document writes are atomic, we're not using transaction for single document writes anymore.
+
 #### 1.5.41-beta1 April 4th 2025 ####
 
 * [Optimize write transaction usage](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/410)
