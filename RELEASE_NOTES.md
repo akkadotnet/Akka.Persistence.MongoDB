@@ -1,3 +1,35 @@
+#### 1.5.53 October 16th 2025 ####
+
+* [Bump Akka.NET to 1.5.53](https://github.com/akkadotnet/akka.net/releases/tag/1.5.53)
+* [Bump Akka.Persistence.Hosting to 1.5.53](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.53)
+* [Implement hosting healthcheck](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/421)
+
+**New Feature: Health Check Support for Akka.Persistence.MongoDb.Hosting**
+
+This release adds built-in health check support for MongoDB journal and snapshot stores, integrated with [Microsoft.Extensions.Diagnostics.HealthChecks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks). This enables monitoring and observability for your MongoDB persistence plugins.
+
+Key capabilities:
+* Automatic health reporting for MongoDB journal and snapshot stores
+* Integration with ASP.NET Core health check endpoints
+* Configurable health status reporting (Healthy, Degraded, Unhealthy)
+* Tagged health checks for easy filtering (`akka`, `persistence`, `mongodb`)
+
+Example usage:
+```csharp
+services.AddHealthChecks(); // Add health check service
+
+services.AddAkka("MyActorSystem", (builder, provider) =>
+{
+    builder
+        .WithMongoDbPersistence(
+            connectionString: "mongodb://localhost:27017/akka",
+            journalBuilder: journal => journal.WithHealthCheck(HealthStatus.Degraded),
+            snapshotBuilder: snapshot => snapshot.WithHealthCheck(HealthStatus.Degraded));
+});
+```
+
+For complete documentation, see the [Akka.Persistence.MongoDb.Hosting README](src/Akka.Persistence.MongoDb.Hosting/README.md) and the main [README](README.md#health-check-support).
+
 #### 1.5.42 May 22nd 2025 ####
 
 * [Bump Akka.NET to 1.5.42](https://github.com/akkadotnet/akka.net/releases/tag/1.5.42)
