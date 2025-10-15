@@ -9,7 +9,8 @@ namespace Akka.Persistence.MongoDb.Hosting;
 public static class AkkaPersistenceMongoDbHostingExtensions
 {
     /// <summary>
-    ///     Adds Akka.Persistence.SqlServer support to this <see cref="ActorSystem"/>.
+    ///     Adds Akka.Persistence.MongoDb support to this <see cref="ActorSystem"/> with optional support
+    ///     for health checks on both journal and snapshot store.
     /// </summary>
     /// <param name="builder">
     ///     The builder instance being configured.
@@ -60,6 +61,17 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     ///     Thrown when <see cref="journalBuilder"/> is set and <see cref="mode"/> is set to
     ///     <see cref="PersistenceMode.SnapshotStore"/>
     /// </exception>
+    /// <example>
+    /// <code>
+    /// builder.WithMongoDbPersistence(
+    ///     connectionString: "...",
+    ///     journalBuilder: journal => journal
+    ///         .AddEventAdapter&lt;MyAdapter&gt;("adapter", new[] { typeof(MyEvent) })
+    ///         .WithHealthCheck(HealthStatus.Degraded),
+    ///     snapshotBuilder: snapshot => snapshot
+    ///         .WithHealthCheck(HealthStatus.Degraded));
+    /// </code>
+    /// </example>
     public static AkkaConfigurationBuilder WithMongoDbPersistence(
         this AkkaConfigurationBuilder builder,
         string connectionString,
