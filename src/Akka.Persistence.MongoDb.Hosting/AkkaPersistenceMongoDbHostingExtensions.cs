@@ -9,7 +9,8 @@ namespace Akka.Persistence.MongoDb.Hosting;
 public static class AkkaPersistenceMongoDbHostingExtensions
 {
     /// <summary>
-    ///     Adds Akka.Persistence.SqlServer support to this <see cref="ActorSystem"/>.
+    ///     Adds Akka.Persistence.MongoDb support to this <see cref="ActorSystem"/> with optional support
+    ///     for health checks on both journal and snapshot store.
     /// </summary>
     /// <param name="builder">
     ///     The builder instance being configured.
@@ -35,6 +36,12 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     ///     </para>
     ///     <i>Default</i>: <c>null</c>
     /// </param>
+    /// <param name="snapshotBuilder">
+    ///     <para>
+    ///         An <see cref="Action{T}"/> used to configure an <see cref="AkkaPersistenceSnapshotBuilder"/> instance.
+    ///     </para>
+    ///     <i>Default</i>: <c>null</c>
+    /// </param>
     /// <param name="pluginIdentifier">
     ///     <para>
     ///         The configuration identifier for the plugins
@@ -54,12 +61,24 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     ///     Thrown when <see cref="journalBuilder"/> is set and <see cref="mode"/> is set to
     ///     <see cref="PersistenceMode.SnapshotStore"/>
     /// </exception>
+    /// <example>
+    /// <code>
+    /// builder.WithMongoDbPersistence(
+    ///     connectionString: "...",
+    ///     journalBuilder: journal => journal
+    ///         .AddEventAdapter&lt;MyAdapter&gt;("adapter", new[] { typeof(MyEvent) })
+    ///         .WithHealthCheck(HealthStatus.Degraded),
+    ///     snapshotBuilder: snapshot => snapshot
+    ///         .WithHealthCheck(HealthStatus.Degraded));
+    /// </code>
+    /// </example>
     public static AkkaConfigurationBuilder WithMongoDbPersistence(
         this AkkaConfigurationBuilder builder,
         string connectionString,
         PersistenceMode mode = PersistenceMode.Both,
         bool autoInitialize = true,
         Action<AkkaPersistenceJournalBuilder>? journalBuilder = null,
+        Action<AkkaPersistenceSnapshotBuilder>? snapshotBuilder = null,
         string pluginIdentifier = "mongodb",
         bool isDefaultPlugin = true)
     {
@@ -67,15 +86,14 @@ public static class AkkaPersistenceMongoDbHostingExtensions
             throw new Exception(
                 $"{nameof(journalBuilder)} can only be set when {nameof(mode)} is set to either {PersistenceMode.Both} or {PersistenceMode.Journal}");
 
+        if (mode == PersistenceMode.Journal && snapshotBuilder is not null)
+            throw new Exception($"{nameof(snapshotBuilder)} can only be set when {nameof(mode)} is set to either {PersistenceMode.Both} or {PersistenceMode.SnapshotStore}");
+        
         var journalOpt = new MongoDbJournalOptions(isDefaultPlugin, pluginIdentifier)
         {
             ConnectionString = connectionString,
             AutoInitialize = autoInitialize,
         };
-
-        var adapters = new AkkaPersistenceJournalBuilder(journalOpt.Identifier, builder);
-        journalBuilder?.Invoke(adapters);
-        journalOpt.Adapters = adapters;
 
         var snapshotOpt = new MongoDbSnapshotOptions(isDefaultPlugin, pluginIdentifier)
         {
@@ -85,9 +103,9 @@ public static class AkkaPersistenceMongoDbHostingExtensions
 
         return mode switch
         {
-            PersistenceMode.Journal => builder.WithMongoDbPersistence(journalOpt, null),
-            PersistenceMode.SnapshotStore => builder.WithMongoDbPersistence(null, snapshotOpt),
-            PersistenceMode.Both => builder.WithMongoDbPersistence(journalOpt, snapshotOpt),
+            PersistenceMode.Journal => builder.WithMongoDbPersistence(journalOpt, null, journalBuilder, snapshotBuilder),
+            PersistenceMode.SnapshotStore => builder.WithMongoDbPersistence(null, snapshotOpt, journalBuilder, snapshotBuilder),
+            PersistenceMode.Both => builder.WithMongoDbPersistence(journalOpt, snapshotOpt, journalBuilder, snapshotBuilder),
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid PersistenceMode defined.")
         };
     }
@@ -171,6 +189,18 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     ///     </para>
     ///     <i>Default</i>: <c>null</c>
     /// </param>
+    /// <param name="journalBuilder">
+    ///     <para>
+    ///         An <see cref="Action{T}" /> used to configure an <see cref="AkkaPersistenceJournalBuilder" /> instance for event adapters and health checks.
+    ///     </para>
+    ///     <i>Default</i>: <c>null</c>
+    /// </param>
+    /// <param name="snapshotBuilder">
+    ///     <para>
+    ///         An <see cref="Action{T}" /> used to configure an <see cref="AkkaPersistenceSnapshotBuilder" /> instance for health checks.
+    ///     </para>
+    ///     <i>Default</i>: <c>null</c>
+    /// </param>
     /// <returns>
     ///     The same <see cref="AkkaConfigurationBuilder"/> instance originally passed in.
     /// </returns>
@@ -180,12 +210,10 @@ public static class AkkaPersistenceMongoDbHostingExtensions
     public static AkkaConfigurationBuilder WithMongoDbPersistence(
         this AkkaConfigurationBuilder builder,
         MongoDbJournalOptions? journalOptions = null,
-        MongoDbSnapshotOptions? snapshotOptions = null)
+        MongoDbSnapshotOptions? snapshotOptions = null,
+        Action<AkkaPersistenceJournalBuilder>? journalBuilder = null,
+        Action<AkkaPersistenceSnapshotBuilder>? snapshotBuilder = null)
     {
-        if (journalOptions is null && snapshotOptions is null)
-            throw new ArgumentException(
-                $"{nameof(journalOptions)} and {nameof(snapshotOptions)} could not both be null");
-
         return (journalOptions, snapshotOptions) switch
         {
             (null, null) =>
@@ -194,21 +222,16 @@ public static class AkkaPersistenceMongoDbHostingExtensions
 
             (_, null) =>
                 builder
-                    .AddHocon(journalOptions.ToConfig(), HoconAddMode.Prepend)
-                    .AddHocon(journalOptions.DefaultConfig, HoconAddMode.Append)
+                    .WithJournal(journalOptions, journalBuilder)
                     .AddHocon(MongoDbPersistence.DefaultConfiguration(), HoconAddMode.Append),
 
             (null, _) =>
                 builder
-                    .AddHocon(snapshotOptions.ToConfig(), HoconAddMode.Prepend)
-                    .AddHocon(snapshotOptions.DefaultConfig, HoconAddMode.Append),
+                    .WithSnapshot(snapshotOptions, snapshotBuilder),
 
             (_, _) =>
                 builder
-                    .AddHocon(journalOptions.ToConfig(), HoconAddMode.Prepend)
-                    .AddHocon(snapshotOptions.ToConfig(), HoconAddMode.Prepend)
-                    .AddHocon(journalOptions.DefaultConfig, HoconAddMode.Append)
-                    .AddHocon(snapshotOptions.DefaultConfig, HoconAddMode.Append)
+                    .WithJournalAndSnapshot(journalOptions, snapshotOptions, journalBuilder, snapshotBuilder)
                     .AddHocon(MongoDbPersistence.DefaultConfiguration(), HoconAddMode.Append),
         };
     }

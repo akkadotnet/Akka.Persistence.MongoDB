@@ -3,6 +3,9 @@
     * [Configuration](#configuration)
     * [Programmatic configuration](#programmatic-configuration)
     * [Serialization](#serialization)
+- [Akka.Hosting Integration](#akkahosting-integration)
+    * [Getting Started](#getting-started)
+    * [Health Check Support](#health-check-support)
 - [Large Snapshot Store Support](#large-snapshot-store-support)
     * [Configuring `MongoDbGridFSSnapshotStore`](#configuring-mongodbgridfssnapshotstore)
 - [Performance Benchmarks](#performance-benchmarks)
@@ -218,6 +221,57 @@ akka.persistence.mongodb{
 Setting `legacy-serialization = on` will allow you to save objects in a BSON format.
 
 **WARNING**: However, `legacy-serialization = on` will break Akka.NET serialization. `IActorRef`s, Akka.Cluster.Sharding, `AtLeastOnceDelivery` actors, and other built-in Akka.NET use cases can't be properly supported using this format. Use it at your own risk.
+
+# Akka.Hosting Integration
+
+[Akka.Persistence.MongoDb.Hosting](https://www.nuget.org/packages/Akka.Persistence.MongoDb.Hosting) provides simple, clean configuration for Akka.Persistence.MongoDB with [Akka.Hosting](https://github.com/akkadotnet/Akka.Hosting) and [Microsoft.Extensions.Hosting](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host).
+
+## Getting Started
+
+Install the NuGet package:
+
+```bash
+dotnet add package Akka.Persistence.MongoDb.Hosting
+```
+
+Use the `WithMongoDbPersistence()` extension method to configure MongoDB:
+
+```csharp
+using var host = new HostBuilder()
+    .ConfigureServices((context, services) =>
+    {
+        services.AddAkka("MyActorSystem", (builder, provider) =>
+        {
+            builder.WithMongoDbPersistence("mongodb://localhost:27017/akka");
+        });
+    })
+    .Build();
+```
+
+## Health Check Support
+
+Starting from version 1.5.31, Akka.Persistence.MongoDb.Hosting includes built-in health check support for MongoDB persistence plugins, integrated with [Microsoft.Extensions.Diagnostics.HealthChecks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks).
+
+### Quick Start
+
+Add health checks to your MongoDB persistence configuration:
+
+```csharp
+services.AddHealthChecks(); // Add health check service
+
+services.AddAkka("MyActorSystem", (builder, provider) =>
+{
+    builder
+        .WithMongoDbPersistence(
+            connectionString: "mongodb://localhost:27017/akka",
+            journalBuilder: journal => journal.WithHealthCheck(HealthStatus.Degraded),
+            snapshotBuilder: snapshot => snapshot.WithHealthCheck(HealthStatus.Degraded));
+});
+```
+
+All health checks are tagged with `akka`, `persistence`, and `mongodb` for easy filtering.
+
+For complete documentation and examples, see the [Akka.Persistence.MongoDb.Hosting README](src/Akka.Persistence.MongoDb.Hosting/README.md).
 
 # Large Snapshot Store Support
 
