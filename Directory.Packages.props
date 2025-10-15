@@ -7,6 +7,7 @@
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
+    <PackageVersion Include="Akka.Hosting.TestKit" Version="$(AkkaHostingVersion)" />
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />

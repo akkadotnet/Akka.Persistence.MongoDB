@@ -3,12 +3,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
-    <TargetFrameworks>$(NetFrameworkTestVersion);$(NetTestVersion)</TargetFrameworks>
-  </PropertyGroup>
-
-  <!-- disable .NET Framework (Mono) on Linux-->
-  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+  <PropertyGroup>
     <TargetFramework>$(NetTestVersion)</TargetFramework>
   </PropertyGroup>
 
@@ -17,6 +12,7 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <PackageReference Include="Akka.Hosting.TestKit" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
