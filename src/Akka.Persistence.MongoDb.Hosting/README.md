@@ -64,11 +64,11 @@ public static AkkaConfigurationBuilder WithMongoDbPersistence(
 
 * `journalOptions` __MongoDbJournalOptions__
 
-  An `MongoDbJournalOptions` instance to configure the SqlServer journal.
+  An `MongoDbJournalOptions` instance to configure the MongoDB journal.
 
 * `snapshotOptions` __MongoDbSnapshotOptions__
 
-  An `MongoDbSnapshotOptions` instance to configure the SqlServer snapshot store.
+  An `MongoDbSnapshotOptions` instance to configure the MongoDB snapshot store.
 
 ## Example
 
@@ -85,3 +85,39 @@ using var host = new HostBuilder()
 
 await host.RunAsync();
 ```
+
+## Health Check Support
+
+Akka.Persistence.MongoDb.Hosting includes built-in health check support for MongoDB journal and snapshot stores, integrated with [Microsoft.Extensions.Diagnostics.HealthChecks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks).
+
+### Configuring Persistence Health Checks
+
+You can add health checks for your MongoDB persistence plugins using the `.WithHealthCheck()` method when configuring journals and snapshot stores:
+
+```csharp
+services.AddHealthChecks(); // Add health check service
+
+services.AddAkka("MyActorSystem", (builder, provider) =>
+{
+    builder
+        .WithMongoDbPersistence(
+            connectionString: "mongodb://localhost:27017/akka",
+            journalBuilder: journal => journal.WithHealthCheck(HealthStatus.Degraded),
+            snapshotBuilder: snapshot => snapshot.WithHealthCheck(HealthStatus.Degraded));
+});
+```
+
+### What Health Checks Do
+
+The MongoDB persistence health checks will automatically:
+- Report `Healthy` when the plugin is operational
+- Report `Degraded` or `Unhealthy` (configurable) when issues are detected
+
+### Health Check Tags
+
+All MongoDB persistence health checks are tagged with:
+- `akka` - All Akka.NET health checks
+- `persistence` - Persistence-related checks
+- `journal` or `snapshot-store` - Depending on the plugin type
+
+These tags can be used to [filter health checks via health check endpoints](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-9.0#filter-health-checks).
