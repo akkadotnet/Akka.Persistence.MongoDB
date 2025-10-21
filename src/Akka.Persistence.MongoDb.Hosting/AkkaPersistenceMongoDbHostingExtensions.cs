@@ -2,6 +2,7 @@
 using Akka.Actor;
 using Akka.Hosting;
 using Akka.Persistence.Hosting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 #nullable enable
 namespace Akka.Persistence.MongoDb.Hosting;
