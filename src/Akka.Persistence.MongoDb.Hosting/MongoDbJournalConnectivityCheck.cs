@@ -34,6 +34,8 @@ public sealed class MongoDbJournalConnectivityCheck : IAkkaHealthCheck
     {
         try
         {
+            // MongoDB's MongoClient doesn't implement IDisposable, so disposal is not needed
+            // The driver manages its own connection pooling and cleanup internally
             var client = new MongoClient(_connectionString);
             await client.GetDatabase("admin").RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1), cancellationToken: cancellationToken);
             return HealthCheckResult.Healthy($"MongoDB journal '{_journalId}' database connection successful");

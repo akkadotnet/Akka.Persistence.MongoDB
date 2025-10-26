@@ -16,8 +16,8 @@ name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 jobs:
   - template: azure-pipeline.template.yaml
     parameters:
-      name: 'net_7_tests_windows'
-      displayName: '.NET 7 Unit Tests (Windows)'
+      name: 'net_8_tests_windows'
+      displayName: '.NET 8 Unit Tests (Windows)'
       vmImage: 'windows-latest'
       outputDirectory: 'bin/nuget'
       artifactName: 'nuget_pack-$(Build.BuildId)'
