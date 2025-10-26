@@ -269,7 +269,59 @@ services.AddAkka("MyActorSystem", (builder, provider) =>
 });
 ```
 
-All health checks are tagged with `akka`, `persistence`, and `mongodb` for easy filtering.
+### What Connectivity Health Checks Do
+
+When enabled, the connectivity health checks will:
+- Verify connectivity to the MongoDB instance
+- Test the MongoDB PING command to ensure responsiveness
+- Report `Healthy` when MongoDB is accessible
+- Report `Degraded` or `Unhealthy` (configurable) when the instance is unreachable or unresponsive
+
+All health checks are tagged with `akka`, `persistence`, and `mongodb` for easy filtering and organization in your health check endpoints.
+
+### Exposing Health Checks via ASP.NET Core
+
+For ASP.NET Core applications, you can expose these health checks via an endpoint:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// Add health checks service
+builder.Services.AddHealthChecks();
+
+builder.Services.AddAkka("MyActorSystem", (configBuilder, provider) =>
+{
+    configBuilder
+        .WithMongoDbPersistence(
+            connectionString: "mongodb://localhost:27017/akka",
+            journalBuilder: journal => journal.WithHealthCheck(),
+            snapshotBuilder: snapshot => snapshot.WithHealthCheck());
+});
+
+var app = builder.Build();
+
+// Map health check endpoint
+app.MapHealthChecks("/healthz");
+
+app.Run();
+```
+
+### Customizing Health Check Tags
+
+You can customize the tags applied to health checks by providing an `IEnumerable<string>` to the `WithHealthCheck()` method:
+
+```csharp
+journalBuilder: journal => journal.WithHealthCheck(
+    unHealthyStatus: HealthStatus.Degraded,
+    name: "mongodb-journal",
+    tags: new[] { "backend", "database", "mongodb" }),
+snapshotBuilder: snapshot => snapshot.WithHealthCheck(
+    unHealthyStatus: HealthStatus.Degraded,
+    name: "mongodb-snapshot",
+    tags: new[] { "backend", "database", "mongodb" })
+```
+
+When tags are not specified, the default tags are used: `["akka", "persistence", "mongodb"]` for both journals and snapshot stores.
 
 For complete documentation and examples, see the [Akka.Persistence.MongoDb.Hosting README](src/Akka.Persistence.MongoDb.Hosting/README.md).
 

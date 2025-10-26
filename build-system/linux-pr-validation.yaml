@@ -16,8 +16,8 @@ pr:
 jobs:
   - template: azure-pipeline.template.yaml
     parameters:
-      name: 'net_7_tests_linux'
-      displayName: '.NET 7 Unit Tests (Linux)'
+      name: 'tests_linux'
+      displayName: 'Unit Tests (Linux)'
       vmImage: 'ubuntu-latest'
       outputDirectory: 'bin/nuget'
       artifactName: 'nuget_pack-$(Build.BuildId)'
