@@ -41,7 +41,7 @@ For complete documentation, see the [Akka.Persistence.MongoDb.Hosting README](sr
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <NetTestVersion>net7.0</NetTestVersion>
+    <NetTestVersion>net8.0</NetTestVersion>
     <NetFrameworkTestVersion>net472</NetFrameworkTestVersion>
     <NetStandardLibVersion>netstandard2.1</NetStandardLibVersion>
     <NetFrameworkLibVersion>net472</NetFrameworkLibVersion>
