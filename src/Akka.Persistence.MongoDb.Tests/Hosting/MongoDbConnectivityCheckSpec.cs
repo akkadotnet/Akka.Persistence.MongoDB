@@ -16,17 +16,70 @@ using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests.Hosting;
 
-public class MongoDbConnectivityCheckSpec
+public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
 {
-    private const string ValidConnectionString = "mongodb://localhost:27017/akka-test";
     private const string InvalidConnectionString = "mongodb://invalid-host:27017/akka-test";
     private readonly ITestOutputHelper _output;
+    private readonly DatabaseFixture _fixture;
+    private readonly string _validConnectionString;
 
-    public MongoDbConnectivityCheckSpec(ITestOutputHelper output)
+    public MongoDbConnectivityCheckSpec(ITestOutputHelper output, DatabaseFixture fixture)
     {
         _output = output;
+        _fixture = fixture;
+        _validConnectionString = fixture.ConnectionString;
     }
 
+    // Happy path tests - verify health checks work with real MongoDB
+    [Fact]
+    public async Task Journal_Connectivity_Check_Should_Return_Healthy_When_Connected()
+    {
+        // Arrange
+        var check = new MongoDbJournalConnectivityCheck(_validConnectionString, "mongodb");
+        var context = new AkkaHealthCheckContext(null!);
+
+        // Act
+        var result = await check.CheckHealthAsync(context, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(HealthStatus.Healthy);
+        result.Exception.Should().BeNull();
+        result.Description.Should().Contain("successful");
+    }
+
+    [Fact]
+    public async Task Snapshot_Connectivity_Check_Should_Return_Healthy_When_Connected()
+    {
+        // Arrange
+        var check = new MongoDbSnapshotStoreConnectivityCheck(_validConnectionString, "mongodb");
+        var context = new AkkaHealthCheckContext(null!);
+
+        // Act
+        var result = await check.CheckHealthAsync(context, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(HealthStatus.Healthy);
+        result.Exception.Should().BeNull();
+        result.Description.Should().Contain("successful");
+    }
+
+    [Fact]
+    public async Task GridFS_Snapshot_Connectivity_Check_Should_Return_Healthy_When_Connected()
+    {
+        // Arrange
+        var check = new MongoDbGridFsSnapshotStoreConnectivityCheck(_validConnectionString, "mongodb-gridfs");
+        var context = new AkkaHealthCheckContext(null!);
+
+        // Act
+        var result = await check.CheckHealthAsync(context, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be(HealthStatus.Healthy);
+        result.Exception.Should().BeNull();
+        result.Description.Should().Contain("successful");
+    }
+
+    // Unhappy path tests - verify health checks detect connection failures
     [Fact]
     public async Task Journal_Connectivity_Check_Should_Return_Unhealthy_When_Disconnected()
     {
