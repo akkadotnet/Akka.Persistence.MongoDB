@@ -19,12 +19,14 @@ public static class MongoDbConnectivityCheckExtensions
     /// <param name="journalOptions">The journal options containing connection details</param>
     /// <param name="unHealthyStatus">The status to return when check fails. Defaults to Unhealthy.</param>
     /// <param name="name">Optional name for the health check. Defaults to "Akka.Persistence.MongoDB.Journal.{id}.Connectivity"</param>
+    /// <param name="tags">Optional tags for the health check. Defaults to ["akka", "persistence", "mongodb", "journal", "connectivity"]</param>
     /// <returns>The journal builder for chaining</returns>
     public static AkkaPersistenceJournalBuilder WithConnectivityCheck(
         this AkkaPersistenceJournalBuilder builder,
         MongoDbJournalOptions journalOptions,
         HealthStatus unHealthyStatus = HealthStatus.Unhealthy,
-        string? name = null)
+        string? name = null,
+        string[]? tags = null)
     {
         if (journalOptions is null)
             throw new ArgumentNullException(nameof(journalOptions));
@@ -36,7 +38,7 @@ public static class MongoDbConnectivityCheckExtensions
             name ?? $"Akka.Persistence.MongoDB.Journal.{journalOptions.Identifier}.Connectivity",
             new MongoDbJournalConnectivityCheck(journalOptions.ConnectionString, journalOptions.Identifier),
             unHealthyStatus,
-            new[] { "akka", "persistence", "mongodb", "journal", "connectivity" });
+            tags ?? new[] { "akka", "persistence", "mongodb", "journal", "connectivity" });
 
         // Use the new WithCustomHealthCheck method from Akka.Hosting 1.5.55-beta1
         return builder.WithCustomHealthCheck(registration);
@@ -50,12 +52,14 @@ public static class MongoDbConnectivityCheckExtensions
     /// <param name="snapshotOptions">The snapshot options containing connection details</param>
     /// <param name="unHealthyStatus">The status to return when check fails. Defaults to Unhealthy.</param>
     /// <param name="name">Optional name for the health check. Defaults to "Akka.Persistence.MongoDB.SnapshotStore.{id}.Connectivity"</param>
+    /// <param name="tags">Optional tags for the health check. Defaults to ["akka", "persistence", "mongodb", "snapshot-store", "connectivity"]</param>
     /// <returns>The snapshot builder for chaining</returns>
     public static AkkaPersistenceSnapshotBuilder WithConnectivityCheck(
         this AkkaPersistenceSnapshotBuilder builder,
         MongoDbSnapshotOptions snapshotOptions,
         HealthStatus unHealthyStatus = HealthStatus.Unhealthy,
-        string? name = null)
+        string? name = null,
+        string[]? tags = null)
     {
         if (snapshotOptions is null)
             throw new ArgumentNullException(nameof(snapshotOptions));
@@ -67,7 +71,7 @@ public static class MongoDbConnectivityCheckExtensions
             name ?? $"Akka.Persistence.MongoDB.SnapshotStore.{snapshotOptions.Identifier}.Connectivity",
             new MongoDbSnapshotStoreConnectivityCheck(snapshotOptions.ConnectionString, snapshotOptions.Identifier),
             unHealthyStatus,
-            new[] { "akka", "persistence", "mongodb", "snapshot-store", "connectivity" });
+            tags ?? new[] { "akka", "persistence", "mongodb", "snapshot-store", "connectivity" });
 
         // Use the new WithCustomHealthCheck method from Akka.Hosting 1.5.55-beta1
         return builder.WithCustomHealthCheck(registration);
@@ -81,12 +85,14 @@ public static class MongoDbConnectivityCheckExtensions
     /// <param name="snapshotOptions">The GridFS snapshot options containing connection details</param>
     /// <param name="unHealthyStatus">The status to return when check fails. Defaults to Unhealthy.</param>
     /// <param name="name">Optional name for the health check. Defaults to "Akka.Persistence.MongoDB.GridFsSnapshotStore.{id}.Connectivity"</param>
+    /// <param name="tags">Optional tags for the health check. Defaults to ["akka", "persistence", "mongodb", "gridfs", "snapshot-store", "connectivity"]</param>
     /// <returns>The snapshot builder for chaining</returns>
     public static AkkaPersistenceSnapshotBuilder WithConnectivityCheck(
         this AkkaPersistenceSnapshotBuilder builder,
         MongoDbGridFsSnapshotOptions snapshotOptions,
         HealthStatus unHealthyStatus = HealthStatus.Unhealthy,
-        string? name = null)
+        string? name = null,
+        string[]? tags = null)
     {
         if (snapshotOptions is null)
             throw new ArgumentNullException(nameof(snapshotOptions));
@@ -98,7 +104,7 @@ public static class MongoDbConnectivityCheckExtensions
             name ?? $"Akka.Persistence.MongoDB.GridFsSnapshotStore.{snapshotOptions.Identifier}.Connectivity",
             new MongoDbGridFsSnapshotStoreConnectivityCheck(snapshotOptions.ConnectionString, snapshotOptions.Identifier),
             unHealthyStatus,
-            new[] { "akka", "persistence", "mongodb", "gridfs", "snapshot-store", "connectivity" });
+            tags ?? new[] { "akka", "persistence", "mongodb", "gridfs", "snapshot-store", "connectivity" });
 
         // Use the new WithCustomHealthCheck method from Akka.Hosting 1.5.55-beta1
         return builder.WithCustomHealthCheck(registration);
