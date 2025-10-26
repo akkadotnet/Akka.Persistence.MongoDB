@@ -21,16 +21,10 @@ jobs:
         persistCredentials: true
 
       - task: UseDotNet@2
-        displayName: 'Use .NET'
+        displayName: 'Use .NET SDK from global.json'
         inputs:
           packageType: 'sdk'
           useGlobalJson: true
-          
-      - task: UseDotNet@2
-        displayName: "Use .NET 8 runtime"
-        inputs:
-          packageType: runtime
-          version: 8.x
       
       # install libcrypto.so.1.1 in linux,this is missing in the latest ubuntu release
       # see https://github.com/Mongo2Go/Mongo2Go/?tab=readme-ov-file#mongo2go-410-january-30-2025
