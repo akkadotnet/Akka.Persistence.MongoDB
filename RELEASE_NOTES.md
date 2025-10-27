@@ -1,3 +1,11 @@
+#### 1.5.55 October 26th 2025 ####
+
+* [Bump Akka.NET to 1.5.55](https://github.com/akkadotnet/akka.net/releases/tag/1.5.55)
+* [Bump Akka.Hosting to 1.5.55](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.55)
+* [Add MongoDB connectivity health checks](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/423)
+
+Adds new `WithConnectivityCheck()` methods for proactive MongoDB connectivity verification with customizable tags.
+
 #### 1.5.53 October 16th 2025 ####
 
 * [Bump Akka.NET to 1.5.53](https://github.com/akkadotnet/akka.net/releases/tag/1.5.53)
