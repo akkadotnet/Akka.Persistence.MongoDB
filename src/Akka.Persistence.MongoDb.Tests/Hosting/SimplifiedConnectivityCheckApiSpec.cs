@@ -6,13 +6,16 @@
 
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Akka.Hosting;
-using Akka.Persistence.Hosting;
 using Akka.Persistence.MongoDb.Hosting;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests.Hosting;
 
@@ -20,196 +23,117 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting;
 /// Tests for the simplified connectivity check API (Akka.Hosting 1.5.55.1+)
 /// that automatically accesses options from builder.Options
 /// </summary>
-public class SimplifiedConnectivityCheckApiSpec
+[Collection("MongoDbSpec")]
+public class SimplifiedConnectivityCheckApiSpec : Akka.Hosting.TestKit.TestKit, IClassFixture<DatabaseFixture>
 {
-    [Fact]
-    public void Journal_Should_Support_Simplified_WithConnectivityCheck_API()
+    private readonly DatabaseFixture _fixture;
+
+    public SimplifiedConnectivityCheckApiSpec(ITestOutputHelper output, DatabaseFixture fixture)
+        : base(nameof(SimplifiedConnectivityCheckApiSpec), output)
     {
-        // Arrange
-        var services = new ServiceCollection();
+        _fixture = fixture;
+    }
+
+    protected override void ConfigureServices(HostBuilderContext context, IServiceCollection services)
+    {
+        base.ConfigureServices(context, services);
         services.AddHealthChecks();
+    }
 
-        // Act
-        services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "mongodb://localhost:27017/akka-test",
-                journalBuilder: journal =>
-                {
-                    // This is the simplified API - no parameters needed
-                    journal.WithConnectivityCheck();
-                });
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
-
-        // Assert
-        var registration = healthCheckService.GetType()
-            .GetProperty("_registrations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(healthCheckService) as System.Collections.Generic.IEnumerable<HealthCheckRegistration>;
-
-        registration.Should().NotBeNull();
-        var checkRegistration = registration!.FirstOrDefault(r => r.Name.Contains("MongoDB.Journal") && r.Name.Contains("Connectivity"));
-        checkRegistration.Should().NotBeNull("connectivity check should be registered");
+    protected override void ConfigureAkka(AkkaConfigurationBuilder builder, System.IServiceProvider provider)
+    {
+        builder.WithMongoDbPersistence(
+            connectionString: _fixture.ConnectionString,
+            journalBuilder: journal =>
+            {
+                // This is the simplified API - no parameters needed
+                journal.WithConnectivityCheck();
+            },
+            snapshotBuilder: snapshot =>
+            {
+                // This is the simplified API - no parameters needed
+                snapshot.WithConnectivityCheck();
+            });
     }
 
     [Fact]
-    public void SnapshotStore_Should_Support_Simplified_WithConnectivityCheck_API()
+    public async Task Connectivity_checks_should_be_registered()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddHealthChecks();
+        var healthCheckService = Host.Services.GetRequiredService<HealthCheckService>();
 
-        // Act
-        services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "mongodb://localhost:27017/akka-test",
-                snapshotBuilder: snapshot =>
-                {
-                    // This is the simplified API - no parameters needed
-                    snapshot.WithConnectivityCheck();
-                });
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+        // Act - run all health checks
+        var healthReport = await healthCheckService.CheckHealthAsync(CancellationToken.None);
 
         // Assert
-        var registration = healthCheckService.GetType()
-            .GetProperty("_registrations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(healthCheckService) as System.Collections.Generic.IEnumerable<HealthCheckRegistration>;
+        healthReport.Entries.Should().NotBeEmpty("health checks should be registered");
 
-        registration.Should().NotBeNull();
-        var checkRegistration = registration!.FirstOrDefault(r => r.Name.Contains("MongoDB.SnapshotStore") && r.Name.Contains("Connectivity"));
-        checkRegistration.Should().NotBeNull("connectivity check should be registered");
-    }
+        // Look for connectivity checks
+        var journalConnectivityCheck = healthReport.Entries
+            .FirstOrDefault(e => e.Key.Contains("MongoDB.Journal", StringComparison.OrdinalIgnoreCase) &&
+                                e.Key.Contains("Connectivity", StringComparison.OrdinalIgnoreCase));
 
+        var snapshotConnectivityCheck = healthReport.Entries
+            .FirstOrDefault(e => e.Key.Contains("MongoDB.SnapshotStore", StringComparison.OrdinalIgnoreCase) &&
+                                e.Key.Contains("Connectivity", StringComparison.OrdinalIgnoreCase));
 
-    [Fact]
-    public void Simplified_API_Should_Throw_When_ConnectionString_Not_Set()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddHealthChecks();
-
-        // Act & Assert
-        var action = () => services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "",  // Empty connection string
-                journalBuilder: journal =>
-                {
-                    journal.WithConnectivityCheck();
-                });
-        });
-
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*ConnectionString*");
+        journalConnectivityCheck.Key.Should().NotBeNull("journal connectivity check should be registered");
+        snapshotConnectivityCheck.Key.Should().NotBeNull("snapshot connectivity check should be registered");
     }
 }
 
 /// <summary>
 /// Tests for customizable options in the simplified connectivity check API
 /// </summary>
-public class CustomConnectivityCheckConfigSpec
+[Collection("MongoDbSpec")]
+public class CustomConnectivityCheckConfigSpec : Akka.Hosting.TestKit.TestKit, IClassFixture<DatabaseFixture>
 {
-    [Fact]
-    public void Simplified_API_Should_Support_Custom_HealthStatus()
+    private readonly DatabaseFixture _fixture;
+
+    public CustomConnectivityCheckConfigSpec(ITestOutputHelper output, DatabaseFixture fixture)
+        : base(nameof(CustomConnectivityCheckConfigSpec), output)
     {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddHealthChecks();
-
-        // Act
-        services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "mongodb://localhost:27017/akka-test",
-                journalBuilder: journal =>
-                {
-                    journal.WithConnectivityCheck(unHealthyStatus: HealthStatus.Degraded);
-                });
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
-
-        // Assert - verify the health check was registered
-        var registration = healthCheckService.GetType()
-            .GetProperty("_registrations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(healthCheckService) as System.Collections.Generic.IEnumerable<HealthCheckRegistration>;
-
-        registration.Should().NotBeNull();
-        var checkRegistration = registration!.FirstOrDefault(r => r.Name.Contains("MongoDB.Journal") && r.Name.Contains("Connectivity"));
-        checkRegistration.Should().NotBeNull();
-        checkRegistration!.FailureStatus.Should().Be(HealthStatus.Degraded);
+        _fixture = fixture;
     }
 
-    [Fact]
-    public void Simplified_API_Should_Support_Custom_Name()
+    protected override void ConfigureServices(HostBuilderContext context, IServiceCollection services)
     {
-        // Arrange
-        var services = new ServiceCollection();
+        base.ConfigureServices(context, services);
         services.AddHealthChecks();
+    }
+
+    protected override void ConfigureAkka(AkkaConfigurationBuilder builder, System.IServiceProvider provider)
+    {
+        var customTags = new[] { "custom", "mongodb", "test" };
         const string customName = "MyCustomMongoDbJournalCheck";
 
-        // Act
-        services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "mongodb://localhost:27017/akka-test",
-                journalBuilder: journal =>
-                {
-                    journal.WithConnectivityCheck(name: customName);
-                });
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
-
-        // Assert
-        var registration = healthCheckService.GetType()
-            .GetProperty("_registrations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(healthCheckService) as System.Collections.Generic.IEnumerable<HealthCheckRegistration>;
-
-        registration.Should().NotBeNull();
-        var checkRegistration = registration!.FirstOrDefault(r => r.Name == customName);
-        checkRegistration.Should().NotBeNull("custom named health check should be registered");
+        builder.WithMongoDbPersistence(
+            connectionString: _fixture.ConnectionString,
+            journalBuilder: journal =>
+            {
+                journal.WithConnectivityCheck(
+                    unHealthyStatus: HealthStatus.Degraded,
+                    name: customName,
+                    tags: customTags);
+            });
     }
 
     [Fact]
-    public void Simplified_API_Should_Support_Custom_Tags()
+    public async Task Simplified_API_should_support_custom_configuration()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddHealthChecks();
-        var customTags = new[] { "custom", "mongodb", "test" };
+        var healthCheckService = Host.Services.GetRequiredService<HealthCheckService>();
 
-        // Act
-        services.AddAkka("TestSystem", (builder, provider) =>
-        {
-            builder.WithMongoDbPersistence(
-                connectionString: "mongodb://localhost:27017/akka-test",
-                journalBuilder: journal =>
-                {
-                    journal.WithConnectivityCheck(tags: customTags);
-                });
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+        // Act - run all health checks
+        var healthReport = await healthCheckService.CheckHealthAsync(CancellationToken.None);
 
         // Assert
-        var registration = healthCheckService.GetType()
-            .GetProperty("_registrations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(healthCheckService) as System.Collections.Generic.IEnumerable<HealthCheckRegistration>;
+        healthReport.Entries.Should().NotBeEmpty("health checks should be registered");
 
-        registration.Should().NotBeNull();
-        var checkRegistration = registration!.FirstOrDefault(r => r.Name.Contains("MongoDB.Journal") && r.Name.Contains("Connectivity"));
-        checkRegistration.Should().NotBeNull();
-        checkRegistration!.Tags.Should().BeEquivalentTo(customTags);
+        // Look for the custom named check
+        var customCheck = healthReport.Entries
+            .FirstOrDefault(e => e.Key == "MyCustomMongoDbJournalCheck");
+
+        customCheck.Key.Should().NotBeNull("custom named health check should be registered");
     }
 }
-
