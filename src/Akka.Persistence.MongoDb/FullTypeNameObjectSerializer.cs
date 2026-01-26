@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Reflection;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -17,10 +18,12 @@ namespace Akka.Persistence.MongoDb
     /// <summary>
     /// Represents a serializer for objects.
     /// </summary>
-    internal class FullTypeNameObjectSerializer : ClassSerializerBase<object>, IHasDiscriminatorConvention
+    public class FullTypeNameObjectSerializer : ClassSerializerBase<object>, IHasDiscriminatorConvention
     {
+        private static readonly ConcurrentDictionary<Type, bool> s_registeredTypes = new();
+
         private readonly ObjectSerializer _serializer;
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="FullTypeNameObjectSerializer"/> class.
         /// </summary>
@@ -64,22 +67,26 @@ namespace Akka.Persistence.MongoDb
         /// If the type is not registered, attach it to our discriminator
         /// </summary>
         /// <param name="actualType">the type to examine</param>
-        private void RegisterNewTypesToDiscriminator(Type actualType)
+        public static void RegisterNewTypesToDiscriminator(Type actualType)
         {
-            // we've detected a new concrete type that isn't registered in MongoDB's serializer
-            if (actualType != typeof(object) && !actualType.GetTypeInfo().IsInterface && !BsonSerializer.IsTypeDiscriminated(actualType))
+            if (actualType == typeof(object) || actualType.GetTypeInfo().IsInterface || BsonSerializer.IsTypeDiscriminated(actualType)
+                || s_registeredTypes.ContainsKey(actualType))
             {
-                try
-                {
-                    BsonSerializer.RegisterDiscriminatorConvention(actualType, DiscriminatorConvention);
-                    BsonSerializer.RegisterDiscriminator(actualType, DiscriminatorConvention.GetDiscriminator(typeof(object), actualType));
-                }
-                catch (BsonSerializationException)
-                {
-                    // the MongoDB driver library has no nice mechanism for checking if a discriminator convention is registerd.
-                    // The "Lookup" logic tends to define a default if it doesn't exist.
-                    // So we're forced to eat the "duplicate registration" exception.
-                }
+                return;
+            }
+
+            try
+            {
+                // we've likely detected a new concrete type that isn't registered in MongoDB's serializer
+                BsonSerializer.RegisterDiscriminatorConvention(actualType, FullTypeNameDiscriminatorConvention.Instance);
+                BsonSerializer.RegisterDiscriminator(actualType, FullTypeNameDiscriminatorConvention.Instance.GetDiscriminator(typeof(object), actualType));
+                s_registeredTypes.TryAdd(actualType, true);
+            }
+            catch (BsonSerializationException)
+            {
+                // Ignore re-registration errors that may occur due to multiple concurrent registrations or
+                // if library user has registered their own IDiscriminatorConvention for actualType.
+                s_registeredTypes.TryAdd(actualType, true);
             }
         }
     }
