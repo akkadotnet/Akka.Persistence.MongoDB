@@ -78,8 +78,8 @@ namespace Akka.Persistence.MongoDb
             try
             {
                 // we've likely detected a new concrete type that isn't registered in MongoDB's serializer
-                BsonSerializer.RegisterDiscriminatorConvention(actualType, DiscriminatorConvention);
-                BsonSerializer.RegisterDiscriminator(actualType, DiscriminatorConvention.GetDiscriminator(typeof(object), actualType));
+                BsonSerializer.RegisterDiscriminatorConvention(actualType, FullTypeNameDiscriminatorConvention.Instance);
+                BsonSerializer.RegisterDiscriminator(actualType, FullTypeNameDiscriminatorConvention.Instance.GetDiscriminator(typeof(object), actualType));
                 s_registeredTypes.TryAdd(actualType, true);
             }
             catch (BsonSerializationException)
