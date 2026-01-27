@@ -1,3 +1,15 @@
+#### 1.5.30.1 January 27th 2026 ####
+
+* [Fix lock contention and high CPU usage during concurrent event persistence](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/428)
+
+**Performance Fix: Reduced BSON Serializer Lock Contention**
+
+Fixed a critical performance issue where concurrent persistence operations would cause high CPU usage due to lock contention in the BSON serializer. Previously, `FullTypeNameObjectSerializer` would repeatedly register discriminators for types that were already registered, acquiring write locks unnecessarily.
+
+Changes:
+- Added tracking of already-registered types to skip redundant registration
+- Made `FullTypeNameObjectSerializer` public with a static `RegisterNewTypesToDiscriminator()` method for pre-registration at startup
+
 #### 1.5.30 October 3rd 2024 ####
 
 * [Bump Akka.NET to 1.5.30](https://github.com/akkadotnet/akka.net/releases/tag/1.5.30)
