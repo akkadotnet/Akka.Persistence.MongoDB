@@ -2,7 +2,6 @@
 using Akka.Persistence.TCK.Serialization;
 using Akka.Util.Internal;
 using Xunit;
-using Xunit.Abstractions;
 
 #nullable enable
 namespace Akka.Persistence.MongoDb.Tests.GridFS.Serialization;

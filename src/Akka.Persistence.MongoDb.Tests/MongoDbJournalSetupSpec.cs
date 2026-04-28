@@ -12,7 +12,6 @@ using Akka.TestKit;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {

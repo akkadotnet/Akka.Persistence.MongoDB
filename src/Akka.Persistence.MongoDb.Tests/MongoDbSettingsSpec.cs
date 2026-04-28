@@ -12,7 +12,7 @@ using Xunit;
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class MongoDbSettingsSpec : Akka.TestKit.Xunit2.TestKit
+    public class MongoDbSettingsSpec : Akka.TestKit.Xunit.TestKit
     {
         [Fact]
         public void Mongo_JournalSettings_must_have_default_values()

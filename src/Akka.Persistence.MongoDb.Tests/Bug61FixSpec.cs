@@ -15,12 +15,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class Bug61FixSpec : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
+    public class Bug61FixSpec : Akka.TestKit.Xunit.TestKit, IClassFixture<DatabaseFixture>
     {
         public static readonly AtomicCounter Counter = new AtomicCounter(0);
         private readonly ITestOutputHelper _output;

@@ -9,12 +9,11 @@ using Akka.Util.Internal;
 using Akka.Actor;
 using MongoDB.Driver;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
     [Collection("MongoDbSpec")]
-    public class Bug25FixSpec : Akka.TestKit.Xunit2.TestKit, IClassFixture<DatabaseFixture>
+    public class Bug25FixSpec : Akka.TestKit.Xunit.TestKit, IClassFixture<DatabaseFixture>
     {
         class MyJournalActor : ReceivePersistentActor
         {

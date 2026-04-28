@@ -14,7 +14,6 @@ using Akka.Streams.Dsl;
 using FluentAssertions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests.Hosting;
 

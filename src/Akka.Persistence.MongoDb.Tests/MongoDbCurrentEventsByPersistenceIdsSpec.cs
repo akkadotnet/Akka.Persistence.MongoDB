@@ -10,7 +10,6 @@ using Xunit;
 using Akka.Configuration;
 using Akka.Persistence.MongoDb.Query;
 using Akka.Persistence.Query;
-using Xunit.Abstractions;
 using Akka.Util.Internal;
 
 namespace Akka.Persistence.MongoDb.Tests
