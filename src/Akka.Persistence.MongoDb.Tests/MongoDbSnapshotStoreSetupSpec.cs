@@ -4,7 +4,6 @@ using Akka.Configuration;
 using Akka.Persistence.TCK.Snapshot;
 using MongoDB.Driver;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {

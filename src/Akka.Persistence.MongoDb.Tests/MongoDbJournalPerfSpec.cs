@@ -4,7 +4,6 @@ using Akka.Persistence.TestKit.Performance;
 using Akka.Util.Internal;
 using System;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Akka.Persistence.MongoDb.Tests
 {

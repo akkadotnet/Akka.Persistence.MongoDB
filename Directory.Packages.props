@@ -2,8 +2,8 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <MongoDbVersion>3.0.0</MongoDbVersion>
-    <AkkaVersion>1.5.60</AkkaVersion>
-    <AkkaHostingVersion>1.5.60</AkkaHostingVersion>
+    <AkkaVersion>1.5.67</AkkaVersion>
+    <AkkaHostingVersion>1.5.67</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
@@ -18,11 +18,11 @@
   <ItemGroup>
     <PackageVersion Include="FluentAssertions" Version="5.10.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2">
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageVersion>
-    <PackageVersion Include="xunit" Version="2.9.0" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="Akka.Persistence.TCK" Version="$(AkkaVersion)" />
     <PackageVersion Include="Mongo2Go" Version="4.0.0" />
     <PackageVersion Include="System.Net.NetworkInformation" Version="4.3.0" />

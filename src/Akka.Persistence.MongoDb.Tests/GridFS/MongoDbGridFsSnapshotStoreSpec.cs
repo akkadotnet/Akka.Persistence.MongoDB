@@ -14,7 +14,6 @@ using Akka.Event;
 using Akka.Persistence.TCK.Snapshot;
 using FluentAssertions;
 using Xunit;
-using Xunit.Abstractions;
 
 #nullable enable
 namespace Akka.Persistence.MongoDb.Tests.GridFS;
