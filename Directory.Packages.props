@@ -24,7 +24,7 @@
     </PackageVersion>
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="Akka.Persistence.TCK" Version="$(AkkaVersion)" />
-    <PackageVersion Include="Mongo2Go" Version="4.0.0" />
+    <PackageVersion Include="Mongo2Go" Version="4.1.0" />
     <PackageVersion Include="System.Net.NetworkInformation" Version="4.3.0" />
   </ItemGroup>
   <!-- SourceLink support for all Akka.NET projects -->
