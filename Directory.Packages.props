@@ -3,7 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <MongoDbVersion>3.0.0</MongoDbVersion>
     <AkkaVersion>1.5.67</AkkaVersion>
-    <AkkaHostingVersion>1.5.67</AkkaHostingVersion>
+    <AkkaHostingVersion>1.5.68</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
@@ -11,7 +11,7 @@
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageVersion Include="MongoDB.Driver" Version="$(MongoDbVersion)" />
   </ItemGroup>
   <!-- Test dependencies -->
