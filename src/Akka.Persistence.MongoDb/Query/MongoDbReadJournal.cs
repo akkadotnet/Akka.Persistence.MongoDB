@@ -31,6 +31,9 @@ namespace Akka.Persistence.MongoDb.Query
 
         private readonly object _lock = new object();
         private IPublisher<string> _persistenceIdsPublisher;
+        private IActorRef? _journalRef;
+        private IActorRef JournalRef =>
+            _journalRef ??= Persistence.Instance.Apply(_system).JournalFor(_writeJournalPluginId);
 
         /// <inheritdoc />
         public MongoDbReadJournal(ExtendedActorSystem system, Config config)
@@ -193,10 +196,26 @@ namespace Akka.Persistence.MongoDb.Query
         /// The stream is completed with failure if there is a failure in executing the query in the
         /// backend journal.
         /// </summary>
+        // Resolves a FromEnd(N) offset into a concrete exclusive-start ordering value, then defers
+        // to the normal forward-streaming query via ConcatMany.
+        private Source<EventEnvelope, NotUsed> ResolveFromEnd(
+            string? tag, int count, Func<long, Source<EventEnvelope, NotUsed>> continuation)
+            => Source.FromTask(
+                    JournalRef.Ask<FromEndOffsetResult>(
+                        new FindFromEndOffset(tag, count),
+                        TimeSpan.FromSeconds(30)))
+                .Select(r => r.Offset)
+                .ConcatMany(continuation);
+
         public Source<EventEnvelope, NotUsed> EventsByTag(string tag, Offset offset = null)
         {
             offset = offset ?? new Sequence(0L);
             switch (offset) {
+                case FromEnd fe:
+                    return ResolveFromEnd(tag, fe.Count, start =>
+                        Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, start, long.MaxValue, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named($"EventsByTag-{tag}"));
                 case Sequence seq:
                     return Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, seq.Value, long.MaxValue, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
                         .MapMaterializedValue(_ => NotUsed.Instance)
@@ -204,7 +223,7 @@ namespace Akka.Persistence.MongoDb.Query
                 case NoOffset _:
                     return EventsByTag(tag, new Sequence(0L));
                 default:
-                    throw new ArgumentException($"SqlReadJournal does not support {offset.GetType().Name} offsets");
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
         }
 
@@ -217,6 +236,11 @@ namespace Akka.Persistence.MongoDb.Query
         {
             offset = offset ?? new Sequence(0L);
             switch (offset) {
+                case FromEnd fe:
+                    return ResolveFromEnd(tag, fe.Count, start =>
+                        Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, start, long.MaxValue, null, _maxBufferSize, _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named($"CurrentEventsByTag-{tag}"));
                 case Sequence seq:
                     return Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, seq.Value, long.MaxValue, null, _maxBufferSize, _writeJournalPluginId))
                         .MapMaterializedValue(_ => NotUsed.Instance)
@@ -224,7 +248,7 @@ namespace Akka.Persistence.MongoDb.Query
                 case NoOffset _:
                     return CurrentEventsByTag(tag, new Sequence(0L));
                 default:
-                    throw new ArgumentException($"SqlReadJournal does not support {offset.GetType().Name} offsets");
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
         }
 
@@ -260,23 +284,25 @@ namespace Akka.Persistence.MongoDb.Query
         /// </summary>
         public Source<EventEnvelope, NotUsed> AllEvents(Offset offset = null)
         {
-            Sequence seq;
             switch (offset)
             {
+                case FromEnd fe:
+                    return ResolveFromEnd(null, fe.Count, start =>
+                        Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(start, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named("AllEvents"));
                 case null:
                 case NoOffset _:
-                    seq = new Sequence(0L);
-                    break;
+                    return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(0L, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
+                        .MapMaterializedValue(_ => NotUsed.Instance)
+                        .Named("AllEvents");
                 case Sequence s:
-                    seq = s;
-                    break;
+                    return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(s.Value, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
+                        .MapMaterializedValue(_ => NotUsed.Instance)
+                        .Named("AllEvents");
                 default:
                     throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
-
-            return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(seq.Value, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
-                .MapMaterializedValue(_ => NotUsed.Instance)
-                .Named("AllEvents");
         }
 
         /// <summary>
@@ -286,23 +312,25 @@ namespace Akka.Persistence.MongoDb.Query
         /// </summary>
         public Source<EventEnvelope, NotUsed> CurrentAllEvents(Offset offset)
         {
-            Sequence seq;
             switch (offset)
             {
+                case FromEnd fe:
+                    return ResolveFromEnd(null, fe.Count, start =>
+                        Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(start, null, _maxBufferSize, _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named("CurrentAllEvents"));
                 case null:
                 case NoOffset _:
-                    seq = new Sequence(0L);
-                    break;
+                    return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(0L, null, _maxBufferSize, _writeJournalPluginId))
+                        .MapMaterializedValue(_ => NotUsed.Instance)
+                        .Named("CurrentAllEvents");
                 case Sequence s:
-                    seq = s;
-                    break;
+                    return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(s.Value, null, _maxBufferSize, _writeJournalPluginId))
+                        .MapMaterializedValue(_ => NotUsed.Instance)
+                        .Named("CurrentAllEvents");
                 default:
                     throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
-
-            return Source.ActorPublisher<EventEnvelope>(AllEventsPublisher.Props(seq.Value, null, _maxBufferSize, _writeJournalPluginId))
-                .MapMaterializedValue(_ => NotUsed.Instance)
-                .Named("CurrentAllEvents");
         }
        
     }

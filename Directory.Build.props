@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Copyright>Copyright © 2013-2021 Akka.NET Project</Copyright>
     <Authors>Akka.NET Contrib</Authors>
-    <VersionPrefix>1.5.59</VersionPrefix>
+    <VersionPrefix>1.5.70-beta1</VersionPrefix>
     <PackageIconUrl>http://getakka.net/images/akkalogo.png</PackageIconUrl>
     <PackageProjectUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/akkadotnet/Akka.Persistence.MongoDB/blob/master/LICENSE.md</PackageLicenseUrl>

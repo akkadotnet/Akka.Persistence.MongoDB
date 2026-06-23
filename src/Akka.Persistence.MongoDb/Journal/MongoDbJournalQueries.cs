@@ -180,6 +180,41 @@ internal static class MongoDbJournalQueries
     /// The session parameter signals if this query is being called as part of a transaction block or not
     /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
     /// </summary>
+    /// <summary>
+    /// Returns the exclusive-start ordering value that, when used as a <c>fromOffset</c>, makes the
+    /// next forward query return exactly the last <paramref name="count"/> matching events.
+    /// <para>
+    /// Strategy: sort descending, skip <paramref name="count"/> to land on the event just before the
+    /// desired window, and return its ordering value as the exclusive lower bound. When fewer than
+    /// <paramref name="count"/> events exist the method returns 0 (= start from the very beginning).
+    /// </para>
+    /// </summary>
+    public static async Task<long> FromEndOrderingQuery(
+        this IMongoCollection<JournalEntry> collection,
+        IClientSessionHandle? session,
+        string? tag,
+        int count,
+        CancellationToken token)
+    {
+        if (count <= 0) return 0L;
+
+        var builder = Builders<JournalEntry>.Filter;
+        var filter = string.IsNullOrWhiteSpace(tag)
+            ? FilterDefinition<JournalEntry>.Empty
+            : builder.AnyEq(x => x.Tags, tag);
+
+        // Skip `count` from the end → the anchor is the event immediately before our window.
+        // Its Ordering.Value is the exclusive lower bound: Gt(anchor) returns exactly the last N events.
+        var anchor = await (session is not null ? collection.Find(session, filter) : collection.Find(filter))
+            .SortByDescending(x => x.Ordering)
+            .Skip(count)
+            .Limit(1)
+            .Project(e => e.Ordering)
+            .FirstOrDefaultAsync(token);
+
+        return anchor?.Value ?? 0L;
+    }
+
     public static async Task<long> HighestOrderingQuery(this IMongoCollection<JournalEntry> collection, IClientSessionHandle? session, CancellationToken token)
     {
         var max = await (session is not null ? collection.AsQueryable(session) : collection.AsQueryable())

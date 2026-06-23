@@ -587,6 +587,13 @@ namespace Akka.Persistence.MongoDb.Journal
                         .PipeTo(request.ReplyTo,
                             success: result => new CurrentPersistenceIds(result.Ids, request.Offset));
                     return true;
+                case FindFromEndOffset request:
+                    var sender = Sender;
+                    FindFromEndOffsetAsync(request.Tag, request.Count)
+                        .PipeTo(sender,
+                            success: offset => new FromEndOffsetResult(offset),
+                            failure: ex => new Status.Failure(ex));
+                    return true;
                 default:
                     return false;
             }
@@ -604,6 +611,15 @@ namespace Akka.Persistence.MongoDb.Journal
                 var lastOrdering = await journalCollection.HighestOrderingQuery(session, token);
                 return (ids, lastOrdering);
             }, unitedCts.Token);
+        }
+
+        private async Task<long> FindFromEndOffsetAsync(string? tag, int count)
+        {
+            using var unitedCts = CreatePerCallCts();
+            var journalCollection = await GetJournalCollection(unitedCts.Token);
+            return await MaybeReadWithTransaction(
+                async (session, token) => await journalCollection.FromEndOrderingQuery(session, tag, count, token),
+                unitedCts.Token);
         }
 
         protected virtual async Task<long> ReplayAllEventsAsync(ReplayAllEvents replay)
