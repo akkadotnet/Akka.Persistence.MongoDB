@@ -175,6 +175,43 @@ namespace Akka.Persistence.MongoDb.Query
     /// <summary>
     /// TBD
     /// </summary>
+    /// <summary>
+    /// Ask the journal for the exclusive-start ordering value that makes the next query
+    /// return the last <see cref="Count"/> matching events. Used to resolve
+    /// <see cref="Akka.Persistence.Query.FromEnd"/> offsets without exposing MongoDB
+    /// internals to the read journal.
+    /// </summary>
+    [Serializable]
+    public sealed class FindFromEndOffset : IJournalRequest
+    {
+        /// <summary>Optional tag filter; null means all-events.</summary>
+        public string? Tag { get; }
+
+        /// <summary>Number of events from the end to include in the window.</summary>
+        public int Count { get; }
+
+        public FindFromEndOffset(string? tag, int count)
+        {
+            Tag = tag;
+            Count = count;
+        }
+    }
+
+    /// <summary>
+    /// Response to <see cref="FindFromEndOffset"/> — the exclusive-start ordering value
+    /// (a <c>BsonTimestamp.Value</c>) to pass as <c>fromOffset</c> to the appropriate publisher.
+    /// </summary>
+    [Serializable]
+    public sealed class FromEndOffsetResult
+    {
+        public long Offset { get; }
+
+        public FromEndOffsetResult(long offset)
+        {
+            Offset = offset;
+        }
+    }
+
     [Serializable]
     public sealed class ReplayAllEvents : IJournalRequest
     {
