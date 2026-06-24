@@ -43,6 +43,14 @@ public class MongoDbGridFsSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<D
                                       use-write-transaction = off
                                       auto-initialize = on
                                       collection = "SnapshotStore"
+                                      # 128 MB GridFS writes are slow on Windows CI; override plugin and
+                                      # circuit-breaker timeouts so they don't fire before the operation completes
+                                      call-timeout = 60s
+                                      circuit-breaker {
+                                          max-failures = 5
+                                          call-timeout = 60s
+                                          reset-timeout = 60s
+                                      }
                                   }
                               }
                            }
@@ -56,16 +64,16 @@ public class MongoDbGridFsSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<D
     {
         var metadata = new SnapshotMetadata(Pid, 100, DateTime.MinValue);
         var bigSnapshot = new byte[SnapshotByteSizeLimit];
-        new Random().NextBytes(bigSnapshot);
+        Random.Shared.NextBytes(bigSnapshot);
         var senderProbe = CreateTestProbe();
         SnapshotStore.Tell(new SaveSnapshot(metadata, bigSnapshot), senderProbe.Ref);
-        var saved = await senderProbe.ExpectMsgAsync<SaveSnapshotSuccess>();
+        var saved = await senderProbe.ExpectMsgAsync<SaveSnapshotSuccess>(TimeSpan.FromSeconds(60));
 
         var stopwatch = Stopwatch.StartNew();
         SnapshotStore.Tell(
-            new LoadSnapshot(Pid, new SnapshotSelectionCriteria(saved.Metadata.SequenceNr), long.MaxValue), 
+            new LoadSnapshot(Pid, new SnapshotSelectionCriteria(saved.Metadata.SequenceNr), long.MaxValue),
             senderProbe.Ref);
-        var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>();
+        var loaded = await senderProbe.ExpectMsgAsync<LoadSnapshotResult>(TimeSpan.FromSeconds(60));
         stopwatch.Stop();
         Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.Milliseconds} milliseconds");
 
