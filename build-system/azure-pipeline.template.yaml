@@ -11,6 +11,13 @@ jobs:
     displayName: ${{ parameters.displayName }}
     timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
 
+    # Defined at job scope so it is present during `dotnet build`, where the `CICD`
+    # compile constant is evaluated. The test step runs with `--no-build`, so setting
+    # this only on that step never reaches the compiler and leaves the `#if !CICD`
+    # performance specs (e.g. MongoDbJournalPerfSpec) compiled into CI runs.
+    variables:
+      TEST_ENVIRONMENT: CICD
+
     pool:
       vmImage: ${{ parameters.vmImage }}
 
@@ -57,8 +64,6 @@ jobs:
             dotnet test -c Release --no-build --logger:trx --collect:"XPlat Code Coverage" --results-directory TestResults --settings coverlet.runsettings $_.FullName `
           }
         displayName: 'Run tests'
-        env:
-          TEST_ENVIRONMENT: CICD
         continueOnError: true # Allow continuation even if tests fail
 
       - task: PublishTestResults@2
