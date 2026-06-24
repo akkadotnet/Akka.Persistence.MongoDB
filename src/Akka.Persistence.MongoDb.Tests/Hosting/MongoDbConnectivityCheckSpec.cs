@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Akka.Hosting;
 using Akka.Persistence.MongoDb.Hosting;
-using FluentAssertions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Xunit;
 
@@ -41,9 +40,9 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Exception.Should().BeNull();
-        result.Description.Should().Contain("successful");
+        Assert.Equal(HealthStatus.Healthy, result.Status);
+        Assert.Null(result.Exception);
+        Assert.Contains("successful", result.Description);
     }
 
     [Fact]
@@ -57,9 +56,9 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Exception.Should().BeNull();
-        result.Description.Should().Contain("successful");
+        Assert.Equal(HealthStatus.Healthy, result.Status);
+        Assert.Null(result.Exception);
+        Assert.Contains("successful", result.Description);
     }
 
     [Fact]
@@ -73,9 +72,9 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Exception.Should().BeNull();
-        result.Description.Should().Contain("successful");
+        Assert.Equal(HealthStatus.Healthy, result.Status);
+        Assert.Null(result.Exception);
+        Assert.Contains("successful", result.Description);
     }
 
     // Unhappy path tests - verify health checks detect connection failures
@@ -90,8 +89,8 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-        result.Exception.Should().NotBeNull();
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.NotNull(result.Exception);
     }
 
     [Fact]
@@ -105,8 +104,8 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-        result.Exception.Should().NotBeNull();
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.NotNull(result.Exception);
     }
 
     [Fact]
@@ -114,7 +113,7 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbJournalConnectivityCheck(null!, "mongodb");
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "connectionString");
+        Assert.Equal("connectionString", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 
     [Fact]
@@ -122,7 +121,7 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbJournalConnectivityCheck("mongodb://localhost", null!);
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "journalId");
+        Assert.Equal("journalId", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 
     [Fact]
@@ -130,7 +129,7 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbSnapshotStoreConnectivityCheck(null!, "mongodb");
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "connectionString");
+        Assert.Equal("connectionString", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 
     [Fact]
@@ -138,7 +137,7 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbSnapshotStoreConnectivityCheck("mongodb://localhost", null!);
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "snapshotStoreId");
+        Assert.Equal("snapshotStoreId", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 
     [Fact]
@@ -152,8 +151,8 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
         var result = await check.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-        result.Exception.Should().NotBeNull();
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.NotNull(result.Exception);
     }
 
     [Fact]
@@ -161,7 +160,7 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbGridFsSnapshotStoreConnectivityCheck(null!, "mongodb-gridfs");
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "connectionString");
+        Assert.Equal("connectionString", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 
     [Fact]
@@ -169,6 +168,6 @@ public class MongoDbConnectivityCheckSpec : IClassFixture<DatabaseFixture>
     {
         // Act & Assert
         var action = () => new MongoDbGridFsSnapshotStoreConnectivityCheck("mongodb://localhost", null!);
-        action.Should().Throw<ArgumentNullException>().Where(ex => ex.ParamName == "snapshotStoreId");
+        Assert.Equal("snapshotStoreId", Assert.Throws<ArgumentNullException>(action).ParamName);
     }
 }

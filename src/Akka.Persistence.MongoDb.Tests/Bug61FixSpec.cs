@@ -5,7 +5,6 @@ using Akka.Persistence.MongoDb.Query;
 using Akka.Persistence.Query;
 using Akka.Streams;
 using Akka.Util.Internal;
-using FluentAssertions;
 using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.Misc;
 using System;
@@ -62,15 +61,15 @@ namespace Akka.Persistence.MongoDb.Tests
             var eventsById = await ReadJournal.CurrentEventsByPersistenceId("x", 0L, long.MaxValue)
                 .RunAggregate(ImmutableHashSet<EventEnvelope>.Empty, (agg, e) => agg.Add(e), Materializer);
 
-            eventsById.Count.Should().Be(MessageCount);
+            Assert.Equal(MessageCount, eventsById.Count);
 
             var eventsByTag = await ReadJournal.CurrentEventsByTag(typeof(RealMsg).Name)
                 .RunAggregate(ImmutableHashSet<EventEnvelope>.Empty, (agg, e) => agg.Add(e), Materializer);
 
-            eventsByTag.Count.Should().Be(MessageCount);
+            Assert.Equal(MessageCount, eventsByTag.Count);
 
-            eventsById.All(x => x.Event is RealMsg).Should().BeTrue("Expected all events by id to be RealMsg");
-            eventsByTag.All(x => x.Event is RealMsg).Should().BeTrue("Expected all events by tag to be RealMsg");
+            Assert.True(eventsById.All(x => x.Event is RealMsg));
+            Assert.True(eventsByTag.All(x => x.Event is RealMsg));
         }
 
         /// <summary>

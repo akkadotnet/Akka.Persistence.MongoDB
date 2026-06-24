@@ -1,12 +1,4 @@
-﻿//-----------------------------------------------------------------------
-// <copyright file="MongoDbSettingsSpec.cs" company="Akka.NET Project">
-//     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
-//     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
-// </copyright>
-//-----------------------------------------------------------------------
-
-using FluentAssertions;
-using FluentAssertions.Extensions;
+using System;
 using Xunit;
 
 namespace Akka.Persistence.MongoDb.Tests
@@ -19,12 +11,12 @@ namespace Akka.Persistence.MongoDb.Tests
         {
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
-            mongoPersistence.JournalSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.JournalSettings.AutoInitialize.Should().BeTrue();
-            mongoPersistence.JournalSettings.Collection.Should().Be("EventJournal");
-            mongoPersistence.JournalSettings.MetadataCollection.Should().Be("Metadata");
-            mongoPersistence.JournalSettings.LegacySerialization.Should().BeFalse();
-            mongoPersistence.JournalSettings.CallTimeout.Should().Be(10.Seconds());
+            Assert.Equal(string.Empty, mongoPersistence.JournalSettings.ConnectionString);
+            Assert.True(mongoPersistence.JournalSettings.AutoInitialize);
+            Assert.Equal("EventJournal", mongoPersistence.JournalSettings.Collection);
+            Assert.Equal("Metadata", mongoPersistence.JournalSettings.MetadataCollection);
+            Assert.False(mongoPersistence.JournalSettings.LegacySerialization);
+            Assert.Equal(TimeSpan.FromSeconds(10), mongoPersistence.JournalSettings.CallTimeout);
         }
 
         [Fact]
@@ -32,11 +24,11 @@ namespace Akka.Persistence.MongoDb.Tests
         {
             var mongoPersistence = MongoDbPersistence.Get(Sys);
 
-            mongoPersistence.SnapshotStoreSettings.ConnectionString.Should().Be(string.Empty);
-            mongoPersistence.SnapshotStoreSettings.AutoInitialize.Should().BeTrue();
-            mongoPersistence.SnapshotStoreSettings.Collection.Should().Be("SnapshotStore");
-            mongoPersistence.SnapshotStoreSettings.LegacySerialization.Should().BeFalse();
-            mongoPersistence.SnapshotStoreSettings.CallTimeout.Should().Be(10.Seconds());
+            Assert.Equal(string.Empty, mongoPersistence.SnapshotStoreSettings.ConnectionString);
+            Assert.True(mongoPersistence.SnapshotStoreSettings.AutoInitialize);
+            Assert.Equal("SnapshotStore", mongoPersistence.SnapshotStoreSettings.Collection);
+            Assert.False(mongoPersistence.SnapshotStoreSettings.LegacySerialization);
+            Assert.Equal(TimeSpan.FromSeconds(10), mongoPersistence.SnapshotStoreSettings.CallTimeout);
         }
     }
 }

@@ -3,8 +3,6 @@ using System.IO;
 using System.Text;
 using Akka.Configuration;
 using Akka.Persistence.MongoDb.Hosting;
-using FluentAssertions;
-using FluentAssertions.Extensions;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -18,8 +16,8 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var options = new MongoDbJournalOptions(true);
             var config = options.ToConfig();
 
-            config.GetString("akka.persistence.journal.plugin").Should().Be("akka.persistence.journal.mongodb");
-            config.HasPath("akka.persistence.journal.mongodb").Should().BeTrue();
+            Assert.Equal("akka.persistence.journal.mongodb", config.GetString("akka.persistence.journal.plugin"));
+            Assert.True(config.HasPath("akka.persistence.journal.mongodb"));
         }
 
         [Fact(DisplayName = "Empty MongoDbJournalOptions should equal empty config with default fallback")]
@@ -30,24 +28,24 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var baseRootConfig = Config.Empty
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
 
-            emptyRootConfig.GetString("akka.persistence.journal.plugin").Should().Be(baseRootConfig.GetString("akka.persistence.journal.plugin"));
+            Assert.Equal(baseRootConfig.GetString("akka.persistence.journal.plugin"), emptyRootConfig.GetString("akka.persistence.journal.plugin"));
 
             var config = emptyRootConfig.GetConfig("akka.persistence.journal.mongodb");
             var baseConfig = baseRootConfig.GetConfig("akka.persistence.journal.mongodb");
-            config.Should().NotBeNull();
-            baseConfig.Should().NotBeNull();
+            Assert.NotNull(config);
+            Assert.NotNull(baseConfig);
 
-            config.GetString("class").Should().Be(baseConfig.GetString("class"));
-            config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
-            config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
-            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
-            config.GetBoolean("read-batch-size").Should().Be(baseConfig.GetBoolean("read-batch-size"));
-            config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
-            config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
-            config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
-            config.GetString("metadata-collection").Should().Be(baseConfig.GetString("metadata-collection"));
-            config.GetBoolean("legacy-serialization").Should().Be(baseConfig.GetBoolean("legacy-serialization"));
-            config.GetTimeSpan("call-timeout").Should().Be(baseConfig.GetTimeSpan("call-timeout"));
+            Assert.Equal(baseConfig.GetString("class"), config.GetString("class"));
+            Assert.Equal(baseConfig.GetString("connection-string"), config.GetString("connection-string"));
+            Assert.Equal(baseConfig.GetBoolean("use-write-transaction"), config.GetBoolean("use-write-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("use-read-transaction"), config.GetBoolean("use-read-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("read-batch-size"), config.GetBoolean("read-batch-size"));
+            Assert.Equal(baseConfig.GetBoolean("auto-initialize"), config.GetBoolean("auto-initialize"));
+            Assert.Equal(baseConfig.GetString("plugin-dispatcher"), config.GetString("plugin-dispatcher"));
+            Assert.Equal(baseConfig.GetString("collection"), config.GetString("collection"));
+            Assert.Equal(baseConfig.GetString("metadata-collection"), config.GetString("metadata-collection"));
+            Assert.Equal(baseConfig.GetBoolean("legacy-serialization"), config.GetBoolean("legacy-serialization"));
+            Assert.Equal(baseConfig.GetTimeSpan("call-timeout"), config.GetTimeSpan("call-timeout"));
         }
 
         [Fact(DisplayName = "Empty MongoDbJournalOptions with custom identifier should equal empty config with default fallback")]
@@ -58,24 +56,24 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var baseRootConfig = Config.Empty
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
 
-            emptyRootConfig.GetString("akka.persistence.journal.plugin").Should().Be(baseRootConfig.GetString("akka.persistence.journal.plugin"));
+            Assert.Equal(baseRootConfig.GetString("akka.persistence.journal.plugin"), emptyRootConfig.GetString("akka.persistence.journal.plugin"));
 
             var config = emptyRootConfig.GetConfig("akka.persistence.journal.custom");
             var baseConfig = baseRootConfig.GetConfig("akka.persistence.journal.mongodb");
-            config.Should().NotBeNull();
-            baseConfig.Should().NotBeNull();
+            Assert.NotNull(config);
+            Assert.NotNull(baseConfig);
 
-            config.GetString("class").Should().Be(baseConfig.GetString("class"));
-            config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
-            config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
-            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
-            config.GetBoolean("read-batch-size").Should().Be(baseConfig.GetBoolean("read-batch-size"));
-            config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
-            config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
-            config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
-            config.GetString("metadata-collection").Should().Be(baseConfig.GetString("metadata-collection"));
-            config.GetBoolean("legacy-serialization").Should().Be(baseConfig.GetBoolean("legacy-serialization"));
-            config.GetTimeSpan("call-timeout").Should().Be(baseConfig.GetTimeSpan("call-timeout"));
+            Assert.Equal(baseConfig.GetString("class"), config.GetString("class"));
+            Assert.Equal(baseConfig.GetString("connection-string"), config.GetString("connection-string"));
+            Assert.Equal(baseConfig.GetBoolean("use-write-transaction"), config.GetBoolean("use-write-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("use-read-transaction"), config.GetBoolean("use-read-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("read-batch-size"), config.GetBoolean("read-batch-size"));
+            Assert.Equal(baseConfig.GetBoolean("auto-initialize"), config.GetBoolean("auto-initialize"));
+            Assert.Equal(baseConfig.GetString("plugin-dispatcher"), config.GetString("plugin-dispatcher"));
+            Assert.Equal(baseConfig.GetString("collection"), config.GetString("collection"));
+            Assert.Equal(baseConfig.GetString("metadata-collection"), config.GetString("metadata-collection"));
+            Assert.Equal(baseConfig.GetBoolean("legacy-serialization"), config.GetBoolean("legacy-serialization"));
+            Assert.Equal(baseConfig.GetTimeSpan("call-timeout"), config.GetTimeSpan("call-timeout"));
         }
 
         [Fact(DisplayName = "MongoDbJournalOptions should generate proper config")]
@@ -97,21 +95,21 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
 
             var baseConfig = options.ToConfig();
 
-            baseConfig.GetString("akka.persistence.journal.plugin").Should().Be("akka.persistence.journal.custom");
+            Assert.Equal("akka.persistence.journal.custom", baseConfig.GetString("akka.persistence.journal.plugin"));
 
             var config = baseConfig.GetConfig("akka.persistence.journal.custom");
-            config.Should().NotBeNull();
-            config.GetString("connection-string").Should().Be(options.ConnectionString);
-            config.GetBoolean("auto-initialize").Should().Be(options.AutoInitialize);
-            config.GetString("collection").Should().Be(options.Collection);
-            config.GetString("metadata-collection").Should().Be(options.MetadataCollection);
-            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction.Value);
-            config.GetBoolean("use-read-transaction").Should().Be(options.UseReadTransaction.Value);
-            config.GetString("read-batch-size").ToLowerInvariant().Should().NotBe("off");
-            config.GetString("read-batch-size").ToLowerInvariant().Should().NotBe("false");
-            config.GetInt("read-batch-size").Should().Be(options.ReadBatchSize.Value);
-            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization.Value);
-            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout.Value);
+            Assert.NotNull(config);
+            Assert.Equal(options.ConnectionString, config.GetString("connection-string"));
+            Assert.Equal(options.AutoInitialize, config.GetBoolean("auto-initialize"));
+            Assert.Equal(options.Collection, config.GetString("collection"));
+            Assert.Equal(options.MetadataCollection, config.GetString("metadata-collection"));
+            Assert.Equal(options.UseWriteTransaction.Value, config.GetBoolean("use-write-transaction"));
+            Assert.Equal(options.UseReadTransaction.Value, config.GetBoolean("use-read-transaction"));
+            Assert.NotEqual("off", config.GetString("read-batch-size").ToLowerInvariant());
+            Assert.NotEqual("false", config.GetString("read-batch-size").ToLowerInvariant());
+            Assert.Equal(options.ReadBatchSize.Value, config.GetInt("read-batch-size"));
+            Assert.Equal(options.LegacySerialization.Value, config.GetBoolean("legacy-serialization"));
+            Assert.Equal(options.CallTimeout.Value, config.GetTimeSpan("call-timeout"));
         }
 
         const string Json = @"
@@ -147,18 +145,18 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
             var options = jsonConfig.GetSection("Akka:JournalOptions").Get<MongoDbJournalOptions>();
-            options.ConnectionString.Should().Be("mongodb://localhost:27017");
-            options.UseWriteTransaction.Should().BeTrue();
-            options.UseReadTransaction.Should().BeTrue();
-            options.ReadBatchSize.Should().Be(16);
-            options.Identifier.Should().Be("custommongodb");
-            options.AutoInitialize.Should().BeTrue();
-            options.IsDefaultPlugin.Should().BeFalse();
-            options.Collection.Should().Be("CustomEnventJournalCollection");
-            options.MetadataCollection.Should().Be("CustomMetadataCollection");
-            options.LegacySerialization.Should().BeTrue();
-            options.CallTimeout.Should().Be(10.Minutes());
-            options.Serializer.Should().Be("hyperion");
+            Assert.Equal("mongodb://localhost:27017", options.ConnectionString);
+            Assert.True(options.UseWriteTransaction);
+            Assert.True(options.UseReadTransaction);
+            Assert.Equal(16, options.ReadBatchSize);
+            Assert.Equal("custommongodb", options.Identifier);
+            Assert.True(options.AutoInitialize);
+            Assert.False(options.IsDefaultPlugin);
+            Assert.Equal("CustomEnventJournalCollection", options.Collection);
+            Assert.Equal("CustomMetadataCollection", options.MetadataCollection);
+            Assert.True(options.LegacySerialization);
+            Assert.Equal(TimeSpan.FromMinutes(10), options.CallTimeout);
+            Assert.Equal("hyperion", options.Serializer);
         }
     }
 }
