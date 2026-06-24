@@ -1,10 +1,8 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using Akka.Configuration;
 using Akka.Persistence.MongoDb.Hosting;
-using FluentAssertions;
-using FluentAssertions.Extensions;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -18,8 +16,8 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var options = new MongoDbSnapshotOptions(true);
             var config = options.ToConfig();
 
-            config.GetString("akka.persistence.snapshot-store.plugin").Should().Be("akka.persistence.snapshot-store.mongodb");
-            config.HasPath("akka.persistence.snapshot-store.mongodb").Should().BeTrue();
+            Assert.Equal("akka.persistence.snapshot-store.mongodb", config.GetString("akka.persistence.snapshot-store.plugin"));
+            Assert.True(config.HasPath("akka.persistence.snapshot-store.mongodb"));
         }
 
         [Fact(DisplayName = "Empty MongoDbSnapshotOptions with default fallback should return default config")]
@@ -30,22 +28,22 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var baseRootConfig = Config.Empty
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
 
-            emptyRootConfig.GetString("akka.persistence.snapshot-store.plugin").Should().Be(baseRootConfig.GetString("akka.persistence.snapshot-store.plugin"));
+            Assert.Equal(baseRootConfig.GetString("akka.persistence.snapshot-store.plugin"), emptyRootConfig.GetString("akka.persistence.snapshot-store.plugin"));
 
             var config = emptyRootConfig.GetConfig("akka.persistence.snapshot-store.mongodb");
             var baseConfig = baseRootConfig.GetConfig("akka.persistence.snapshot-store.mongodb");
-            config.Should().NotBeNull();
-            baseConfig.Should().NotBeNull();
+            Assert.NotNull(config);
+            Assert.NotNull(baseConfig);
 
-            Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
-            config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
-            config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
-            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
-            config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
-            config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
-            config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
-            config.GetBoolean("legacy-serialization").Should().Be(baseConfig.GetBoolean("legacy-serialization"));
-            config.GetTimeSpan("call-timeout").Should().Be(baseConfig.GetTimeSpan("call-timeout"));
+            Assert.Equal(Type.GetType(baseConfig.GetString("class")), Type.GetType(config.GetString("class")));
+            Assert.Equal(baseConfig.GetString("connection-string"), config.GetString("connection-string"));
+            Assert.Equal(baseConfig.GetBoolean("use-write-transaction"), config.GetBoolean("use-write-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("use-read-transaction"), config.GetBoolean("use-read-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("auto-initialize"), config.GetBoolean("auto-initialize"));
+            Assert.Equal(baseConfig.GetString("plugin-dispatcher"), config.GetString("plugin-dispatcher"));
+            Assert.Equal(baseConfig.GetString("collection"), config.GetString("collection"));
+            Assert.Equal(baseConfig.GetBoolean("legacy-serialization"), config.GetBoolean("legacy-serialization"));
+            Assert.Equal(baseConfig.GetTimeSpan("call-timeout"), config.GetTimeSpan("call-timeout"));
         }
 
         [Fact(DisplayName = "Empty MongoDbSnapshotOptions with custom identifier should equal empty config with default fallback")]
@@ -56,22 +54,22 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var baseRootConfig = Config.Empty
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
 
-            emptyRootConfig.GetString("akka.persistence.snapshot-store.plugin").Should().Be(baseRootConfig.GetString("akka.persistence.snapshot-store.plugin"));
+            Assert.Equal(baseRootConfig.GetString("akka.persistence.snapshot-store.plugin"), emptyRootConfig.GetString("akka.persistence.snapshot-store.plugin"));
 
             var config = emptyRootConfig.GetConfig("akka.persistence.snapshot-store.custom");
             var baseConfig = baseRootConfig.GetConfig("akka.persistence.snapshot-store.mongodb");
-            config.Should().NotBeNull();
-            baseConfig.Should().NotBeNull();
+            Assert.NotNull(config);
+            Assert.NotNull(baseConfig);
 
-            Type.GetType(config.GetString("class")).Should().Be(Type.GetType(baseConfig.GetString("class")));
-            config.GetString("connection-string").Should().Be(baseConfig.GetString("connection-string"));
-            config.GetBoolean("use-write-transaction").Should().Be(baseConfig.GetBoolean("use-write-transaction"));
-            config.GetBoolean("use-read-transaction").Should().Be(baseConfig.GetBoolean("use-read-transaction"));
-            config.GetBoolean("auto-initialize").Should().Be(baseConfig.GetBoolean("auto-initialize"));
-            config.GetString("plugin-dispatcher").Should().Be(baseConfig.GetString("plugin-dispatcher"));
-            config.GetString("collection").Should().Be(baseConfig.GetString("collection"));
-            config.GetBoolean("legacy-serialization").Should().Be(baseConfig.GetBoolean("legacy-serialization"));
-            config.GetTimeSpan("call-timeout").Should().Be(baseConfig.GetTimeSpan("call-timeout"));
+            Assert.Equal(Type.GetType(baseConfig.GetString("class")), Type.GetType(config.GetString("class")));
+            Assert.Equal(baseConfig.GetString("connection-string"), config.GetString("connection-string"));
+            Assert.Equal(baseConfig.GetBoolean("use-write-transaction"), config.GetBoolean("use-write-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("use-read-transaction"), config.GetBoolean("use-read-transaction"));
+            Assert.Equal(baseConfig.GetBoolean("auto-initialize"), config.GetBoolean("auto-initialize"));
+            Assert.Equal(baseConfig.GetString("plugin-dispatcher"), config.GetString("plugin-dispatcher"));
+            Assert.Equal(baseConfig.GetString("collection"), config.GetString("collection"));
+            Assert.Equal(baseConfig.GetBoolean("legacy-serialization"), config.GetBoolean("legacy-serialization"));
+            Assert.Equal(baseConfig.GetTimeSpan("call-timeout"), config.GetTimeSpan("call-timeout"));
         }
 
         [Fact(DisplayName = "MongoDbSnapshotOptions should generate proper config")]
@@ -92,17 +90,17 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var baseConfig = options.ToConfig()
                 .WithFallback(MongoDbPersistence.DefaultConfiguration());
 
-            baseConfig.GetString("akka.persistence.snapshot-store.plugin").Should().Be("akka.persistence.snapshot-store.custom");
+            Assert.Equal("akka.persistence.snapshot-store.custom", baseConfig.GetString("akka.persistence.snapshot-store.plugin"));
 
             var config = baseConfig.GetConfig("akka.persistence.snapshot-store.custom");
-            config.Should().NotBeNull();
-            config.GetString("connection-string").Should().Be(options.ConnectionString);
-            config.GetBoolean("auto-initialize").Should().Be(options.AutoInitialize);
-            config.GetString("collection").Should().Be(options.Collection);
-            config.GetBoolean("use-write-transaction").Should().Be(options.UseWriteTransaction.Value);
-            config.GetBoolean("use-read-transaction").Should().Be(options.UseReadTransaction.Value);
-            config.GetBoolean("legacy-serialization").Should().Be(options.LegacySerialization.Value);
-            config.GetTimeSpan("call-timeout").Should().Be(options.CallTimeout.Value);
+            Assert.NotNull(config);
+            Assert.Equal(options.ConnectionString, config.GetString("connection-string"));
+            Assert.Equal(options.AutoInitialize, config.GetBoolean("auto-initialize"));
+            Assert.Equal(options.Collection, config.GetString("collection"));
+            Assert.Equal(options.UseWriteTransaction.Value, config.GetBoolean("use-write-transaction"));
+            Assert.Equal(options.UseReadTransaction.Value, config.GetBoolean("use-read-transaction"));
+            Assert.Equal(options.LegacySerialization.Value, config.GetBoolean("legacy-serialization"));
+            Assert.Equal(options.CallTimeout.Value, config.GetTimeSpan("call-timeout"));
         }
 
         [Fact(DisplayName = "MongoDbSnapshotOptions should be bindable to IConfiguration")]
@@ -136,16 +134,16 @@ namespace Akka.Persistence.MongoDb.Tests.Hosting
             var jsonConfig = new ConfigurationBuilder().AddJsonStream(stream).Build();
 
             var options = jsonConfig.GetSection("Akka:SnapshotOptions").Get<MongoDbSnapshotOptions>();
-            options.ConnectionString.Should().Be("mongodb://localhost:27017");
-            options.UseWriteTransaction.Should().BeTrue();
-            options.UseReadTransaction.Should().BeTrue();
-            options.Identifier.Should().Be("custommongodb");
-            options.AutoInitialize.Should().BeTrue();
-            options.IsDefaultPlugin.Should().BeFalse();
-            options.Collection.Should().Be("CustomEnventJournalCollection");
-            options.LegacySerialization.Should().BeTrue();
-            options.CallTimeout.Should().Be(10.Minutes());
-            options.Serializer.Should().Be("hyperion");
+            Assert.Equal("mongodb://localhost:27017", options.ConnectionString);
+            Assert.True(options.UseWriteTransaction);
+            Assert.True(options.UseReadTransaction);
+            Assert.Equal("custommongodb", options.Identifier);
+            Assert.True(options.AutoInitialize);
+            Assert.False(options.IsDefaultPlugin);
+            Assert.Equal("CustomEnventJournalCollection", options.Collection);
+            Assert.True(options.LegacySerialization);
+            Assert.Equal(TimeSpan.FromMinutes(10), options.CallTimeout);
+            Assert.Equal("hyperion", options.Serializer);
         }
     }
 }

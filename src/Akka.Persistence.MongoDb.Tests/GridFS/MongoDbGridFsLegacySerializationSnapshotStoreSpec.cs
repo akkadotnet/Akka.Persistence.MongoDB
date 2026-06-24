@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
 // <copyright file="MongoDbSnapshotStoreSpec.cs" company="Akka.NET Project">
 //     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
 //     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Akka.Configuration;
 using Akka.Event;
 using Akka.Persistence.TCK.Snapshot;
-using FluentAssertions;
 using Xunit;
 
 #nullable enable
@@ -79,7 +78,6 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
         stopwatch.Stop();
         Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.Milliseconds} milliseconds");
         
-        MD5.Create().ComputeHash((byte[])loaded.Snapshot.Snapshot).Should()
-            .BeEquivalentTo(MD5.Create().ComputeHash(bigSnapshot));
+        Assert.Equal(MD5.Create().ComputeHash(bigSnapshot), MD5.Create().ComputeHash((byte[])loaded.Snapshot.Snapshot));
     }
 }
