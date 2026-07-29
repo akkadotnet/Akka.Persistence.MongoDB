@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Persistence.Journal;
@@ -63,6 +64,9 @@ namespace Akka.Persistence.MongoDb.Query
             var journalConfig = rootConfig.GetConfig(resolvedPluginId);
             var callTimeout = journalConfig?.GetTimeSpan("call-timeout", DefaultCallTimeout)
                               ?? DefaultCallTimeout;
+
+            if (callTimeout == Timeout.InfiniteTimeSpan)
+                return Timeout.InfiniteTimeSpan;
 
             // The journal cancels the MongoDB operation at call-timeout. Keep the Ask alive
             // long enough for that cancellation (or its result) to be piped back to the caller.

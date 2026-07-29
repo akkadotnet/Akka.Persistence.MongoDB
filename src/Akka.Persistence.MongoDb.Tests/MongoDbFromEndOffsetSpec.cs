@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
@@ -37,6 +38,21 @@ akka.persistence.journal {
             var timeout = MongoDbReadJournal.ResolveFromEndAskTimeout(config, writePlugin);
 
             Assert.Equal(TimeSpan.FromSeconds(expectedAskTimeoutSeconds), timeout);
+        }
+
+        [Fact]
+        public void FromEnd_Ask_timeout_should_preserve_infinite_journal_call_timeout()
+        {
+            var config = ConfigurationFactory.ParseString("""
+akka.persistence.journal {
+    plugin = "akka.persistence.journal.default"
+    default.call-timeout = infinite
+}
+""");
+
+            var timeout = MongoDbReadJournal.ResolveFromEndAskTimeout(config, "");
+
+            Assert.Equal(Timeout.InfiniteTimeSpan, timeout);
         }
     }
 
@@ -113,6 +129,18 @@ akka.persistence.journal {
             await ExpectMsgAsync(
                 "event-4-done",
                 cancellationToken: TestContext.Current.CancellationToken);
+
+            var resumeOffset = Assert.IsType<Sequence>(firstMaterialization[^1].Offset);
+            var resumed = await queries.CurrentAllEvents(resumeOffset)
+                .RunWith(Sink.Seq<EventEnvelope>(), Materializer);
+
+            Assert.Collection(
+                resumed,
+                envelope =>
+                {
+                    Assert.Equal("event-4", envelope.Event);
+                    Assert.IsType<Sequence>(envelope.Offset);
+                });
 
             var secondMaterialization = await source
                 .RunWith(Sink.Seq<EventEnvelope>(), Materializer);
