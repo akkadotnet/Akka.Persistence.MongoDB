@@ -77,20 +77,20 @@ public class HealthCheckSpec : Akka.Hosting.TestKit.TestKit, IClassFixture<Datab
             .Where(e => e.Key.Contains("Akka.Persistence", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        Assert.Equal(2, (persistenceHealthChecks)?.Count());
+        Assert.Equal(2, persistenceHealthChecks.Count);
 
         // Verify journal health check exists and is healthy
-        var journalHealthCheck = persistenceHealthChecks
-            .FirstOrDefault(e => e.Key.Contains("journal", StringComparison.OrdinalIgnoreCase));
+        var journalHealthCheck = Assert.Single(
+            persistenceHealthChecks,
+            e => e.Key.Contains("journal", StringComparison.OrdinalIgnoreCase));
 
-        Assert.NotNull(journalHealthCheck);
         Assert.Equal(HealthStatus.Healthy, journalHealthCheck.Value.Status);
 
         // Verify snapshot health check exists and is healthy
-        var snapshotHealthCheck = persistenceHealthChecks
-            .FirstOrDefault(e => e.Key.Contains("snapshot", StringComparison.OrdinalIgnoreCase));
+        var snapshotHealthCheck = Assert.Single(
+            persistenceHealthChecks,
+            e => e.Key.Contains("snapshot", StringComparison.OrdinalIgnoreCase));
 
-        Assert.NotNull(snapshotHealthCheck);
         Assert.Equal(HealthStatus.Healthy, snapshotHealthCheck.Value.Status);
 
         // Verify overall health status

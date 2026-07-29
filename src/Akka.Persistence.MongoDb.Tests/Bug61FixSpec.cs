@@ -105,8 +105,6 @@ namespace Akka.Persistence.MongoDb.Tests
             var eventsByTag = ReadJournal.EventsByTag(typeof(RealMsg).Name)
                 .RunForeach(e => TestActor.Tell(e), Materializer);
 
-            // can't do this because Offset isn't IComparable
-            // ReceiveN(msgCount).Cast<EventEnvelope>().Select(x => x.Offset).Should().BeInAscendingOrder();
             ReceiveN(msgCount);
 
             // should receive more messages after the fact
