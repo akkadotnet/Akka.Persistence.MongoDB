@@ -28,9 +28,14 @@ namespace Akka.Persistence.MongoDb.Query
         private readonly string _writeJournalPluginId;
         private readonly int _maxBufferSize;
         private readonly ExtendedActorSystem _system;
+        private readonly TimeSpan _fromEndAskTimeout;
 
         private readonly object _lock = new object();
         private IPublisher<string> _persistenceIdsPublisher;
+        private readonly Lazy<IActorRef> _journalRef;
+
+        private static readonly TimeSpan DefaultCallTimeout = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan FromEndAskTimeoutSlack = TimeSpan.FromSeconds(5);
 
         /// <inheritdoc />
         public MongoDbReadJournal(ExtendedActorSystem system, Config config)
@@ -39,8 +44,29 @@ namespace Akka.Persistence.MongoDb.Query
             _writeJournalPluginId = config.GetString("write-plugin");
             _maxBufferSize = config.GetInt("max-buffer-size"); 
             _system = system;
+            _fromEndAskTimeout = ResolveFromEndAskTimeout(
+                system.Settings.Config,
+                _writeJournalPluginId);
 
             _persistenceIdsPublisher = null;
+            _journalRef = new Lazy<IActorRef>(
+                () => Persistence.Instance.Apply(_system).JournalFor(_writeJournalPluginId));
+        }
+
+        internal static TimeSpan ResolveFromEndAskTimeout(
+            Config rootConfig,
+            string writeJournalPluginId)
+        {
+            var resolvedPluginId = string.IsNullOrEmpty(writeJournalPluginId)
+                ? rootConfig.GetString("akka.persistence.journal.plugin")
+                : writeJournalPluginId;
+            var journalConfig = rootConfig.GetConfig(resolvedPluginId);
+            var callTimeout = journalConfig?.GetTimeSpan("call-timeout", DefaultCallTimeout)
+                              ?? DefaultCallTimeout;
+
+            // The journal cancels the MongoDB operation at call-timeout. Keep the Ask alive
+            // long enough for that cancellation (or its result) to be piped back to the caller.
+            return callTimeout + FromEndAskTimeoutSlack;
         }
 
         /// <summary>
@@ -154,6 +180,25 @@ namespace Akka.Persistence.MongoDb.Query
                     .MapMaterializedValue(_ => NotUsed.Instance)
                     .Named("CurrentEventsByPersistenceId-" + persistenceId) as Source<EventEnvelope, NotUsed>;
 
+#nullable enable
+        private Source<EventEnvelope, NotUsed> ResolveFromEnd(
+            string? tag,
+            int count,
+            Func<Sequence, Source<EventEnvelope, NotUsed>> continuation)
+        {
+            // Source.Setup ensures the relative offset is resolved independently for each
+            // materialization, immediately before the normal forward query starts.
+            return Source.Setup<EventEnvelope, NotUsed>((_, _) =>
+                    Source.FromTask(
+                            _journalRef.Value.Ask<FromEndOffsetResult>(
+                                new FindFromEndOffset(tag, count),
+                                _fromEndAskTimeout))
+                        .Select(result => new Sequence(result.Offset))
+                        .ConcatMany(continuation))
+                .MapMaterializedValue(_ => NotUsed.Instance);
+        }
+#nullable restore
+
         /// <summary>
         /// <see cref="EventsByTag"/> is used for retrieving events that were marked with
         /// a given tag, e.g. all events of an Aggregate Root type.
@@ -197,6 +242,20 @@ namespace Akka.Persistence.MongoDb.Query
         {
             offset = offset ?? new Sequence(0L);
             switch (offset) {
+                case FromEnd fromEnd:
+                    return ResolveFromEnd(
+                        tag,
+                        fromEnd.Count,
+                        sequence => Source.ActorPublisher<EventEnvelope>(
+                                EventsByTagPublisher.Props(
+                                    tag,
+                                    sequence.Value,
+                                    long.MaxValue,
+                                    _refreshInterval,
+                                    _maxBufferSize,
+                                    _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named($"EventsByTag-{tag}"));
                 case Sequence seq:
                     return Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, seq.Value, long.MaxValue, _refreshInterval, _maxBufferSize, _writeJournalPluginId))
                         .MapMaterializedValue(_ => NotUsed.Instance)
@@ -204,7 +263,7 @@ namespace Akka.Persistence.MongoDb.Query
                 case NoOffset _:
                     return EventsByTag(tag, new Sequence(0L));
                 default:
-                    throw new ArgumentException($"SqlReadJournal does not support {offset.GetType().Name} offsets");
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
         }
 
@@ -217,6 +276,20 @@ namespace Akka.Persistence.MongoDb.Query
         {
             offset = offset ?? new Sequence(0L);
             switch (offset) {
+                case FromEnd fromEnd:
+                    return ResolveFromEnd(
+                        tag,
+                        fromEnd.Count,
+                        sequence => Source.ActorPublisher<EventEnvelope>(
+                                EventsByTagPublisher.Props(
+                                    tag,
+                                    sequence.Value,
+                                    long.MaxValue,
+                                    null,
+                                    _maxBufferSize,
+                                    _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named($"CurrentEventsByTag-{tag}"));
                 case Sequence seq:
                     return Source.ActorPublisher<EventEnvelope>(EventsByTagPublisher.Props(tag, seq.Value, long.MaxValue, null, _maxBufferSize, _writeJournalPluginId))
                         .MapMaterializedValue(_ => NotUsed.Instance)
@@ -224,7 +297,7 @@ namespace Akka.Persistence.MongoDb.Query
                 case NoOffset _:
                     return CurrentEventsByTag(tag, new Sequence(0L));
                 default:
-                    throw new ArgumentException($"SqlReadJournal does not support {offset.GetType().Name} offsets");
+                    throw new ArgumentException($"MongoDbReadJournal does not support {offset.GetType().Name} offsets");
             }
         }
 
@@ -263,6 +336,18 @@ namespace Akka.Persistence.MongoDb.Query
             Sequence seq;
             switch (offset)
             {
+                case FromEnd fromEnd:
+                    return ResolveFromEnd(
+                        null,
+                        fromEnd.Count,
+                        sequence => Source.ActorPublisher<EventEnvelope>(
+                                AllEventsPublisher.Props(
+                                    sequence.Value,
+                                    _refreshInterval,
+                                    _maxBufferSize,
+                                    _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named("AllEvents"));
                 case null:
                 case NoOffset _:
                     seq = new Sequence(0L);
@@ -289,6 +374,18 @@ namespace Akka.Persistence.MongoDb.Query
             Sequence seq;
             switch (offset)
             {
+                case FromEnd fromEnd:
+                    return ResolveFromEnd(
+                        null,
+                        fromEnd.Count,
+                        sequence => Source.ActorPublisher<EventEnvelope>(
+                                AllEventsPublisher.Props(
+                                    sequence.Value,
+                                    null,
+                                    _maxBufferSize,
+                                    _writeJournalPluginId))
+                            .MapMaterializedValue(_ => NotUsed.Instance)
+                            .Named("CurrentAllEvents"));
                 case null:
                 case NoOffset _:
                     seq = new Sequence(0L);

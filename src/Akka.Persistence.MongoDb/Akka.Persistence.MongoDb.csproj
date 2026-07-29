@@ -11,4 +11,9 @@
     <PackageReference Include="Akka.Streams" />
     <PackageReference Include="MongoDB.Driver" />
   </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Akka.Persistence.MongoDb.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

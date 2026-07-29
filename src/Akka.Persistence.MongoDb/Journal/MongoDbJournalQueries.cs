@@ -176,6 +176,36 @@ internal static class MongoDbJournalQueries
     }
 
     /// <summary>
+    /// Returns the exclusive ordering offset immediately before the last <paramref name="count"/>
+    /// events matching <paramref name="tag"/>. A missing tag selects all events.
+    /// </summary>
+    internal static async Task<long> FromEndOrderingQuery(
+        this IMongoCollection<JournalEntry> collection,
+        IClientSessionHandle? session,
+        string? tag,
+        int count,
+        CancellationToken token)
+    {
+        if (count <= 0)
+            return 0L;
+
+        var filter = FilterDefinition<JournalEntry>.Empty;
+        if (!string.IsNullOrWhiteSpace(tag))
+            filter &= Builders<JournalEntry>.Filter.AnyEq(x => x.Tags, tag);
+
+        // Forward queries use an exclusive lower bound, so the anchor is the event
+        // immediately preceding the requested window.
+        var anchor = await (session is not null ? collection.Find(session, filter) : collection.Find(filter))
+            .SortByDescending(x => x.Ordering)
+            .Skip(count)
+            .Limit(1)
+            .Project(x => x.Ordering)
+            .FirstOrDefaultAsync(token);
+
+        return anchor?.Value ?? 0L;
+    }
+
+    /// <summary>
     /// NOTE: This query is meant to be a part of a persistence operation
     /// The session parameter signals if this query is being called as part of a transaction block or not
     /// NEVER CALL THIS METHOD OUTSIDE OF MaybeWithTransaction BLOCK
