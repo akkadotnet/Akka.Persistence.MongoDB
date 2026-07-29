@@ -119,14 +119,14 @@ namespace Akka.Persistence.MongoDb.Query
             {
                 switch (message)
                 {
-                    case ReplayedTaggedMessage replayed:
+                    case ReplayedEvent replayed:
                         Buffer.Add(new EventEnvelope(
                             offset: new Sequence(replayed.Offset),
                             persistenceId: replayed.Persistent.PersistenceId,
                             sequenceNr: replayed.Persistent.SequenceNr,
                             timestamp: replayed.Persistent.Timestamp,
                             @event: replayed.Persistent.Payload,
-                            tags: new [] { replayed.Tag }));
+                            tags: replayed.Tags));
 
                         CurrentOffset = replayed.Offset;
                         Buffer.DeliverBuffer(TotalDemand);
