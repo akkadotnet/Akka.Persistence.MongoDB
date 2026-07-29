@@ -12,7 +12,9 @@ using Akka.Persistence.MongoDb.Query;
 using Akka.Persistence.Query;
 using Akka.Util.Internal;
 using System;
+using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Streams.TestKit;
 
 namespace Akka.Persistence.MongoDb.Tests
 {
@@ -50,6 +52,26 @@ namespace Akka.Persistence.MongoDb.Tests
         }
 
         protected override bool SupportsTagsInEventEnvelope => true;
+
+        [Fact]
+        public async Task ReadJournal_query_EventsByTag_should_include_all_event_tags_in_EventEnvelope()
+        {
+            var queries = (IEventsByTagQuery)ReadJournal;
+            var actor = Sys.ActorOf(TestActor.Props("multi-tag"));
+
+            actor.Tell("a green apple");
+            await ExpectMsgAsync("a green apple-done", cancellationToken: TestContext.Current.CancellationToken);
+
+            var probe = queries.EventsByTag("green", Offset.NoOffset())
+                .RunWith(this.SinkProbe<EventEnvelope>(), Materializer);
+            await probe.RequestAsync(1);
+
+            var envelope = await probe.ExpectNextAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(2, envelope.Tags.Length);
+            Assert.Contains("green", envelope.Tags);
+            Assert.Contains("apple", envelope.Tags);
+            await probe.CancelAsync();
+        }
 
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id, bool transaction)
         {

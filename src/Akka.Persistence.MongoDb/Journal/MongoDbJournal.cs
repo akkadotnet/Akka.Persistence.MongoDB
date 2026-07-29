@@ -284,7 +284,7 @@ namespace Akka.Persistence.MongoDb.Journal
                     {
                         var persistent = ToPersistenceRepresentation(entry, ActorRefs.NoSender);
                         foreach (var adapted in AdaptFromJournal(persistent))
-                            replay.ReplyTo.Tell(new ReplayedTaggedMessage(adapted, tag, entry.Ordering.Value),
+                            replay.ReplyTo.Tell(new ReplayedEvent(adapted, entry.Ordering.Value, entry.Tags.ToArray()),
                                 ActorRefs.NoSender);
                     }, ct);
                 
