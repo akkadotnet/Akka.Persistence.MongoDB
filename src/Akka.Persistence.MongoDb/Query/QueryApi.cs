@@ -173,6 +173,39 @@ namespace Akka.Persistence.MongoDb.Query
     }
 
     /// <summary>
+    /// Requests the exclusive ordering offset immediately before a last-N query window.
+    /// </summary>
+#nullable enable
+    [Serializable]
+    internal sealed class FindFromEndOffset : IJournalRequest
+    {
+        public FindFromEndOffset(string? tag, int count)
+        {
+            Tag = tag;
+            Count = count;
+        }
+
+        public string? Tag { get; }
+
+        public int Count { get; }
+    }
+
+    /// <summary>
+    /// Contains the concrete exclusive ordering offset for a last-N query window.
+    /// </summary>
+    [Serializable]
+    internal sealed class FromEndOffsetResult
+    {
+        public FromEndOffsetResult(long offset)
+        {
+            Offset = offset;
+        }
+
+        public long Offset { get; }
+    }
+#nullable restore
+
+    /// <summary>
     /// TBD
     /// </summary>
     [Serializable]

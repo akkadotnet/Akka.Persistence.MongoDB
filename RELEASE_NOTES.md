@@ -1,3 +1,9 @@
+#### 1.5.70 July 29th 2026 ####
+
+* [Bump Akka.NET to 1.5.70](https://github.com/akkadotnet/akka.net/releases/tag/1.5.70)
+* [Bump Akka.Hosting to 1.5.70](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.70)
+* Add support for `Offset.FromEnd` to current and live `EventsByTag` and `AllEvents` queries
+
 #### 1.5.67 April 28th 2026 ####
 
 * [Bump Akka.NET to 1.5.67](https://github.com/akkadotnet/akka.net/releases/tag/1.5.67)
