@@ -3,6 +3,11 @@
 * [Bump Akka.NET to 1.5.70](https://github.com/akkadotnet/akka.net/releases/tag/1.5.70)
 * [Bump Akka.Hosting to 1.5.70](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.70)
 * Add support for `Offset.FromEnd` to current and live `EventsByTag` and `AllEvents` queries
+* [Fix: Preserve all event tags in EventsByTag envelopes](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/477)
+
+**Bug Fix: EventsByTag now returns all tags stored with the event**
+
+Previously, `EventsByTag` and `CurrentEventsByTag` queries populated `EventEnvelope.Tags` with only the tag used to execute the query, losing any other tags stored alongside the event. The returned metadata now correctly includes the complete `JournalEntry.Tags` collection, making it independent of which tag was queried.
 
 #### 1.5.67 April 28th 2026 ####
 
