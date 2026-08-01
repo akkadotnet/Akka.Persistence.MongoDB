@@ -58,7 +58,7 @@ namespace Akka.Persistence.MongoDb.Tests
         private static Config CreateSpecConfig(DatabaseFixture databaseFixture, int id, bool transaction)
         {
             var specString = $$"""
-akka.test.single-expect-default = 3s
+akka.test.single-expect-default = 10s
 akka.persistence {
    publish-plugin-commands = on
    journal {

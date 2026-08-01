@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
 // <copyright file="MongoDbJournal.cs" company="Akka.NET Project">
 //     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
 //     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
@@ -109,9 +109,6 @@ namespace Akka.Persistence.MongoDb.Journal
                 Builders<JournalEntry>
                     .IndexKeys
                     .Ascending(entry => entry.Ordering));
-
-            await _journalCollection_DoNotUseDirectly.Indexes
-                .CreateOneAsync(modelWithOrdering, cancellationToken: token);
 
             await _journalCollection_DoNotUseDirectly.Indexes
                 .CreateOneAsync(modelWithOrdering, cancellationToken: token);
