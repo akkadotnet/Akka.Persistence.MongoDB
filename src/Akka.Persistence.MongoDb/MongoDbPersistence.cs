@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
 // <copyright file="MongoDbPersistence.cs" company="Akka.NET Project">
 //     Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
 //     Copyright (C) 2013-2016 Akka.NET project <https://github.com/akkadotnet/akka.net>
@@ -8,6 +8,7 @@
 using System;
 using Akka.Actor;
 using Akka.Configuration;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 
 namespace Akka.Persistence.MongoDb
@@ -21,8 +22,19 @@ namespace Akka.Persistence.MongoDb
         {
             // Some MongoDB things are statically configured.
 
-            // Register our own serializer for objects that uses the type's FullName + Assembly for the discriminator
-            BsonSerializer.RegisterSerializer(typeof(object), new FullTypeNameObjectSerializer());
+            // Register our own serializer for objects that uses the type's FullName + Assembly for the discriminator.
+            // Since MongoDB driver 3.x, RegisterSerializer throws BsonSerializationException if the type already has
+            // a serializer registered, and this static ctor can run more than once per process (multiple actor
+            // systems in tests, plugin re-initialization). Swallow the duplicate-registration error — the existing
+            // registration is ours (see FullTypeNameObjectSerializer for the same pattern).
+            try
+            {
+                BsonSerializer.RegisterSerializer(typeof(object), new FullTypeNameObjectSerializer());
+            }
+            catch (BsonSerializationException)
+            {
+                // already registered — fine
+            }
         }
         /// <summary>
         /// Returns a default configuration for akka persistence MongoDb journal and snapshot store.
