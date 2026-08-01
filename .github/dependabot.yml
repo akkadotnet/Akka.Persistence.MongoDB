@@ -21,6 +21,3 @@ updates:
   - dependency-name: Akka.Persistence.Query
     versions:
     - 1.4.17
-  - dependency-name: FluentAssertions
-    versions:
-    - 5.10.3
