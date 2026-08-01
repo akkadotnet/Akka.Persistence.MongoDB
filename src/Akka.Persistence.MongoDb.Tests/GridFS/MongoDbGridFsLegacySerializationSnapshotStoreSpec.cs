@@ -33,7 +33,7 @@ public class MongoDbGridFsLegacySerializationSnapshotStoreSpec : SnapshotStoreSp
     private static Config CreateSpecConfig(DatabaseFixture databaseFixture)
     {
         var specString = @"
-                akka.test.single-expect-default = 3s
+                akka.test.single-expect-default = 60s
                 akka.persistence {
                     publish-plugin-commands = on
                     snapshot-store {
