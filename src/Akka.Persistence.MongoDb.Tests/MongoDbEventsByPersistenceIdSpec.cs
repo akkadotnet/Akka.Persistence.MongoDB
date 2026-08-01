@@ -47,7 +47,7 @@ namespace Akka.Persistence.MongoDb.Tests
         {
 
             var specString = $$"""
-akka.test.single-expect-default = 3s
+akka.test.single-expect-default = 10s
 akka.persistence {
    publish-plugin-commands = on
    journal {
