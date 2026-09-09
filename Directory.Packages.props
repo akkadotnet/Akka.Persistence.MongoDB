@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <MongoDbVersion>3.10.0</MongoDbVersion>
+    <MongoDbVersion>3.11.1</MongoDbVersion>
     <AkkaVersion>1.5.70</AkkaVersion>
     <AkkaHostingVersion>1.5.70</AkkaHostingVersion>
   </PropertyGroup>
