@@ -8,10 +8,13 @@
 using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
+using Akka.Actor;
 using Akka.Configuration;
 using Akka.Event;
 using Akka.Persistence.TCK.Snapshot;
+using Akka.Serialization;
 using Xunit;
 
 #nullable enable
@@ -32,6 +35,14 @@ public class MongoDbGridFsSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<D
     {
         var specString = $$"""
                            akka.test.single-expect-default = 60s
+                           akka.actor {
+                              serializers {
+                                 blocking-snapshot = "Akka.Persistence.MongoDb.Tests.GridFS.BlockingSnapshotSerializer, Akka.Persistence.MongoDb.Tests"
+                              }
+                              serialization-bindings {
+                                 "Akka.Persistence.MongoDb.Tests.GridFS.BlockingSnapshotPayload, Akka.Persistence.MongoDb.Tests" = blocking-snapshot
+                              }
+                           }
                            akka.persistence {
                               publish-plugin-commands = on
                               snapshot-store {
@@ -77,5 +88,78 @@ public class MongoDbGridFsSnapshotStoreSpec : SnapshotStoreSpec, IClassFixture<D
         Log.Info($"{SnapshotByteSizeLimit} bytes snapshot loaded in {stopwatch.Elapsed.Milliseconds} milliseconds");
 
         Assert.Equal(MD5.Create().ComputeHash(bigSnapshot), MD5.Create().ComputeHash((byte[])loaded.Snapshot.Snapshot));
+    }
+
+    [Fact]
+    public async Task SnapshotStore_should_load_another_snapshot_while_a_snapshot_is_being_serialized()
+    {
+        BlockingSnapshotSerializer.Reset();
+
+        var saveProbe = CreateTestProbe();
+        var loadProbe = CreateTestProbe();
+        var saveMetadata = new SnapshotMetadata($"blocking-save-{Guid.NewGuid():N}", 1, DateTime.MinValue);
+
+        SnapshotStore.Tell(new SaveSnapshot(saveMetadata, new BlockingSnapshotPayload()), saveProbe.Ref);
+
+        var serializationStarted = await Task.Run(() =>
+            BlockingSnapshotSerializer.SerializationStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(serializationStarted, "the snapshot serializer should have started");
+
+        try
+        {
+            SnapshotStore.Tell(
+                new LoadSnapshot(
+                    $"concurrent-load-{Guid.NewGuid():N}",
+                    SnapshotSelectionCriteria.Latest,
+                    long.MaxValue),
+                loadProbe.Ref);
+
+            var loaded = await loadProbe.ExpectMsgAsync<LoadSnapshotResult>(TimeSpan.FromSeconds(5));
+            Assert.Null(loaded.Snapshot);
+        }
+        finally
+        {
+            BlockingSnapshotSerializer.AllowSerializationToComplete.Set();
+        }
+
+        await saveProbe.ExpectMsgAsync<SaveSnapshotSuccess>(TimeSpan.FromSeconds(10));
+    }
+}
+
+public sealed class BlockingSnapshotPayload
+{
+}
+
+public sealed class BlockingSnapshotSerializer : Serializer
+{
+    public static readonly ManualResetEventSlim SerializationStarted = new(false);
+    public static readonly ManualResetEventSlim AllowSerializationToComplete = new(false);
+
+    public BlockingSnapshotSerializer(ExtendedActorSystem system) : base(system)
+    {
+    }
+
+    public override int Identifier => 771001;
+
+    public override bool IncludeManifest => false;
+
+    public static void Reset()
+    {
+        SerializationStarted.Reset();
+        AllowSerializationToComplete.Reset();
+    }
+
+    public override byte[] ToBinary(object obj)
+    {
+        SerializationStarted.Set();
+        if (!AllowSerializationToComplete.Wait(TimeSpan.FromSeconds(30)))
+            throw new TimeoutException("Timed out waiting for the test to release snapshot serialization.");
+
+        return Array.Empty<byte>();
+    }
+
+    public override object FromBinary(byte[] bytes, Type type)
+    {
+        return new BlockingSnapshotPayload();
     }
 }

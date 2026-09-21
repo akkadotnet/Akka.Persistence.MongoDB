@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Akka.Actor;
 using Akka.Configuration;
 using Akka.Persistence.Snapshot;
 using MongoDB.Bson;
@@ -32,6 +33,7 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     private const string TimestampKey = "_ts";
     
     private readonly MongoDbSnapshotSettings _settings;
+    private readonly ActorSystem _actorSystem;
     private readonly GridFSBucketOptions _bucketOptions;
     // ReSharper disable InconsistentNaming
     private IMongoDatabase? _mongoDatabase_DoNotUseDirectly;
@@ -56,6 +58,7 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     {
         _settings = settings;
         _serialization = Context.System.Serialization;
+        _actorSystem = Context.System;
         _bucketOptions = new GridFSBucketOptions
         {
             BucketName = settings.Collection, 
@@ -77,7 +80,7 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
             return _mongoDatabase_DoNotUseDirectly;
         
         MongoClient client;
-        var setupOption = Context.System.Settings.Setup.Get<MongoDbPersistenceSetup>();
+        var setupOption = _actorSystem.Settings.Setup.Get<MongoDbPersistenceSetup>();
         if (!setupOption.HasValue || setupOption.Value.SnapshotConnectionSettings == null)
         {
             var connectionString = new MongoUrl(_settings.ConnectionString);
@@ -135,6 +138,8 @@ public class MongoDbGridFsSnapshotStore : SnapshotStore
     {
         using var unitedCts = CreatePerCallCts(cancellationToken);
         var token = unitedCts.Token;
+
+        await Task.Yield();
         
         var (fileName, option, bytes) = ToSnapshotFileMetadata(metadata, snapshot);
 
