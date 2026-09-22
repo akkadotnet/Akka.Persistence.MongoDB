@@ -1,3 +1,14 @@
+#### 1.5.71 September 22nd 2026 ####
+
+* [Bump Akka.NET to 1.5.71](https://github.com/akkadotnet/akka.net/releases/tag/1.5.71)
+* [Bump Akka.Hosting to 1.5.71](https://github.com/akkadotnet/Akka.Hosting/releases/tag/1.5.71)
+* [Bump MongoDB.Driver to 3.10.0](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/471)
+* [Fix: Prevent GridFS snapshot saves from blocking other actor snapshot loads](https://github.com/akkadotnet/Akka.Persistence.MongoDB/pull/500)
+
+**Bug Fix: GridFS snapshot saves no longer block concurrent snapshot loads**
+
+Large GridFS snapshot saves could stall other actors mid-save because serialization happened inline on the calling pathway. The snapshot store now yields before serializing, so concurrent snapshot loads aren't blocked while a large save is in flight.
+
 #### 1.5.70 July 29th 2026 ####
 
 * [Bump Akka.NET to 1.5.70](https://github.com/akkadotnet/akka.net/releases/tag/1.5.70)
