@@ -1,4 +1,4 @@
-#### 1.6.0-beta1 October 6th 2026 ####
+#### 1.6.0-beta2 October 6th 2026 ####
 
 Built against Akka.NET 1.6.0-beta2.
 
