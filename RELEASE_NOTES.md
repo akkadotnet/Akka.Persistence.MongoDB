@@ -1,3 +1,17 @@
+#### 1.6.0-beta1 October 6th 2026 ####
+
+Built against Akka.NET 1.6.0-beta2.
+
+* [Bump Akka.NET to 1.6.0-beta2](https://github.com/akkadotnet/akka.net/releases/tag/1.6.0-beta2)
+* [Bump Akka.Hosting to 1.6.0-beta2](https://github.com/akkadotnet/akka.net/releases/tag/1.6.0-beta2)
+* Bump Microsoft.Extensions.Hosting to 10.0.12
+
+**Breaking changes**
+
+* All packages now target `net10.0` only. `netstandard2.1` and `net472` are no longer supported.
+* Akka.NET 1.6 is required. See the [Akka.NET 1.6 breaking changes](https://github.com/akkadotnet/akka.net/blob/dev/BREAKING_CHANGES_V1.6.md).
+* The `v1.5` branch carries the 1.5.x line for older runtimes.
+
 #### 1.5.71 September 22nd 2026 ####
 
 * [Bump Akka.NET to 1.5.71](https://github.com/akkadotnet/akka.net/releases/tag/1.5.71)

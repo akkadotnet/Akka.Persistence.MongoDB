@@ -2,8 +2,8 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <MongoDbVersion>3.10.0</MongoDbVersion>
-    <AkkaVersion>1.5.71</AkkaVersion>
-    <AkkaHostingVersion>1.5.71</AkkaHostingVersion>
+    <AkkaVersion>1.6.0-beta2</AkkaVersion>
+    <AkkaHostingVersion>1.6.0-beta2</AkkaHostingVersion>
   </PropertyGroup>
   <!-- App dependencies -->
   <ItemGroup>
@@ -11,7 +11,7 @@
     <PackageVersion Include="Akka.Persistence.Hosting" Version="$(AkkaHostingVersion) " />
     <PackageVersion Include="Akka.Persistence.Query" Version="$(AkkaVersion)" />
     <PackageVersion Include="Akka.Streams" Version="$(AkkaVersion) " />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="MongoDB.Driver" Version="$(MongoDbVersion)" />
   </ItemGroup>
   <!-- Test dependencies -->
@@ -24,7 +24,6 @@
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="Akka.Persistence.TCK" Version="$(AkkaVersion)" />
     <PackageVersion Include="Mongo2Go" Version="5.0.0" />
-    <PackageVersion Include="System.Net.NetworkInformation" Version="4.3.0" />
   </ItemGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>

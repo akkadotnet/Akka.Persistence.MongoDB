@@ -22,7 +22,6 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Akka.Persistence.TCK" />
     <PackageReference Include="Mongo2Go" />
-    <PackageReference Include="System.Net.NetworkInformation" />
   </ItemGroup>
 
   <ItemGroup>
