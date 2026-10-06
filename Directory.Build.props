@@ -14,10 +14,8 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <NetTestVersion>net8.0</NetTestVersion>
-    <NetFrameworkTestVersion>net472</NetFrameworkTestVersion>
-    <NetStandardLibVersion>netstandard2.1</NetStandardLibVersion>
-    <NetFrameworkLibVersion>net472</NetFrameworkLibVersion>
+    <NetTestVersion>net10.0</NetTestVersion>
+    <NetLibVersion>net10.0</NetLibVersion>
   </PropertyGroup>
   <!-- SourceLink support for all Akka.NET projects -->
   <ItemGroup>
