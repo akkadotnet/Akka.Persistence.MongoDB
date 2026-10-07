@@ -1,3 +1,10 @@
+#### 1.6.0-beta3 October 7th 2026 ####
+
+Built against Akka.NET 1.6.0-beta3.
+
+* [Bump Akka.NET to 1.6.0-beta3](https://github.com/akkadotnet/akka.net/releases/tag/1.6.0-beta3)
+* [Bump Akka.Hosting to 1.6.0-beta3](https://github.com/akkadotnet/akka.net/releases/tag/1.6.0-beta3)
+
 #### 1.6.0-beta2 October 6th 2026 ####
 
 Built against Akka.NET 1.6.0-beta2.
